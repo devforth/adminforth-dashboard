@@ -1,0 +1,122 @@
+<script setup lang="ts">
+import { computed, watch } from 'vue'
+import { useWidgetData } from '../../queries/useWidgetData.js'
+import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
+import { formatChartLabel, formatChartValue, toFiniteNumber } from '../chart/chart.utils.js'
+
+const props = defineProps<{
+  dashboardSlug: string
+  widget: DashboardWidgetConfig
+}>()
+
+const dashboardSlugRef = computed(() => props.dashboardSlug)
+const widgetIdRef = computed(() => props.widget.id)
+const {
+  data,
+  isLoading,
+  error,
+  refetch,
+} = useWidgetData(dashboardSlugRef, widgetIdRef)
+
+watch(
+  () => props.widget,
+  () => {
+    void refetch()
+  },
+  { deep: true },
+)
+
+const pivotConfig = computed(() => props.widget.pivot_table as {
+  row_field?: string
+  column_field?: string
+  value_field?: string
+  aggregation?: 'count' | 'sum'
+} | undefined)
+const widgetData = computed(() => data.value?.data as DashboardWidgetTableData | null)
+const rows = computed(() => widgetData.value?.rows ?? [])
+const columns = computed(() => widgetData.value?.columns ?? [])
+const rowField = computed(() => pivotConfig.value?.row_field || columns.value[0])
+const columnField = computed(() => pivotConfig.value?.column_field || columns.value[1])
+const valueField = computed(() => pivotConfig.value?.value_field || columns.value[2])
+const aggregation = computed(() => pivotConfig.value?.aggregation || (valueField.value ? 'sum' : 'count'))
+const pivotColumnLabels = computed(() => Array.from(new Set(rows.value.map((row) => formatChartLabel(row[columnField.value])))))
+const pivotRows = computed(() => {
+  const rowMap = new Map<string, Record<string, number | string>>()
+
+  for (const row of rows.value) {
+    const rowLabel = formatChartLabel(row[rowField.value])
+    const columnLabel = formatChartLabel(row[columnField.value])
+    const item = rowMap.get(rowLabel) ?? { label: rowLabel }
+    const currentValue = typeof item[columnLabel] === 'number' ? item[columnLabel] : 0
+    item[columnLabel] = currentValue + (aggregation.value === 'count' ? 1 : toFiniteNumber(row[valueField.value]))
+    rowMap.set(rowLabel, item)
+  }
+
+  return Array.from(rowMap.values())
+})
+</script>
+
+<template>
+  <div class="mt-3 overflow-hidden rounded-lg border border-lightListBorder bg-lightTableBackground dark:border-darkListBorder dark:bg-darkTableBackground">
+    <div
+      v-if="isLoading"
+      class="p-4 text-sm text-lightListTableText dark:text-darkListTableText"
+    >
+      Loading...
+    </div>
+
+    <div
+      v-else-if="error"
+      class="p-4 text-sm text-lightInputErrorColor"
+    >
+      Failed to load pivot data
+    </div>
+
+    <div
+      v-else-if="!pivotRows.length"
+      class="p-4 text-sm text-lightListTableText dark:text-darkListTableText"
+    >
+      No data available
+    </div>
+
+    <div
+      v-else
+      class="overflow-x-auto"
+    >
+      <table class="w-full border-collapse text-left text-sm">
+        <thead class="bg-lightTableHeadingBackground text-xs uppercase text-lightTableHeadingText dark:bg-darkTableHeadingBackground dark:text-darkTableHeadingText">
+          <tr>
+            <th class="px-3 py-2 font-semibold">
+              {{ rowField }}
+            </th>
+            <th
+              v-for="column in pivotColumnLabels"
+              :key="column"
+              class="px-3 py-2 text-right font-semibold"
+            >
+              {{ column }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            v-for="row in pivotRows"
+            :key="String(row.label)"
+            class="border-t border-lightListBorder odd:bg-lightTableOddBackground even:bg-lightTableEvenBackground dark:border-darkListBorder odd:dark:bg-darkTableOddBackground even:dark:bg-darkTableEvenBackground"
+          >
+            <td class="px-3 py-2 font-medium text-lightNavbarText dark:text-darkNavbarText">
+              {{ row.label }}
+            </td>
+            <td
+              v-for="column in pivotColumnLabels"
+              :key="column"
+              class="px-3 py-2 text-right text-lightListTableText dark:text-darkListTableText"
+            >
+              {{ formatChartValue(typeof row[column] === 'number' ? row[column] : 0) }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</template>
