@@ -18,6 +18,8 @@ const WidgetBaseSchema = z.object({
   group_id: z.string().optional(),
   label: z.string().optional(),
   size: DashboardWidgetSizeSchema.optional(),
+  width: z.number().positive('Width must be greater than 0').optional(),
+  height: z.number().positive('Height must be greater than 0').optional(),
   minWidth: z.number().nonnegative('Min width must be a non-negative number').optional(),
   maxWidth: z.number().nonnegative('Max width must be a non-negative number').nullable().optional(),
   order: z.number().optional(),
@@ -25,7 +27,6 @@ const WidgetBaseSchema = z.object({
 
 const ChartBaseSchema = z.object({
   title: z.string().optional(),
-  height: z.number().optional(),
 })
 
 const ChartBucketSchema = z.object({

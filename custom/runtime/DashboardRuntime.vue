@@ -57,7 +57,7 @@
       <section class="w-full max-w-2xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
         <header class="mb-3 flex items-center justify-between gap-3">
           <h2 class="m-0 text-base font-bold text-lightNavbarText dark:text-darkNavbarText">
-            Group YAML
+            Group JSON
           </h2>
 
           <button
@@ -123,7 +123,7 @@
       <section class="w-full max-w-2xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
         <header class="mb-3 flex items-center justify-between gap-3">
           <h2 class="m-0 text-base font-bold text-lightNavbarText dark:text-darkNavbarText">
-            Widget YAML
+            Widget JSON
           </h2>
 
           <button

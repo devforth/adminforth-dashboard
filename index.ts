@@ -10,7 +10,7 @@ import { createDashboardConfigService } from "./services/dashboardConfigService.
 import { createWidgetDataService } from "./services/widgetDataService.js";
 import { createWidgetConfigValidatorService } from "./services/widgetConfigValidator.js";
 
-const DEFAULT_DASHBOARD_CONFIG = JSON.stringify({
+const DEFAULT_DASHBOARD_CONFIG = {
   version: 1,
   groups: [{
     id: 'default',
@@ -18,7 +18,7 @@ const DEFAULT_DASHBOARD_CONFIG = JSON.stringify({
     order: 1,
   }],
   widgets: [],
-});
+};
 
 function canEditDashboard(adminUser: AdminUser) {
   return adminUser.dbUser.role === 'superadmin';

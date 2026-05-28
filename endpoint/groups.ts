@@ -11,20 +11,19 @@ import {
   SetGroupConfigRequestSchema,
   SlugRequestSchema,
 } from '../schema/api.js';
-import { parseStoredDashboardConfig, buildDashboardResponse } from '../services/dashboardConfigService.js';
 
 type DashboardRecord = {
   id: string;
   slug: string;
   label: string;
   revision: number;
-  config: string;
+  config: unknown;
 };
 
 type GroupEndpointsContext = {
   canEditDashboard: (adminUser: AdminUser) => boolean;
   getDashboardRecord: (slug: string) => Promise<DashboardRecord | null>;
-  parseStoredDashboardConfig: (config: string) => DashboardConfig;
+  parseStoredDashboardConfig: (config: unknown) => DashboardConfig;
   persistDashboardConfig: (
     dashboard: DashboardRecord,
     config: DashboardConfig,
@@ -105,7 +104,7 @@ export function registerGroupEndpoints(
         return { error: 'Dashboard not found' };
       }
 
-      const config = parseStoredDashboardConfig(dashboard.config);
+      const config = ctx.parseStoredDashboardConfig(dashboard.config);
       const group = config.groups.find((item) => item.id === groupId);
 
       if (!group) {
@@ -125,41 +124,7 @@ export function registerGroupEndpoints(
       });
     },
   });
-  server.endpoint({
-    method: 'POST',
-    path: '/dashboard/add_dashboard_group',
-    description: 'Adds a new group to a dashboard configuration. Superadmin only.',
-    request_schema: SlugRequestSchema,
-    response_schema: DashboardApiResponseSchema,
-    handler: async ({ body, adminUser, response }) => {
-      if (!ctx.canEditDashboard(adminUser)) {
-        response.setStatus(403);
-        return { error: 'Dashboard edit is not allowed' };
-      }
-
-      const slug = String(body?.slug || 'default');
-      const dashboard = await ctx.getDashboardRecord(slug);
-
-      if (!dashboard) {
-        response.setStatus(404);
-        return { error: 'Dashboard not found' };
-      }
-
-      const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const nextOrder = config.groups.length + 1;
-      const group: DashboardGroupConfig = {
-        id: `group_${randomUUID()}`,
-        label: 'New group',
-        order: nextOrder,
-      };
-
-      return ctx.persistDashboardConfig(dashboard, {
-        ...config,
-        groups: [...config.groups, group],
-      });
-    },
-  });
-
+  
   server.endpoint({
     method: 'POST',
     path: '/dashboard/move_dashboard_group',
@@ -194,7 +159,7 @@ export function registerGroupEndpoints(
       const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
       if (targetIndex < 0 || targetIndex >= sortedGroups.length) {
-        return buildDashboardResponse(dashboard);
+        return ctx.buildDashboardResponse(dashboard);
       }
 
       const reorderedGroups = [...sortedGroups];
@@ -246,4 +211,3 @@ export function registerGroupEndpoints(
   });
 
 }
-

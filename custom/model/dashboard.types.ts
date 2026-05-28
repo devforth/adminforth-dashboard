@@ -28,8 +28,10 @@ export type DashboardWidgetSize = 'small' | 'medium' | 'large' | 'wide' | 'full'
 
 export type WidgetLayout = {
   size?: DashboardWidgetSize
+  width?: number
   minWidth?: number
   maxWidth?: number | null
+  height?: number
 }
 
 export type DashboardWidgetConfig = {
@@ -37,6 +39,8 @@ export type DashboardWidgetConfig = {
   group_id: string
   label?: string
   size?: DashboardWidgetSize
+  width?: number
+  height?: number
   minWidth?: number
   maxWidth?: number | null
   order: number

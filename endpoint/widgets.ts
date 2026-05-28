@@ -15,7 +15,7 @@ import type { DashboardRecord, PersistedDashboardResponse } from '../services/da
 type WidgetEndpointsContext = {
   canEditDashboard: (adminUser: AdminUser) => boolean;
   getDashboardRecord: (slug: string) => Promise<DashboardRecord | null>;
-  parseStoredDashboardConfig: (config: string) => DashboardConfig;
+  parseStoredDashboardConfig: (config: unknown) => DashboardConfig;
   persistDashboardConfig: (
     dashboard: DashboardRecord,
     config: DashboardConfig,

@@ -1,6 +1,6 @@
 <template>
   <div
-    class="group relative min-h-24 grow shrink basis-[var(--widget-basis)] rounded-lg bg-lightListTable p-3 min-w-[var(--widget-min-width)] max-w-[var(--widget-max-width)] dark:bg-darkListTable"
+    class="group relative flex min-h-24 grow shrink basis-[var(--widget-basis)] flex-col overflow-hidden rounded-lg bg-lightListTable p-3 min-w-[var(--widget-min-width)] max-w-[var(--widget-max-width)] dark:bg-darkListTable"
     :class="isAdmin ? 'border border-dashed border-lightListBorder dark:border-darkListBorder' : ''"
     :style="widgetLayoutVars"
   >
@@ -13,7 +13,7 @@
       <button
         type="button"
         class="flex h-8 w-8 items-center justify-center rounded-lg border border-lightListViewButtonBorder bg-lightListViewButtonBackground text-lightListViewButtonText shadow-sm hover:bg-lightListViewButtonBackgroundHover hover:text-lightListViewButtonTextHover dark:border-darkListViewButtonBorder dark:bg-darkListViewButtonBackground dark:text-darkListViewButtonText dark:hover:bg-darkListViewButtonBackgroundHover dark:hover:text-darkListViewButtonTextHover"
-        title="Edit YAML"
+        title="Edit JSON"
         @click="emit('edit')"
       >
         <svg
@@ -106,6 +106,8 @@ import { computed } from 'vue'
 import type { CSSProperties } from 'vue'
 import type { WidgetLayout } from '../model/dashboard.types.js'
 
+const DEFAULT_WIDGET_HEIGHT = 500
+
 const sizeToFlexBasis: Record<NonNullable<WidgetLayout['size']>, string> = {
   small: '260px',
   medium: '360px',
@@ -130,13 +132,15 @@ const emit = defineEmits<{
 
 const widgetLayoutVars = computed<CSSProperties>(() => {
   const basis = sizeToFlexBasis[props.layout?.size ?? 'medium']
+  const fixedWidth = formatWidth(props.layout?.width)
 
   return {
-    '--widget-basis': basis,
-    '--widget-min-width': formatWidth(props.layout?.minWidth) ?? basis,
+    '--widget-basis': fixedWidth ?? basis,
+    '--widget-min-width': fixedWidth ?? formatWidth(props.layout?.minWidth) ?? basis,
     '--widget-max-width': props.layout?.maxWidth === null
       ? 'none'
-      : formatWidth(props.layout?.maxWidth) ?? 'none',
+      : fixedWidth ?? formatWidth(props.layout?.maxWidth) ?? 'none',
+    height: formatWidth(props.layout?.height ?? DEFAULT_WIDGET_HEIGHT),
   }
 })
 

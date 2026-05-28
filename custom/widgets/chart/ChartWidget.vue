@@ -1,5 +1,5 @@
 <template>
-  <div class="mt-3 overflow-hidden rounded-lg border border-lightListBorder bg-lightTableBackground p-4 dark:border-darkListBorder dark:bg-darkTableBackground">
+  <div class="h-full min-h-0 overflow-hidden rounded-lg bg-lightTableBackground p-3 dark:bg-darkTableBackground">
     <div
       v-if="isLoading"
       class="text-sm text-lightListTableText dark:text-darkListTableText"
@@ -28,7 +28,7 @@
       :y-field="yField"
       :series-name="chartConfig.series_name"
       :color="chartConfig.color"
-      :height="chartConfig.height"
+      :height="chartHeight"
     />
 
     <PieChart
@@ -37,7 +37,7 @@
       :label-field="pieLabelField"
       :value-field="pieValueField"
       :colors="chartConfig.colors"
-      :height="chartConfig.height"
+      :height="chartHeight"
     />
 
     <BarChart
@@ -46,7 +46,7 @@
       :label-field="barLabelField"
       :value-field="barValueField"
       :color="chartConfig.color"
-      :height="chartConfig.height"
+      :height="chartHeight"
     />
 
     <HistogramChart
@@ -55,7 +55,7 @@
       :label-field="barLabelField"
       :value-field="barValueField"
       :color="chartConfig.color"
-      :height="chartConfig.height"
+      :height="chartHeight"
     />
 
     <FunnelChart
@@ -64,7 +64,7 @@
       :label-field="labelField"
       :value-field="valueField"
       :colors="chartConfig.colors"
-      :height="chartConfig.height"
+      :height="chartHeight"
     />
 
     <StackedBarChart
@@ -73,7 +73,7 @@
       :x-field="xField"
       :series="stackedBarSeries"
       :colors="chartConfig.colors"
-      :height="chartConfig.height"
+      :height="chartHeight"
     />
 
     <div
@@ -98,6 +98,8 @@ import LineChart from './line/LineChart.vue'
 import PieChart from './pie/PieChart.vue'
 import StackedBarChart from './stacked-bar/StackedBarChart.vue'
 import { formatChartLabel, toFiniteNumber } from './chart.utils.js'
+
+const DEFAULT_WIDGET_HEIGHT = 500
 
 const props = defineProps<{
   dashboardSlug: string
@@ -178,5 +180,9 @@ const stackedBarSeries = computed(() => {
       name: column,
       field: column,
     }))
+})
+
+const chartHeight = computed(() => {
+  return Math.max((props.widget.height ?? DEFAULT_WIDGET_HEIGHT) - 24, 96)
 })
 </script>

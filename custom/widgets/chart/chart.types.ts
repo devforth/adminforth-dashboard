@@ -31,5 +31,4 @@ export type ChartWidgetConfig = {
   series_name?: string
   color?: string
   colors?: string[]
-  height?: number
 }

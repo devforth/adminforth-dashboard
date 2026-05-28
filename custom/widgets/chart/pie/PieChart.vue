@@ -1,58 +1,85 @@
 <template>
-  <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
-    <svg
-      class="shrink-0 -rotate-90"
-      :width="size"
-      :height="size"
-      :viewBox="`0 0 ${size} ${size}`"
-      role="img"
-      :aria-label="valueField"
+  <div
+    ref="rootEl"
+    class="grid h-full min-h-0 w-full gap-5 overflow-hidden"
+    :class="isCompact ? 'grid-rows-[minmax(0,1fr)_auto]' : 'grid-cols-[minmax(160px,260px)_minmax(0,1fr)] items-center'"
+  >
+    <div
+      ref="chartEl"
+      class="relative mx-auto grid min-h-0 w-full place-items-center overflow-hidden"
     >
-      <circle
-        :cx="center"
-        :cy="center"
-        :r="radius"
-        class="text-lightListBorder dark:text-darkListBorder"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="20"
-      />
-      <circle
-        v-for="slice in slices"
-        :key="slice.id"
-        :cx="center"
-        :cy="center"
-        :r="radius"
-        :stroke="slice.color"
-        :stroke-dasharray="slice.dashArray"
-        :stroke-dashoffset="slice.dashOffset"
-        fill="none"
-        pathLength="100"
-        stroke-linecap="butt"
-        stroke-width="20"
+      <svg
+        v-if="size > 0"
+        class="shrink-0 -rotate-90 drop-shadow-sm"
+        :width="size"
+        :height="size"
+        :viewBox="`0 0 ${size} ${size}`"
+        role="img"
+        :aria-label="valueField"
       >
-        <title>{{ slice.label }}: {{ formatChartValue(slice.value) }}</title>
-      </circle>
-    </svg>
+        <circle
+          :cx="center"
+          :cy="center"
+          :r="radius"
+          class="text-lightListBorder dark:text-darkListBorder"
+          fill="none"
+          stroke="currentColor"
+          :stroke-width="strokeWidth"
+        />
+        <circle
+          v-for="slice in slices"
+          :key="slice.id"
+          :cx="center"
+          :cy="center"
+          :r="radius"
+          :stroke="slice.color"
+          :stroke-dasharray="slice.dashArray"
+          :stroke-dashoffset="slice.dashOffset"
+          fill="none"
+          pathLength="100"
+          stroke-linecap="butt"
+          :stroke-width="strokeWidth"
+        >
+          <title>{{ slice.label }}: {{ formatChartValue(slice.value) }} ({{ slice.percentLabel }})</title>
+        </circle>
+      </svg>
 
-    <div class="grid min-w-0 flex-1 gap-2">
+      <div class="absolute inset-0 grid place-items-center text-center">
+        <div>
+          <div class="text-2xl font-bold text-lightNavbarText dark:text-darkNavbarText">
+            {{ formatChartValue(total) }}
+          </div>
+          <div class="text-xs uppercase tracking-wide text-lightListTableText dark:text-darkListTableText">
+            Total
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid min-w-0 gap-3">
       <div
         v-for="slice in slices"
         :key="`legend-${slice.id}`"
-        class="flex min-w-0 items-center justify-between gap-3 text-sm"
+        class="grid min-w-0 grid-cols-[1fr_auto] items-center gap-3 text-sm"
       >
         <div class="flex min-w-0 items-center gap-2">
           <span
-            class="h-2.5 w-2.5 shrink-0 rounded-full"
+            class="h-3 w-3 shrink-0 rounded-full"
             :style="{ backgroundColor: slice.color }"
           />
-          <span class="truncate text-lightNavbarText dark:text-darkNavbarText">
+          <span class="truncate font-medium text-lightNavbarText dark:text-darkNavbarText">
             {{ slice.label }}
           </span>
         </div>
-        <span class="shrink-0 font-medium text-lightListTableText dark:text-darkListTableText">
-          {{ formatChartValue(slice.value) }}
-        </span>
+
+        <div class="text-right">
+          <div class="font-semibold text-lightNavbarText dark:text-darkNavbarText">
+            {{ slice.percentLabel }}
+          </div>
+          <div class="text-xs text-lightListTableText dark:text-darkListTableText">
+            {{ formatChartValue(slice.value) }}
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -62,6 +89,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useElementSize } from '../../../composables/useElementSize.js'
 import { CHART_COLORS, formatChartLabel, formatChartValue, toFiniteNumber } from '../chart.utils.js'
 
 const props = withDefaults(defineProps<{
@@ -74,29 +102,59 @@ const props = withDefaults(defineProps<{
   height: 240,
 })
 
-const size = computed(() => props.height)
+const { el: rootEl, width: rootWidth } = useElementSize<HTMLDivElement>()
+const { el: chartEl, width: chartWidth, height: chartHeight } = useElementSize<HTMLDivElement>()
+
+const isCompact = computed(() => rootWidth.value > 0 && rootWidth.value < 420)
+
+const size = computed(() => {
+  const measured = Math.min(chartWidth.value, chartHeight.value)
+
+  if (measured > 0) {
+    return Math.min(Math.max(measured, 1), 320)
+  }
+
+  return Math.min(Math.max(props.height, 96), 320)
+})
 const center = computed(() => size.value / 2)
-const radius = computed(() => Math.max(size.value / 2 - 10, 1))
+const strokeWidth = computed(() => Math.max(Math.round(size.value * 0.12), 18))
+const radius = computed(() => Math.max(size.value / 2 - strokeWidth.value / 2 - 4, 1))
+const shouldCountRows = computed(() => /(^|_)id$/i.test(props.valueField))
+
+const pieRows = computed(() => {
+  const groupedRows = new Map<string, { label: string, value: number }>()
+
+  for (const row of props.rows) {
+    const label = formatChartLabel(row[props.labelField])
+    const item = groupedRows.get(label) ?? { label, value: 0 }
+    item.value += shouldCountRows.value ? 1 : toFiniteNumber(row[props.valueField])
+    groupedRows.set(label, item)
+  }
+
+  return Array.from(groupedRows.values())
+})
+
+const total = computed(() => pieRows.value.reduce((sum, row) => sum + row.value, 0))
 
 const slices = computed(() => {
-  const total = props.rows.reduce((sum, row) => sum + toFiniteNumber(row[props.valueField]), 0)
   let offset = 0
 
-  return props.rows.map((row, index) => {
-    const value = toFiniteNumber(row[props.valueField])
-    const share = total > 0 ? value / total : 0
-    const label = formatChartLabel(row[props.labelField])
+  return pieRows.value.map((row, index) => {
+    const value = row.value
+    const share = total.value > 0 ? value / total.value : 0
+    const percent = share * 100
     const slice = {
-      id: `${label}-${index}`,
-      label,
+      id: `${row.label}-${index}`,
+      label: row.label,
       value,
       share,
-      dashArray: `${share * 100} ${100 - share * 100}`,
+      percentLabel: `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(percent)}%`,
+      dashArray: `${Math.max(percent - 0.6, 0)} ${100 - Math.max(percent - 0.6, 0)}`,
       dashOffset: -offset,
       color: props.colors?.[index] || CHART_COLORS[index % CHART_COLORS.length],
     }
 
-    offset += share * 100
+    offset += percent
     return slice
   })
 })

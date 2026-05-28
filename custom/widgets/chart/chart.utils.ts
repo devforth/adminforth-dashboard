@@ -35,3 +35,20 @@ export function formatChartLabel(value: unknown) {
     day: '2-digit',
   }).format(new Date(timestamp))
 }
+
+export function formatChartAxisLabel(value: unknown, maxLength = 12) {
+  const rawLabel = typeof value === 'string' ? value : String(value)
+  const timestamp = Date.parse(rawLabel)
+  const label = Number.isFinite(timestamp)
+    ? new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+      }).format(new Date(timestamp))
+    : rawLabel
+
+  if (label.length <= maxLength) {
+    return label
+  }
+
+  return `${label.slice(0, Math.max(maxLength - 1, 1))}…`
+}

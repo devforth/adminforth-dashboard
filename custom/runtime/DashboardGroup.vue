@@ -17,7 +17,7 @@
         <button
           type="button"
           class="flex h-8 w-8 items-center justify-center rounded-lg border border-lightListViewButtonBorder bg-lightListViewButtonBackground text-lightListViewButtonText shadow-sm hover:bg-lightListViewButtonBackgroundHover hover:text-lightListViewButtonTextHover dark:border-darkListViewButtonBorder dark:bg-darkListViewButtonBackground dark:text-darkListViewButtonText dark:hover:bg-darkListViewButtonBackgroundHover dark:hover:text-darkListViewButtonTextHover"
-          title="Edit YAML"
+          title="Edit JSON"
           @click="emit('edit-group', group)"
         >
           <svg
@@ -111,8 +111,10 @@
         :can-move-down="index < widgets.length - 1"
         :layout="{
           size: widget.size,
+          width: widget.width,
           minWidth: widget.minWidth,
           maxWidth: widget.maxWidth,
+          height: widget.height,
         }"
         @edit="emit('edit-widget', widget)"
         @move-up="emit('move-widget-up', widget.id)"

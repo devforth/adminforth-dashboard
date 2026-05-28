@@ -1,8 +1,12 @@
 <template>
-  <div class="w-full overflow-hidden">
+  <div
+    ref="rootEl"
+    class="h-full min-h-0 w-full overflow-hidden"
+  >
     <svg
-      class="block w-full"
-      :viewBox="`0 0 ${width} ${height}`"
+      v-if="chartWidth > 0 && chartHeight > 0"
+      class="block h-full w-full"
+      :viewBox="`0 0 ${chartWidth} ${chartHeight}`"
       role="img"
       :aria-label="seriesName || yField"
     >
@@ -11,16 +15,16 @@
           v-for="tick in yTicks"
           :key="tick.y"
           :x1="padding.left"
-          :x2="width - padding.right"
+          :x2="chartWidth - padding.right"
           :y1="tick.y"
           :y2="tick.y"
           stroke="currentColor"
-          stroke-opacity="0.16"
+          stroke-opacity="0.14"
         />
         <text
           v-for="tick in yTicks"
           :key="`label-${tick.y}`"
-          :x="padding.left - 10"
+          :x="padding.left - 8"
           :y="tick.y + 4"
           fill="currentColor"
           font-size="11"
@@ -43,7 +47,7 @@
         :stroke="chartColor"
         stroke-linecap="round"
         stroke-linejoin="round"
-        stroke-width="3"
+        stroke-width="5"
       />
 
       <g>
@@ -64,12 +68,12 @@
           v-for="point in xLabels"
           :key="`x-${point.x}`"
           :x="point.x"
-          :y="height - 12"
+          :y="chartHeight - 10"
           fill="currentColor"
           font-size="11"
           text-anchor="middle"
         >
-          {{ point.label }}
+          {{ point.axisLabel }}
         </text>
       </g>
     </svg>
@@ -80,7 +84,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { CHART_COLORS, formatChartLabel, formatChartValue, toFiniteNumber } from '../chart.utils.js'
+import { useElementSize } from '../../../composables/useElementSize.js'
+import { CHART_COLORS, formatChartAxisLabel, formatChartLabel, formatChartValue, toFiniteNumber } from '../chart.utils.js'
 
 const props = withDefaults(defineProps<{
   rows: Record<string, unknown>[]
@@ -93,19 +98,28 @@ const props = withDefaults(defineProps<{
   height: 240,
 })
 
+const { el: rootEl, width: rootWidth, height: rootHeight } = useElementSize<HTMLDivElement>()
+
 const padding = {
-  top: 18,
-  right: 18,
-  bottom: 38,
-  left: 48,
+  top: 12,
+  right: 6,
+  bottom: 24,
+  left: 38,
 }
-const width = 640
+const chartWidth = computed(() => Math.max(rootWidth.value, 1))
+const chartHeight = computed(() => {
+  if (rootHeight.value > 0) {
+    return Math.max(rootHeight.value, 1)
+  }
+
+  return Math.max(props.height, 1)
+})
 
 const chartColor = computed(() => props.color || CHART_COLORS[0])
 const values = computed(() => props.rows.map((row) => toFiniteNumber(row[props.yField])))
 const maxValue = computed(() => Math.max(...values.value, 1))
-const innerWidth = computed(() => width - padding.left - padding.right)
-const innerHeight = computed(() => props.height - padding.top - padding.bottom)
+const innerWidth = computed(() => Math.max(chartWidth.value - padding.left - padding.right, 1))
+const innerHeight = computed(() => Math.max(chartHeight.value - padding.top - padding.bottom, 1))
 
 const points = computed(() => {
   if (props.rows.length === 1) {
@@ -113,6 +127,7 @@ const points = computed(() => {
       x: padding.left + innerWidth.value / 2,
       y: padding.top + innerHeight.value - (values.value[0] / maxValue.value) * innerHeight.value,
       label: formatChartLabel(props.rows[0][props.xField]),
+      axisLabel: formatChartAxisLabel(props.rows[0][props.xField]),
       value: values.value[0],
     }]
   }
@@ -121,6 +136,7 @@ const points = computed(() => {
     x: padding.left + (index / (props.rows.length - 1)) * innerWidth.value,
     y: padding.top + innerHeight.value - (values.value[index] / maxValue.value) * innerHeight.value,
     label: formatChartLabel(row[props.xField]),
+    axisLabel: formatChartAxisLabel(row[props.xField]),
     value: values.value[index],
   }))
 })
@@ -139,7 +155,7 @@ const fillPath = computed(() => {
   return `${linePath.value} L ${last.x} ${padding.top + innerHeight.value} L ${first.x} ${padding.top + innerHeight.value} Z`
 })
 
-const yTicks = computed(() => [0, 0.25, 0.5, 0.75, 1].map((ratio) => ({
+const yTicks = computed(() => [0, 0.5, 1].map((ratio) => ({
   value: maxValue.value * (1 - ratio),
   y: padding.top + innerHeight.value * ratio,
 })))

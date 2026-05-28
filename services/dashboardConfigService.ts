@@ -3,16 +3,22 @@ import type { IAdminForth } from 'adminforth';
 import { normalizeDashboardConfig } from '../custom/model/dashboard.types.js';
 import type { DashboardConfig, DashboardWidgetConfig } from '../custom/model/dashboard.types.js';
 
+const DASHBOARD_CONFIG_UPDATED_TOPIC_PREFIX = '/opentopic/dashboard-config-updated';
+
 export type DashboardRecord = {
   id: string;
   slug: string;
   label: string;
   revision: number;
-  config: string;
+  config: unknown;
 };
 
-export function parseStoredDashboardConfig(config: string): DashboardConfig {
-  return normalizeDashboardConfig(JSON.parse(config));
+export function parseStoredDashboardConfig(config: unknown): DashboardConfig {
+  if (typeof config === 'string') {
+    return normalizeDashboardConfig(JSON.parse(config));
+  }
+
+  return normalizeDashboardConfig(config);
 }
 
 export function buildDashboardResponse(dashboard: DashboardRecord) {
@@ -32,6 +38,10 @@ export type PersistedDashboardResponse = {
   revision: number;
   config: DashboardConfig;
 };
+
+export function dashboardConfigUpdatedTopic(slug: string) {
+  return `${DASHBOARD_CONFIG_UPDATED_TOPIC_PREFIX}/${slug}`;
+}
 
 export function normalizeDashboardOrder(config: DashboardConfig): DashboardConfig {
   const widgetsByGroupId = new Map<string, DashboardWidgetConfig[]>();
@@ -79,7 +89,13 @@ export async function persistDashboardConfig(
   const normalizedConfig = normalizeDashboardOrder(config);
 
   await adminforth.resource(dashboardConfigsResourceId).update(dashboard.id, {
-    config: JSON.stringify(normalizedConfig),
+    config: normalizedConfig,
+    revision: dashboard.revision + 1,
+  });
+
+  await adminforth.websocket.publish(dashboardConfigUpdatedTopic(dashboard.slug), {
+    id: dashboard.id,
+    slug: dashboard.slug,
     revision: dashboard.revision + 1,
   });
 

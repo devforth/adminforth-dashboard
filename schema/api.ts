@@ -1,7 +1,11 @@
-import { z } from 'zod'
+import { toJSONSchema, z } from 'zod'
 import { StoredWidgetConfigSchema, WidgetConfigSchema } from './widget.js'
 
-export const DashboardErrorResponseSchema = z.object({
+function toAdminForthJsonSchema(schema: z.ZodType) {
+  return toJSONSchema(schema, { target: 'draft-7' })
+}
+
+export const DashboardErrorResponseZodSchema = z.object({
   error: z.string(),
   validationErrors: z.array(z.object({
     field: z.string(),
@@ -9,73 +13,87 @@ export const DashboardErrorResponseSchema = z.object({
   })).optional(),
 })
 
-export const DashboardGroupSchema = z.object({
+export const DashboardGroupZodSchema = z.object({
   id: z.string(),
   label: z.string(),
   order: z.number(),
-}).loose()
+})
 
-export const DashboardConfigSchema = z.object({
+export const DashboardConfigZodSchema = z.object({
   version: z.number(),
-  groups: z.array(DashboardGroupSchema),
+  groups: z.array(DashboardGroupZodSchema),
   widgets: z.array(StoredWidgetConfigSchema),
 })
 
-export const DashboardResponseSchema = z.object({
+export const DashboardResponseZodSchema = z.object({
   id: z.string(),
   slug: z.string(),
   label: z.string(),
   revision: z.number(),
-  config: DashboardConfigSchema,
+  config: DashboardConfigZodSchema,
 })
 
-export const DashboardApiResponseSchema = z.union([
-  DashboardResponseSchema,
-  DashboardErrorResponseSchema,
+export const DashboardApiResponseZodSchema = z.union([
+  DashboardResponseZodSchema,
+  DashboardErrorResponseZodSchema,
 ])
 
-export const DashboardWidgetDataResponseSchema = z.union([
+export const DashboardWidgetDataResponseZodSchema = z.union([
   z.object({
     widget: StoredWidgetConfigSchema,
     data: z.unknown(),
   }),
-  DashboardErrorResponseSchema,
+  DashboardErrorResponseZodSchema,
 ])
 
-export const SlugRequestSchema = z.object({
+export const SlugRequestZodSchema = z.object({
   slug: z.string().optional(),
 }).strict()
 
-export const GroupIdRequestSchema = z.object({
+export const GroupIdRequestZodSchema = z.object({
   slug: z.string().optional(),
   groupId: z.string(),
 }).strict()
 
-export const MoveGroupRequestSchema = z.object({
+export const MoveGroupRequestZodSchema = z.object({
   slug: z.string().optional(),
   groupId: z.string(),
   direction: z.enum(['up', 'down']),
 }).strict()
 
-export const SetGroupConfigRequestSchema = z.object({
+export const SetGroupConfigRequestZodSchema = z.object({
   slug: z.string().optional(),
   groupId: z.string(),
-  config: DashboardGroupSchema,
+  config: DashboardGroupZodSchema,
 }).strict()
 
-export const WidgetIdRequestSchema = z.object({
+export const WidgetIdRequestZodSchema = z.object({
   slug: z.string().optional(),
   widgetId: z.string(),
 }).strict()
 
-export const MoveWidgetRequestSchema = z.object({
+export const MoveWidgetRequestZodSchema = z.object({
   slug: z.string().optional(),
   widgetId: z.string(),
   direction: z.enum(['up', 'down']),
 }).strict()
 
-export const SetWidgetConfigRequestSchema = z.object({
+export const SetWidgetConfigRequestZodSchema = z.object({
   slug: z.string().optional(),
   widgetId: z.string(),
   config: WidgetConfigSchema,
 }).strict()
+
+export const DashboardErrorResponseSchema = toAdminForthJsonSchema(DashboardErrorResponseZodSchema)
+export const DashboardGroupSchema = toAdminForthJsonSchema(DashboardGroupZodSchema)
+export const DashboardConfigSchema = toAdminForthJsonSchema(DashboardConfigZodSchema)
+export const DashboardResponseSchema = toAdminForthJsonSchema(DashboardResponseZodSchema)
+export const DashboardApiResponseSchema = toAdminForthJsonSchema(DashboardApiResponseZodSchema)
+export const DashboardWidgetDataResponseSchema = toAdminForthJsonSchema(DashboardWidgetDataResponseZodSchema)
+export const SlugRequestSchema = toAdminForthJsonSchema(SlugRequestZodSchema)
+export const GroupIdRequestSchema = toAdminForthJsonSchema(GroupIdRequestZodSchema)
+export const MoveGroupRequestSchema = toAdminForthJsonSchema(MoveGroupRequestZodSchema)
+export const SetGroupConfigRequestSchema = toAdminForthJsonSchema(SetGroupConfigRequestZodSchema)
+export const WidgetIdRequestSchema = toAdminForthJsonSchema(WidgetIdRequestZodSchema)
+export const MoveWidgetRequestSchema = toAdminForthJsonSchema(MoveWidgetRequestZodSchema)
+export const SetWidgetConfigRequestSchema = toAdminForthJsonSchema(SetWidgetConfigRequestZodSchema)

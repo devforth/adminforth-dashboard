@@ -1,5 +1,5 @@
 <template>
-  <div class="overflow-hidden rounded-lg border border-lightListBorder bg-lightTableBackground dark:border-darkListBorder dark:bg-darkTableBackground">
+  <div class="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-lightListBorder bg-lightTableBackground dark:border-darkListBorder dark:bg-darkTableBackground">
     <div
       v-if="isLoading"
       class="p-4 text-sm text-lightListTableText dark:text-darkListTableText"
@@ -23,9 +23,9 @@
 
     <div
       v-else
-      class="overflow-x-auto"
+      class="min-h-0 flex-1 overflow-auto"
     >
-      <table class="w-full border-collapse text-left text-sm">
+      <table class="min-w-max w-full border-collapse text-left text-sm">
         <thead class="bg-lightTableHeadingBackground text-xs uppercase text-lightTableHeadingText dark:bg-darkTableHeadingBackground dark:text-darkTableHeadingText">
           <tr>
             <th
