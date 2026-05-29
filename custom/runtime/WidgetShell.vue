@@ -135,11 +135,11 @@ const widgetLayoutVars = computed<CSSProperties>(() => {
   const fixedWidth = formatWidth(props.layout?.width)
 
   return {
-    '--widget-basis': fixedWidth ?? basis,
-    '--widget-min-width': fixedWidth ?? formatWidth(props.layout?.minWidth) ?? basis,
+    '--widget-basis': clampToContainerWidth(fixedWidth ?? basis),
+    '--widget-min-width': clampToContainerWidth(fixedWidth ?? formatWidth(props.layout?.minWidth) ?? basis),
     '--widget-max-width': props.layout?.maxWidth === null
-      ? 'none'
-      : fixedWidth ?? formatWidth(props.layout?.maxWidth) ?? 'none',
+      ? '100%'
+      : clampToContainerWidth(fixedWidth ?? formatWidth(props.layout?.maxWidth) ?? '100%'),
     height: formatWidth(props.layout?.height ?? DEFAULT_WIDGET_HEIGHT),
   }
 })
@@ -148,5 +148,9 @@ function formatWidth(value: number | undefined) {
   if (typeof value === 'number') {
     return `${value}px`
   }
+}
+
+function clampToContainerWidth(value: string) {
+  return `min(${value}, 100%)`
 }
 </script>

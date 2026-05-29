@@ -19,18 +19,40 @@ export function validateDashboardWidgetApiConfig(
 
   const errors: DashboardWidgetConfigValidationError[] = [];
 
-  if (!widget.query) {
-    errors.push({
-      field: 'query',
-      message: 'Chart widget must have query config',
-    });
-    return errors;
-  }
-
   if (!widget.chart) {
     errors.push({
       field: 'chart',
       message: 'Chart widget must have chart config',
+    });
+    return errors;
+  }
+
+  const aggregateDataSource = getAggregateDataSource(widget.dataSource);
+
+  if (aggregateDataSource) {
+    const resource = adminforth.config.resources.find((item) => item.resourceId === aggregateDataSource.resourceId);
+
+    if (!resource) {
+      errors.push({
+        field: 'dataSource.resourceId',
+        message: `Resource "${aggregateDataSource.resourceId}" is not registered`,
+      });
+    }
+
+    if (!aggregateDataSource.groupBy) {
+      errors.push({
+        field: 'dataSource.groupBy',
+        message: 'Chart aggregate dataSource must define groupBy',
+      });
+    }
+
+    return errors;
+  }
+
+  if (!widget.query) {
+    errors.push({
+      field: 'query',
+      message: 'Chart widget must have query or aggregate dataSource config',
     });
     return errors;
   }
@@ -89,5 +111,22 @@ export function createWidgetConfigValidatorService(
 ): WidgetConfigValidatorService {
   return {
     validateDashboardWidgetApiConfig: (widget) => validateDashboardWidgetApiConfig(adminforth, widget),
+  };
+}
+
+function getAggregateDataSource(dataSource: unknown) {
+  if (
+    typeof dataSource !== 'object'
+    || dataSource === null
+    || (dataSource as { type?: string }).type !== 'aggregate'
+    || typeof (dataSource as { resourceId?: unknown }).resourceId !== 'string'
+  ) {
+    return null;
+  }
+
+  return dataSource as {
+    type: 'aggregate';
+    resourceId: string;
+    groupBy?: unknown;
   };
 }

@@ -72,6 +72,15 @@ export const WidgetIdRequestZodSchema = z.object({
   widgetId: z.string(),
 }).strict()
 
+export const WidgetDataRequestZodSchema = z.object({
+  slug: z.string().optional(),
+  widgetId: z.string(),
+  pagination: z.object({
+    page: z.number().int().positive(),
+    pageSize: z.number().int().positive(),
+  }).optional(),
+}).strict()
+
 export const MoveWidgetRequestZodSchema = z.object({
   slug: z.string().optional(),
   widgetId: z.string(),
@@ -81,7 +90,7 @@ export const MoveWidgetRequestZodSchema = z.object({
 export const SetWidgetConfigRequestZodSchema = z.object({
   slug: z.string().optional(),
   widgetId: z.string(),
-  config: WidgetConfigSchema,
+  config: z.record(z.string(), z.unknown()),
 }).strict()
 
 export const DashboardErrorResponseSchema = toAdminForthJsonSchema(DashboardErrorResponseZodSchema)
@@ -95,5 +104,6 @@ export const GroupIdRequestSchema = toAdminForthJsonSchema(GroupIdRequestZodSche
 export const MoveGroupRequestSchema = toAdminForthJsonSchema(MoveGroupRequestZodSchema)
 export const SetGroupConfigRequestSchema = toAdminForthJsonSchema(SetGroupConfigRequestZodSchema)
 export const WidgetIdRequestSchema = toAdminForthJsonSchema(WidgetIdRequestZodSchema)
+export const WidgetDataRequestSchema = toAdminForthJsonSchema(WidgetDataRequestZodSchema)
 export const MoveWidgetRequestSchema = toAdminForthJsonSchema(MoveWidgetRequestZodSchema)
 export const SetWidgetConfigRequestSchema = toAdminForthJsonSchema(SetWidgetConfigRequestZodSchema)

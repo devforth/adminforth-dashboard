@@ -24,6 +24,13 @@ export type DashboardWidgetDataResponse = {
   data: unknown
 }
 
+export type DashboardWidgetDataRequest = {
+  pagination?: {
+    page: number
+    pageSize: number
+  }
+}
+
 export class DashboardApiError extends Error {
   validationErrors: DashboardWidgetConfigValidationError[]
 
@@ -204,10 +211,12 @@ export const dashboardApi = {
   async getDashboardWidgetData(
     slug: string,
     widgetId: string,
+    request: DashboardWidgetDataRequest = {},
   ): Promise<DashboardWidgetDataResponse> {
     return callDashboardWidgetDataApi('/adminapi/v1/dashboard/get_dashboard_widget_data', {
       slug,
       widgetId,
+      ...request,
     })
   },
 }

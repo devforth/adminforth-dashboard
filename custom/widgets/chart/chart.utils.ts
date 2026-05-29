@@ -14,8 +14,8 @@ export function toFiniteNumber(value: unknown) {
   return Number.isFinite(numberValue) ? numberValue : 0
 }
 
-export function formatChartValue(value: number) {
-  return new Intl.NumberFormat().format(value)
+export function formatChartValue(value: number, options: Intl.NumberFormatOptions = {}) {
+  return new Intl.NumberFormat(undefined, options).format(value)
 }
 
 export function formatChartLabel(value: unknown) {

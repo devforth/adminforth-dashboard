@@ -1,7 +1,11 @@
 import { ref, watch, type Ref } from 'vue'
-import { dashboardApi } from '../api/dashboardApi.js'
+import { dashboardApi, type DashboardWidgetDataRequest } from '../api/dashboardApi.js'
 
-export function useWidgetData(slug: Ref<string>, widgetId: Ref<string>) {
+export function useWidgetData(
+  slug: Ref<string>,
+  widgetId: Ref<string>,
+  request?: Ref<DashboardWidgetDataRequest>,
+) {
   const data = ref<Awaited<ReturnType<typeof dashboardApi.getDashboardWidgetData>> | null>(null)
   const isLoading = ref(false)
   const isFetching = ref(false)
@@ -20,7 +24,7 @@ export function useWidgetData(slug: Ref<string>, widgetId: Ref<string>) {
     }
 
     try {
-      const response = await dashboardApi.getDashboardWidgetData(slug.value, widgetId.value)
+      const response = await dashboardApi.getDashboardWidgetData(slug.value, widgetId.value, request?.value)
       data.value = response
       error.value = null
       return response
@@ -34,7 +38,7 @@ export function useWidgetData(slug: Ref<string>, widgetId: Ref<string>) {
   }
 
   watch(
-    [slug, widgetId],
+    request ? [slug, widgetId, request] : [slug, widgetId],
     () => {
       void refetch()
     },

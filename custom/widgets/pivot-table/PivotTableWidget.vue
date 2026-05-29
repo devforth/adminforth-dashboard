@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useWidgetData } from '../../queries/useWidgetData.js'
-import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
+import type { DashboardWidgetConfig, DashboardWidgetData } from '../../model/dashboard.types.js'
 import { formatChartLabel, formatChartValue, toFiniteNumber } from '../chart/chart.utils.js'
 
 const props = defineProps<{
@@ -32,15 +32,37 @@ const pivotConfig = computed(() => props.widget.pivot_table as {
   value_field?: string
   aggregation?: 'count' | 'sum'
 } | undefined)
-const widgetData = computed(() => data.value?.data as DashboardWidgetTableData | null)
+const widgetData = computed(() => data.value?.data as DashboardWidgetData | null)
 const rows = computed(() => widgetData.value?.rows ?? [])
 const columns = computed(() => widgetData.value?.columns ?? [])
-const rowField = computed(() => pivotConfig.value?.row_field || columns.value[0])
+const isAggregateData = computed(() => widgetData.value?.kind === 'aggregate')
+const shouldRenderAggregateMatrix = computed(() => isAggregateData.value && !pivotConfig.value?.column_field)
+const rowField = computed(() => pivotConfig.value?.row_field || (isAggregateData.value ? 'group' : columns.value[0]))
 const columnField = computed(() => pivotConfig.value?.column_field || columns.value[1])
-const valueField = computed(() => pivotConfig.value?.value_field || columns.value[2])
+const valueField = computed(() => pivotConfig.value?.value_field || columns.value[2] || columns.value[1])
 const aggregation = computed(() => pivotConfig.value?.aggregation || (valueField.value ? 'sum' : 'count'))
-const pivotColumnLabels = computed(() => Array.from(new Set(rows.value.map((row) => formatChartLabel(row[columnField.value])))))
+const pivotColumnLabels = computed(() => {
+  if (shouldRenderAggregateMatrix.value) {
+    return columns.value.filter((column) => column !== rowField.value)
+  }
+
+  return Array.from(new Set(rows.value.map((row) => formatChartLabel(row[columnField.value]))))
+})
 const pivotRows = computed(() => {
+  if (shouldRenderAggregateMatrix.value) {
+    return rows.value.map((row) => {
+      const item: Record<string, number | string> = {
+        label: formatChartLabel(row[rowField.value]),
+      }
+
+      for (const column of pivotColumnLabels.value) {
+        item[column] = toFiniteNumber(row[column])
+      }
+
+      return item
+    })
+  }
+
   const rowMap = new Map<string, Record<string, number | string>>()
 
   for (const row of rows.value) {

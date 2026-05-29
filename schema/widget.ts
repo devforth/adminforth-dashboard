@@ -13,6 +13,62 @@ const DashboardWidgetSizeSchema = z.enum([
   'full',
 ])
 
+export const AggregationOperationZodSchema = z.enum([
+  'sum',
+  'count',
+  'avg',
+  'min',
+  'max',
+  'median',
+])
+
+export const AggregationRuleZodSchema = z.object({
+  operation: AggregationOperationZodSchema,
+  field: z.string().optional(),
+}).superRefine((rule, ctx) => {
+  if (rule.operation !== 'count' && !rule.field) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['field'],
+      message: `field is required for ${rule.operation}`,
+    })
+  }
+})
+
+export const GroupByRuleZodSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('field'),
+    field: z.string(),
+  }),
+  z.object({
+    type: z.literal('date_trunc'),
+    field: z.string(),
+    truncation: z.enum(['day', 'week', 'month', 'year']),
+    timezone: z.string().optional(),
+  }),
+])
+
+export const AggregateDataSourceZodSchema = z.object({
+  type: z.literal('aggregate'),
+  resourceId: z.string(),
+  aggregations: z.record(z.string(), AggregationRuleZodSchema),
+  groupBy: GroupByRuleZodSchema.optional(),
+  filters: z.unknown().optional(),
+}).strict()
+
+export const ResourceDataSourceZodSchema = z.object({
+  type: z.literal('resource'),
+  resourceId: z.string(),
+  columns: z.array(z.string()).optional(),
+  filters: z.unknown().optional(),
+  sort: z.unknown().optional(),
+}).strict()
+
+export const WidgetDataSourceZodSchema = z.discriminatedUnion('type', [
+  ResourceDataSourceZodSchema,
+  AggregateDataSourceZodSchema,
+])
+
 const WidgetBaseSchema = z.object({
   id: z.string().optional(),
   group_id: z.string().optional(),
@@ -23,6 +79,7 @@ const WidgetBaseSchema = z.object({
   minWidth: z.number().nonnegative('Min width must be a non-negative number').optional(),
   maxWidth: z.number().nonnegative('Max width must be a non-negative number').nullable().optional(),
   order: z.number().optional(),
+  dataSource: WidgetDataSourceZodSchema.optional(),
 })
 
 const ChartBaseSchema = z.object({
@@ -115,30 +172,86 @@ const TableWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('table'),
   table: z.unknown().optional(),
   query: DashboardWidgetQuerySchema.optional(),
+}).superRefine((widget, ctx) => {
+  if (widget.dataSource?.type === 'aggregate') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dataSource'],
+      message: 'Table widget dataSource must use resource type',
+    })
+  }
 })
 
 const ChartWidgetTargetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('chart'),
   chart: ChartConfigSchema,
-  query: DashboardWidgetQuerySchema,
+  query: DashboardWidgetQuerySchema.optional(),
+}).superRefine((widget, ctx) => {
+  if (!widget.query && !widget.dataSource) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dataSource'],
+      message: 'Chart widget must have query or dataSource config',
+    })
+  }
+
+  if (widget.dataSource?.type === 'resource') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dataSource'],
+      message: 'Chart widget dataSource must use aggregate type',
+    })
+  }
+
+  if (widget.dataSource?.type === 'aggregate' && !widget.dataSource.groupBy) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dataSource', 'groupBy'],
+      message: 'Chart widget aggregate dataSource must define groupBy',
+    })
+  }
 })
 
 const KpiCardWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('kpi_card'),
   kpi_card: z.unknown().optional(),
   query: DashboardWidgetQuerySchema.optional(),
+}).superRefine((widget, ctx) => {
+  if (widget.dataSource?.type === 'aggregate' && widget.dataSource.groupBy) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dataSource', 'groupBy'],
+      message: 'KPI card aggregate dataSource must not define groupBy',
+    })
+  }
 })
 
 const GaugeCardWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('gauge_card'),
   gauge_card: z.unknown().optional(),
   query: DashboardWidgetQuerySchema.optional(),
+}).superRefine((widget, ctx) => {
+  if (widget.dataSource?.type === 'aggregate' && widget.dataSource.groupBy) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dataSource', 'groupBy'],
+      message: 'Gauge card aggregate dataSource must not define groupBy',
+    })
+  }
 })
 
 const PivotTableWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('pivot_table'),
   pivot_table: z.unknown().optional(),
   query: DashboardWidgetQuerySchema.optional(),
+}).superRefine((widget, ctx) => {
+  if (widget.dataSource?.type === 'aggregate' && !widget.dataSource.groupBy) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dataSource', 'groupBy'],
+      message: 'Pivot table aggregate dataSource must define groupBy',
+    })
+  }
 })
 
 export const WidgetConfigSchema = z.discriminatedUnion('target', [

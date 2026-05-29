@@ -1,5 +1,8 @@
 import type { AdminUser, IHttpServer } from 'adminforth';
 import { randomUUID } from 'crypto';
+import {
+  normalizeDashboardWidgetConfig,
+} from '../custom/model/dashboard.types.js';
 import type { DashboardConfig, DashboardWidgetConfig } from '../custom/model/dashboard.types.js';
 import {
   DashboardApiResponseSchema,
@@ -7,8 +10,10 @@ import {
   GroupIdRequestSchema,
   MoveWidgetRequestSchema,
   SetWidgetConfigRequestSchema,
+  WidgetDataRequestSchema,
   WidgetIdRequestSchema,
 } from '../schema/api.js';
+import { StoredWidgetConfigSchema } from '../schema/widget.js';
 import type { DashboardWidgetConfigValidationError } from '../schema/widget.js';
 import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
 
@@ -24,8 +29,18 @@ type WidgetEndpointsContext = {
   validateDashboardWidgetApiConfig: (
     widget: DashboardWidgetConfig,
   ) => DashboardWidgetConfigValidationError[];
-  getWidgetData: (widget: DashboardWidgetConfig) => Promise<unknown>;
+  getWidgetData: (
+    widget: DashboardWidgetConfig,
+    options?: { pagination?: { page: number, pageSize: number } },
+  ) => Promise<unknown>;
 };
+
+function formatWidgetConfigValidationErrors(error: { issues: { path: PropertyKey[], message: string }[] }) {
+  return error.issues.map((issue) => ({
+    field: issue.path.length ? issue.path.map(String).join('.') : 'config',
+    message: issue.message,
+  }));
+}
 
 export function registerWidgetEndpoints(
   server: IHttpServer,
@@ -197,7 +212,17 @@ export function registerWidgetEndpoints(
         return { error: 'Dashboard widget not found' };
       }
 
-      const typedWidgetConfig = body.config as DashboardWidgetConfig;
+      const parsedWidgetConfig = StoredWidgetConfigSchema.safeParse(normalizeDashboardWidgetConfig(body.config));
+
+      if (!parsedWidgetConfig.success) {
+        response.setStatus(422);
+        return {
+          error: 'Invalid widget config',
+          validationErrors: formatWidgetConfigValidationErrors(parsedWidgetConfig.error),
+        };
+      }
+
+      const typedWidgetConfig = parsedWidgetConfig.data as DashboardWidgetConfig;
       const apiValidationErrors = ctx.validateDashboardWidgetApiConfig(typedWidgetConfig);
 
       if (apiValidationErrors.length) {
@@ -226,7 +251,7 @@ export function registerWidgetEndpoints(
     method: 'POST',
     path: '/dashboard/get_dashboard_widget_data',
     description: 'Loads query result data for one dashboard widget by dashboard slug and widget id.',
-    request_schema: WidgetIdRequestSchema,
+    request_schema: WidgetDataRequestSchema,
     response_schema: DashboardWidgetDataResponseSchema,
     handler: async ({ body, response }) => {
       const slug = String(body?.slug || 'default');
@@ -248,7 +273,9 @@ export function registerWidgetEndpoints(
 
       return {
         widget,
-        data: await ctx.getWidgetData(widget),
+        data: await ctx.getWidgetData(widget, {
+          pagination: body?.pagination,
+        }),
       };
     },
   });

@@ -18,6 +18,66 @@ const {
   refetch,
 } = useWidgetData(dashboardSlugRef, widgetIdRef)
 
+type GaugeCardConfig = {
+  value_field?: string
+  valueField?: string
+  min?: number | string
+  max?: number | string
+  min_field?: string
+  minField?: string
+  max_field?: string
+  maxField?: string
+  suffix?: string
+  color?: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function parseGaugeCardConfig(value: unknown): GaugeCardConfig | undefined {
+  if (isRecord(value)) {
+    return value as GaugeCardConfig
+  }
+
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown
+    return isRecord(parsed) ? parsed as GaugeCardConfig : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function parseOptionalNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined || value === '') {
+    return undefined
+  }
+
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function countFractionDigits(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+
+  const normalizedValue = value.toString().toLowerCase()
+  const [coefficient, exponentValue] = normalizedValue.split('e')
+  const exponent = exponentValue ? Number(exponentValue) : 0
+  const decimalDigits = coefficient.split('.')[1]?.length ?? 0
+
+  return Math.max(decimalDigits - exponent, 0)
+}
+
+function normalizeDisplayValue(value: number, useWholeNumbers: boolean) {
+  return useWholeNumbers ? Math.trunc(value) : value
+}
+
 watch(
   () => props.widget,
   () => {
@@ -26,20 +86,42 @@ watch(
   { deep: true },
 )
 
-const gaugeConfig = computed(() => props.widget.gauge_card as {
-  value_field?: string
-  min?: number
-  max?: number
-  suffix?: string
-  color?: string
-} | undefined)
+const gaugeConfig = computed(() => parseGaugeCardConfig(props.widget.gauge_card))
 const widgetData = computed(() => data.value?.data as DashboardWidgetTableData | null)
 const columns = computed(() => widgetData.value?.columns ?? [])
 const firstRow = computed(() => widgetData.value?.rows[0] ?? {})
-const valueField = computed(() => gaugeConfig.value?.value_field || columns.value[0])
-const minValue = computed(() => gaugeConfig.value?.min ?? 0)
-const maxValue = computed(() => gaugeConfig.value?.max ?? 100)
+const valueField = computed(() => gaugeConfig.value?.value_field || gaugeConfig.value?.valueField || columns.value[0])
+const minField = computed(() => gaugeConfig.value?.min_field || gaugeConfig.value?.minField)
+const maxField = computed(() => gaugeConfig.value?.max_field || gaugeConfig.value?.maxField)
+const minValue = computed(() => {
+  const dynamicMin = minField.value ? parseOptionalNumber(firstRow.value[minField.value]) : undefined
+  return dynamicMin ?? parseOptionalNumber(gaugeConfig.value?.min) ?? 0
+})
+const maxValue = computed(() => {
+  const dynamicMax = maxField.value ? parseOptionalNumber(firstRow.value[maxField.value]) : undefined
+  return dynamicMax ?? parseOptionalNumber(gaugeConfig.value?.max) ?? 100
+})
 const value = computed(() => toFiniteNumber(firstRow.value[valueField.value]))
+const fractionDigits = computed(() => Math.min([
+  value.value,
+  minValue.value,
+  maxValue.value,
+].reduce((maxDigits, currentValue) => Math.max(maxDigits, countFractionDigits(currentValue)), 0), 3))
+const shouldUseWholeNumbers = computed(() => Math.abs(maxValue.value) >= 1000)
+const formattedValue = computed(() => formatChartValue(normalizeDisplayValue(value.value, shouldUseWholeNumbers.value), {
+  minimumFractionDigits: shouldUseWholeNumbers.value ? 0 : fractionDigits.value,
+  maximumFractionDigits: shouldUseWholeNumbers.value ? 0 : fractionDigits.value,
+}))
+const formattedMinValue = computed(() => formatChartValue(normalizeDisplayValue(minValue.value, shouldUseWholeNumbers.value), {
+  minimumFractionDigits: shouldUseWholeNumbers.value ? 0 : fractionDigits.value,
+  maximumFractionDigits: shouldUseWholeNumbers.value ? 0 : fractionDigits.value,
+}))
+const formattedMaxValue = computed(() => {
+  return formatChartValue(normalizeDisplayValue(maxValue.value, shouldUseWholeNumbers.value), {
+    minimumFractionDigits: shouldUseWholeNumbers.value ? 0 : fractionDigits.value,
+    maximumFractionDigits: shouldUseWholeNumbers.value ? 0 : fractionDigits.value,
+  })
+})
 const progress = computed(() => {
   const range = maxValue.value - minValue.value
   return range > 0 ? Math.min(Math.max((value.value - minValue.value) / range, 0), 1) : 0
@@ -97,10 +179,10 @@ const gaugeColor = computed(() => gaugeConfig.value?.color || CHART_COLORS[0])
       </svg>
 
       <div class="text-3xl font-bold text-lightNavbarText dark:text-darkNavbarText">
-        {{ formatChartValue(value) }}{{ gaugeConfig?.suffix ?? '' }}
+        {{ formattedValue }}{{ gaugeConfig?.suffix ?? '' }}
       </div>
       <div class="text-sm text-lightListTableText dark:text-darkListTableText">
-        {{ formatChartValue(minValue) }} - {{ formatChartValue(maxValue) }}
+        {{ formattedMinValue }} - {{ formattedMaxValue }}
       </div>
     </div>
   </div>
