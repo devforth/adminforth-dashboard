@@ -154,16 +154,6 @@ export const ChartConfigSchema = z.discriminatedUnion('type', [
   FunnelChartSchema,
 ])
 
-export const DashboardWidgetQuerySchema = z.object({
-  resource: z.string().min(1, 'Query resource must be a non-empty string'),
-  select: z.array(z.string()).optional(),
-  order: z.object({
-    field: z.string().min(1, 'Order field is required'),
-    direction: z.enum(['asc', 'desc']),
-  }).optional(),
-  limit: z.number().optional(),
-})
-
 export const EmptyWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('empty'),
 })
@@ -171,8 +161,15 @@ export const EmptyWidgetConfigSchema = WidgetBaseSchema.extend({
 const TableWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('table'),
   table: z.unknown().optional(),
-  query: DashboardWidgetQuerySchema.optional(),
 }).superRefine((widget, ctx) => {
+  if (!widget.dataSource) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dataSource'],
+      message: 'Table widget must have dataSource config',
+    })
+  }
+
   if (widget.dataSource?.type === 'aggregate') {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -185,13 +182,12 @@ const TableWidgetConfigSchema = WidgetBaseSchema.extend({
 const ChartWidgetTargetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('chart'),
   chart: ChartConfigSchema,
-  query: DashboardWidgetQuerySchema.optional(),
 }).superRefine((widget, ctx) => {
-  if (!widget.query && !widget.dataSource) {
+  if (!widget.dataSource) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['dataSource'],
-      message: 'Chart widget must have query or dataSource config',
+      message: 'Chart widget must have dataSource config',
     })
   }
 
@@ -215,8 +211,15 @@ const ChartWidgetTargetConfigSchema = WidgetBaseSchema.extend({
 const KpiCardWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('kpi_card'),
   kpi_card: z.unknown().optional(),
-  query: DashboardWidgetQuerySchema.optional(),
 }).superRefine((widget, ctx) => {
+  if (!widget.dataSource) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dataSource'],
+      message: 'KPI card widget must have dataSource config',
+    })
+  }
+
   if (widget.dataSource?.type === 'aggregate' && widget.dataSource.groupBy) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -229,8 +232,15 @@ const KpiCardWidgetConfigSchema = WidgetBaseSchema.extend({
 const GaugeCardWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('gauge_card'),
   gauge_card: z.unknown().optional(),
-  query: DashboardWidgetQuerySchema.optional(),
 }).superRefine((widget, ctx) => {
+  if (!widget.dataSource) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dataSource'],
+      message: 'Gauge card widget must have dataSource config',
+    })
+  }
+
   if (widget.dataSource?.type === 'aggregate' && widget.dataSource.groupBy) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -243,8 +253,15 @@ const GaugeCardWidgetConfigSchema = WidgetBaseSchema.extend({
 const PivotTableWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('pivot_table'),
   pivot_table: z.unknown().optional(),
-  query: DashboardWidgetQuerySchema.optional(),
 }).superRefine((widget, ctx) => {
+  if (!widget.dataSource) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['dataSource'],
+      message: 'Pivot table widget must have dataSource config',
+    })
+  }
+
   if (widget.dataSource?.type === 'aggregate' && !widget.dataSource.groupBy) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,

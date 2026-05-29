@@ -132,7 +132,7 @@ const currentPage = ref(1)
 const currentPageInput = ref(1)
 const tableConfig = computed(() => props.widget.table as TableWidgetConfig | undefined)
 const isPaginationEnabled = computed(() => tableConfig.value?.pagination !== false)
-const pageSize = computed(() => tableConfig.value?.pageSize ?? props.widget.query?.limit ?? DEFAULT_PAGE_SIZE)
+const pageSize = computed(() => tableConfig.value?.pageSize ?? DEFAULT_PAGE_SIZE)
 const dashboardSlugRef = computed(() => props.dashboardSlug)
 const widgetIdRef = computed(() => props.widget.id)
 const widgetDataRequest = computed(() => (

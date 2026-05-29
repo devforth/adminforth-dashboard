@@ -30,19 +30,18 @@ Each widget has common fields:
 | `target` | Widget type: `table`, `chart`, `kpi_card`, `pivot_table`, or `gauge_card`. |
 | `order` | Widget order inside its group. |
 | `size` | Preset width: `small`, `medium`, `large`, `wide`, or `full`. |
-| `width`, `height`, `minWidth`, `maxWidth` | Optional explicit layout constraints. |
-| `dataSource` | Optional resource or aggregate data source definition. |
-| `query` | Optional AdminForth resource query used to load widget data. |
+| `width`, `height`, `min_width`, `max_width` | Optional explicit layout constraints. |
+| `data_source` | Resource or aggregate data source definition. |
 
 ## Widget Support Matrix
 
 | Widget target | Config field | Main settings | Data usage |
 | --- | --- | --- | --- |
-| `table` | `table` | `columns`, `pagination`, `pageSize` | Uses `dataSource.type = 'resource'` or legacy `query` to display resource rows with backend pagination unless `pagination` is `false`. |
-| `chart` | `chart` | `type`, `x_field`, `y_field`, `label_field`, `value_field`, `bucket_field`, `buckets`, `series`, `series_name`, `color`, `colors` | Supports legacy `query` or `dataSource.type = 'aggregate'` with `groupBy`. |
-| `kpi_card` | `kpi_card` | `value_field`, `label_field`, `prefix`, `suffix` | Reads the first row or aggregate values and formats one numeric value. |
-| `gauge_card` | `gauge_card` | `value_field`, `min`, `max`, `min_field`, `max_field`, `suffix`, `color` | Reads the first row or aggregate values and renders progress between static or field-driven bounds. |
-| `pivot_table` | `pivot_table` | `row_field`, `column_field`, `value_field`, `aggregation` | Supports legacy row-based queries and grouped aggregate rows. `aggregation` supports `count` and `sum`. |
+| `table` | `table` | `pagination`, `page_size` | Uses `data_source.type = 'resource'` to display resource rows with backend pagination unless `pagination` is `false`. |
+| `chart` | `chart` | `type`, `x_field`, `y_field`, `label_field`, `value_field`, `bucket_field`, `buckets`, `series`, `series_name`, `color`, `colors` | Uses `data_source.type = 'aggregate'` with `group_by`. |
+| `kpi_card` | `kpi_card` | `value_field`, `label_field`, `prefix`, `suffix` | Reads aggregate values or the first returned row from `data_source`. |
+| `gauge_card` | `gauge_card` | `value_field`, `min`, `max`, `min_field`, `max_field`, `suffix`, `color` | Reads aggregate values or the first returned row from `data_source` and renders progress between static or field-driven bounds. |
+| `pivot_table` | `pivot_table` | `row_field`, `column_field`, `value_field`, `aggregation` | Uses grouped aggregate rows from `data_source.type = 'aggregate'`. `aggregation` supports `count` and `sum`. |
 
 Chart widget types:
 
@@ -55,41 +54,25 @@ Chart widget types:
 | `funnel` | Uses `label_field`, `value_field`, and optional `colors`. |
 | `histogram` | Uses the same bucket settings as `bar`. |
 
-## Query Shape
-
-```ts
-type DashboardWidgetQuery = {
-  resource: string
-  select?: string[]
-  order?: {
-    field: string
-    direction: 'asc' | 'desc'
-  }
-  limit?: number
-}
-```
-
-`resource` is an AdminForth `resourceId`. The query is executed through AdminForth resources, so widgets use the same resource contracts as the rest of the application.
-
 ## Data Source Shape
 
 ```ts
 type WidgetDataSource =
   | {
       type: 'resource'
-      resourceId: string
+      resource_id: string
       columns?: string[]
       filters?: unknown
       sort?: unknown
     }
   | {
       type: 'aggregate'
-      resourceId: string
+      resource_id: string
       aggregations: Record<string, {
         operation: 'sum' | 'count' | 'avg' | 'min' | 'max' | 'median'
         field?: string
       }>
-      groupBy?:
+      group_by?:
         | { type: 'field'; field: string }
         | {
             type: 'date_trunc'
@@ -101,7 +84,7 @@ type WidgetDataSource =
     }
 ```
 
-`query` remains supported for backwards compatibility. When both are present, widgets prefer `dataSource`.
+  `resource_id` is an AdminForth `resourceId`. The data source is executed through AdminForth resources, so widgets use the same resource contracts as the rest of the application.
 
 ## Runtime Structure
 

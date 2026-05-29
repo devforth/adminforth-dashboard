@@ -26,7 +26,7 @@
       :rows="rows"
       :x-field="xField"
       :y-field="yField"
-      :series-name="chartConfig.series_name"
+      :series-name="chartConfig.seriesName"
       :color="chartConfig.color"
       :height="chartHeight"
     />
@@ -91,6 +91,7 @@
 import { computed, watch } from 'vue'
 import { useWidgetData } from '../../queries/useWidgetData.js'
 import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
+import { normalizeChartWidgetConfig } from './chart.types.js'
 import BarChart from './bar/BarChart.vue'
 import FunnelChart from './funnel/FunnelChart.vue'
 import HistogramChart from './histogram/HistogramChart.vue'
@@ -126,13 +127,45 @@ watch(
 const chartData = computed(() => data.value?.data as DashboardWidgetTableData | null)
 const rows = computed(() => chartData.value?.rows ?? [])
 const columns = computed(() => chartData.value?.columns ?? [])
-const chartConfig = computed(() => props.widget.chart)
-const xField = computed(() => chartConfig.value?.x_field || columns.value[0])
-const yField = computed(() => chartConfig.value?.y_field || columns.value[1])
-const labelField = computed(() => chartConfig.value?.label_field || columns.value[0])
-const valueField = computed(() => chartConfig.value?.value_field || columns.value[1])
+const chartConfig = computed(() => normalizeChartWidgetConfig(props.widget.chart))
+const aggregateGroupField = computed(() => {
+  const dataSource = props.widget.dataSource
+
+  if (dataSource?.type !== 'aggregate' || !dataSource.groupBy) {
+    return undefined
+  }
+
+  return dataSource.groupBy.field
+})
+
+function resolveChartDimensionField(field: string | undefined, fallbackField: string | undefined) {
+  const resolvedField = field ?? fallbackField
+
+  if (!resolvedField) {
+    return ''
+  }
+
+  if (columns.value.includes(resolvedField)) {
+    return resolvedField
+  }
+
+  if (
+    aggregateGroupField.value
+    && resolvedField === aggregateGroupField.value
+    && columns.value.includes('group')
+  ) {
+    return 'group'
+  }
+
+  return resolvedField
+}
+
+const xField = computed(() => resolveChartDimensionField(chartConfig.value?.xField, columns.value[0]))
+const yField = computed(() => chartConfig.value?.yField || columns.value[1])
+const labelField = computed(() => resolveChartDimensionField(chartConfig.value?.labelField, columns.value[0]))
+const valueField = computed(() => chartConfig.value?.valueField || columns.value[1])
 const pieRows = computed(() => {
-  if (chartConfig.value?.value_field) {
+  if (chartConfig.value?.valueField) {
     return rows.value
   }
 
@@ -147,10 +180,10 @@ const pieRows = computed(() => {
 
   return Array.from(groupedRows.values())
 })
-const pieLabelField = computed(() => chartConfig.value?.value_field ? labelField.value : 'label')
-const pieValueField = computed(() => chartConfig.value?.value_field ? valueField.value : 'value')
+const pieLabelField = computed(() => chartConfig.value?.valueField ? labelField.value : 'label')
+const pieValueField = computed(() => chartConfig.value?.valueField ? valueField.value : 'value')
 const barRows = computed(() => {
-  const bucketField = chartConfig.value?.bucket_field
+  const bucketField = chartConfig.value?.bucketField
 
   if (!bucketField) {
     return rows.value
@@ -167,8 +200,8 @@ const barRows = computed(() => {
     }).length,
   }))
 })
-const barLabelField = computed(() => chartConfig.value?.bucket_field ? 'label' : labelField.value)
-const barValueField = computed(() => chartConfig.value?.bucket_field ? 'count' : valueField.value)
+const barLabelField = computed(() => chartConfig.value?.bucketField ? 'label' : labelField.value)
+const barValueField = computed(() => chartConfig.value?.bucketField ? 'count' : valueField.value)
 const stackedBarSeries = computed(() => {
   if (chartConfig.value?.series?.length) {
     return chartConfig.value.series

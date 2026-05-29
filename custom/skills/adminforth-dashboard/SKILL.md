@@ -119,7 +119,7 @@ Use the current schema keys exactly:
 
 - Use `target`, not `type`.
 - Use `label`, not `title`.
-- Use `query.resource`, not `resourceId`.
-- Use `query.select`, not `columns`.
-- Use `query.order`, not `sort`.
-- Use `query.limit` for row count.
+- Use `data_source`, not `dataSource`.
+- Use `resource_id`, not `resourceId`.
+- Use `group_by`, not `groupBy`.
+- Use `page_size`, not `pageSize`.

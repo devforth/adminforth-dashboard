@@ -13,16 +13,6 @@ import type {
   WidgetDataSource,
 } from '../custom/model/dashboard.types.js';
 
-export type DashboardWidgetQueryConfig = {
-  resource: string;
-  select?: string[];
-  order?: {
-    field: string;
-    direction: 'asc' | 'desc';
-  };
-  limit?: number;
-};
-
 export type DashboardWidgetDataOptions = {
   pagination?: {
     page: number;
@@ -44,8 +34,7 @@ export async function getWidgetData(
   widget: DashboardWidgetConfig,
   options: DashboardWidgetDataOptions = {},
 ): Promise<DashboardWidgetData | null> {
-  const legacyQuery = getLegacyQueryConfig(widget.query);
-  const dataSource = getWidgetDataSource(widget, legacyQuery);
+  const dataSource = getWidgetDataSource(widget.dataSource);
 
   if (!dataSource) {
     return null;
@@ -55,24 +44,20 @@ export async function getWidgetData(
     return getAggregateWidgetData(adminforth, dataSource);
   }
 
-  return getResourceWidgetData(adminforth, dataSource, legacyQuery, options);
+  return getResourceWidgetData(adminforth, dataSource, options);
 }
 
 async function getResourceWidgetData(
   adminforth: IAdminForth,
   dataSource: Extract<WidgetDataSource, { type: 'resource' }>,
-  legacyQuery: DashboardWidgetQueryConfig | undefined,
   options: DashboardWidgetDataOptions,
 ): Promise<DashboardWidgetData> {
   const resource = adminforth.resource(dataSource.resourceId);
   const filters = normalizeFilters(dataSource.filters);
-  const sort = normalizeSort(dataSource.sort ?? legacyQuery?.order);
+  const sort = normalizeSort(dataSource.sort);
   const pagination = options.pagination;
   const offset = pagination ? (pagination.page - 1) * pagination.pageSize : 0;
-  const queryLimit = legacyQuery?.limit;
-  const limit = pagination
-    ? Math.max(Math.min(pagination.pageSize, (queryLimit ?? Infinity) - offset), 0)
-    : queryLimit;
+  const limit = pagination ? pagination.pageSize : undefined;
 
   const rows = await resource.list(
     filters,
@@ -81,8 +66,8 @@ async function getResourceWidgetData(
     sort,
   );
 
-  const columns = dataSource.columns ?? legacyQuery?.select ?? Object.keys(rows[0] ?? {});
-  const total = pagination ? Math.min(await resource.count(filters), queryLimit ?? Infinity) : 0;
+  const columns = dataSource.columns ?? Object.keys(rows[0] ?? {});
+  const total = pagination ? await resource.count(filters) : 0;
 
   return {
     columns,
@@ -135,32 +120,12 @@ async function getAggregateWidgetData(
   };
 }
 
-function getLegacyQueryConfig(query: unknown): DashboardWidgetQueryConfig | undefined {
-  if (!isRecord(query) || typeof query.resource !== 'string') {
-    return undefined;
+function getWidgetDataSource(dataSource: unknown): WidgetDataSource | undefined {
+  if (isWidgetDataSource(dataSource)) {
+    return dataSource;
   }
 
-  return query as DashboardWidgetQueryConfig;
-}
-
-function getWidgetDataSource(
-  widget: DashboardWidgetConfig,
-  legacyQuery: DashboardWidgetQueryConfig | undefined,
-): WidgetDataSource | undefined {
-  if (isWidgetDataSource(widget.dataSource)) {
-    return widget.dataSource;
-  }
-
-  if (!legacyQuery) {
-    return undefined;
-  }
-
-  return {
-    type: 'resource',
-    resourceId: legacyQuery.resource,
-    columns: legacyQuery.select,
-    sort: legacyQuery.order,
-  };
+  return undefined;
 }
 
 function isWidgetDataSource(value: unknown): value is WidgetDataSource {

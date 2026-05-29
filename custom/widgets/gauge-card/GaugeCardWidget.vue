@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useWidgetData } from '../../queries/useWidgetData.js'
+import {
+  normalizeGaugeCardWidgetConfig,
+} from '../../model/dashboard.types.js'
 import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
 import { CHART_COLORS, formatChartValue, toFiniteNumber } from '../chart/chart.utils.js'
 
@@ -17,40 +20,6 @@ const {
   error,
   refetch,
 } = useWidgetData(dashboardSlugRef, widgetIdRef)
-
-type GaugeCardConfig = {
-  value_field?: string
-  valueField?: string
-  min?: number | string
-  max?: number | string
-  min_field?: string
-  minField?: string
-  max_field?: string
-  maxField?: string
-  suffix?: string
-  color?: string
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-function parseGaugeCardConfig(value: unknown): GaugeCardConfig | undefined {
-  if (isRecord(value)) {
-    return value as GaugeCardConfig
-  }
-
-  if (typeof value !== 'string') {
-    return undefined
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown
-    return isRecord(parsed) ? parsed as GaugeCardConfig : undefined
-  } catch {
-    return undefined
-  }
-}
 
 function parseOptionalNumber(value: unknown): number | undefined {
   if (value === null || value === undefined || value === '') {
@@ -86,13 +55,13 @@ watch(
   { deep: true },
 )
 
-const gaugeConfig = computed(() => parseGaugeCardConfig(props.widget.gauge_card))
+const gaugeConfig = computed(() => normalizeGaugeCardWidgetConfig(props.widget.gauge_card))
 const widgetData = computed(() => data.value?.data as DashboardWidgetTableData | null)
 const columns = computed(() => widgetData.value?.columns ?? [])
 const firstRow = computed(() => widgetData.value?.rows[0] ?? {})
-const valueField = computed(() => gaugeConfig.value?.value_field || gaugeConfig.value?.valueField || columns.value[0])
-const minField = computed(() => gaugeConfig.value?.min_field || gaugeConfig.value?.minField)
-const maxField = computed(() => gaugeConfig.value?.max_field || gaugeConfig.value?.maxField)
+const valueField = computed(() => gaugeConfig.value?.valueField || columns.value[0])
+const minField = computed(() => gaugeConfig.value?.minField)
+const maxField = computed(() => gaugeConfig.value?.maxField)
 const minValue = computed(() => {
   const dynamicMin = minField.value ? parseOptionalNumber(firstRow.value[minField.value]) : undefined
   return dynamicMin ?? parseOptionalNumber(gaugeConfig.value?.min) ?? 0

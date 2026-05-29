@@ -37,9 +37,32 @@ type WidgetEndpointsContext = {
 
 function formatWidgetConfigValidationErrors(error: { issues: { path: PropertyKey[], message: string }[] }) {
   return error.issues.map((issue) => ({
-    field: issue.path.length ? issue.path.map(String).join('.') : 'config',
+    field: issue.path.length ? formatWidgetConfigFieldPath(issue.path.map(String).join('.')) : 'config',
     message: issue.message,
   }));
+}
+
+function formatWidgetConfigApiValidationErrors(errors: DashboardWidgetConfigValidationError[]) {
+  return errors.map((error) => ({
+    ...error,
+    field: formatWidgetConfigFieldPath(error.field),
+  }));
+}
+
+function formatWidgetConfigFieldPath(field: string) {
+  const fieldAliases = new Map([
+    ['minWidth', 'min_width'],
+    ['maxWidth', 'max_width'],
+    ['dataSource', 'data_source'],
+    ['resourceId', 'resource_id'],
+    ['groupBy', 'group_by'],
+    ['pageSize', 'page_size'],
+  ]);
+
+  return field
+    .split('.')
+    .map((segment) => fieldAliases.get(segment) ?? segment)
+    .join('.');
 }
 
 export function registerWidgetEndpoints(
@@ -229,7 +252,7 @@ export function registerWidgetEndpoints(
         response.setStatus(422);
         return {
           error: 'Invalid widget config',
-          validationErrors: apiValidationErrors,
+          validationErrors: formatWidgetConfigApiValidationErrors(apiValidationErrors),
         };
       }
 
@@ -250,7 +273,7 @@ export function registerWidgetEndpoints(
   server.endpoint({
     method: 'POST',
     path: '/dashboard/get_dashboard_widget_data',
-    description: 'Loads query result data for one dashboard widget by dashboard slug and widget id.',
+    description: 'Loads widget data for one dashboard widget by dashboard slug and widget id.',
     request_schema: WidgetDataRequestSchema,
     response_schema: DashboardWidgetDataResponseSchema,
     handler: async ({ body, response }) => {

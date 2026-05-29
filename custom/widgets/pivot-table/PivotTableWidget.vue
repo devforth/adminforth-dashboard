@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useWidgetData } from '../../queries/useWidgetData.js'
+import {
+  normalizePivotTableWidgetConfig,
+} from '../../model/dashboard.types.js'
 import type { DashboardWidgetConfig, DashboardWidgetData } from '../../model/dashboard.types.js'
 import { formatChartLabel, formatChartValue, toFiniteNumber } from '../chart/chart.utils.js'
 
@@ -26,20 +29,15 @@ watch(
   { deep: true },
 )
 
-const pivotConfig = computed(() => props.widget.pivot_table as {
-  row_field?: string
-  column_field?: string
-  value_field?: string
-  aggregation?: 'count' | 'sum'
-} | undefined)
+const pivotConfig = computed(() => normalizePivotTableWidgetConfig(props.widget.pivot_table))
 const widgetData = computed(() => data.value?.data as DashboardWidgetData | null)
 const rows = computed(() => widgetData.value?.rows ?? [])
 const columns = computed(() => widgetData.value?.columns ?? [])
 const isAggregateData = computed(() => widgetData.value?.kind === 'aggregate')
-const shouldRenderAggregateMatrix = computed(() => isAggregateData.value && !pivotConfig.value?.column_field)
-const rowField = computed(() => pivotConfig.value?.row_field || (isAggregateData.value ? 'group' : columns.value[0]))
-const columnField = computed(() => pivotConfig.value?.column_field || columns.value[1])
-const valueField = computed(() => pivotConfig.value?.value_field || columns.value[2] || columns.value[1])
+const shouldRenderAggregateMatrix = computed(() => isAggregateData.value && !pivotConfig.value?.columnField)
+const rowField = computed(() => pivotConfig.value?.rowField || (isAggregateData.value ? 'group' : columns.value[0]))
+const columnField = computed(() => pivotConfig.value?.columnField || columns.value[1])
+const valueField = computed(() => pivotConfig.value?.valueField || columns.value[2] || columns.value[1])
 const aggregation = computed(() => pivotConfig.value?.aggregation || (valueField.value ? 'sum' : 'count'))
 const pivotColumnLabels = computed(() => {
   if (shouldRenderAggregateMatrix.value) {

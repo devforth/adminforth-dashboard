@@ -26,6 +26,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { DashboardWidgetConfig } from '../model/dashboard.types.js'
+import { normalizeChartWidgetConfig } from '../widgets/chart/chart.types.js'
 import { getWidgetLabel, getWidgetRegistration } from '../widgets/registry.js'
 
 const props = defineProps<{
@@ -52,7 +53,7 @@ const widgetTitle = computed(() => {
   }
 
   if (props.widget.target === 'chart') {
-    return props.widget.chart?.title || 'Untitled chart'
+    return normalizeChartWidgetConfig(props.widget.chart)?.title || 'Untitled chart'
   }
 
   return getWidgetLabel(props.widget.target)

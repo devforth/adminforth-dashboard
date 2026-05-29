@@ -211,6 +211,7 @@ import type {
   DashboardWidgetConfig,
   DashboardWidgetMoveDirection,
 } from '../model/dashboard.types.js'
+import { serializeDashboardWidgetConfigForEditor } from '../model/dashboard.types.js'
 
 const props = defineProps<{
   dashboardSlug: string
@@ -388,7 +389,7 @@ async function removeWidget(widgetId: string) {
 
 function editWidget(widget: DashboardWidgetConfig) {
   editingWidgetId.value = widget.id
-  widgetConfigCode.value = stringifyYaml(widget)
+  widgetConfigCode.value = stringifyYaml(serializeDashboardWidgetConfigForEditor(widget))
   widgetConfigError.value = ''
   widgetConfigFieldErrors.value = []
 }
