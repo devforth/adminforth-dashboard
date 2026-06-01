@@ -31,60 +31,68 @@ Each widget has common fields:
 | `order` | Widget order inside its group. |
 | `size` | Preset width: `small`, `medium`, `large`, `wide`, or `full`. |
 | `width`, `height`, `min_width`, `max_width` | Optional explicit layout constraints. |
-| `data_source` | Resource or aggregate data source definition. |
+| `query` | Data query definition. |
 
 ## Widget Support Matrix
 
 | Widget target | Config field | Main settings | Data usage |
 | --- | --- | --- | --- |
-| `table` | `table` | `pagination`, `page_size` | Uses `data_source.type = 'resource'` to display resource rows with backend pagination unless `pagination` is `false`. |
-| `chart` | `chart` | `type`, `x_field`, `y_field`, `label_field`, `value_field`, `bucket_field`, `buckets`, `series`, `series_name`, `color`, `colors` | Uses `data_source.type = 'aggregate'` with `group_by`. |
-| `kpi_card` | `kpi_card` | `value_field`, `label_field`, `prefix`, `suffix` | Reads aggregate values or the first returned row from `data_source`. |
-| `gauge_card` | `gauge_card` | `value_field`, `min`, `max`, `min_field`, `max_field`, `suffix`, `color` | Reads aggregate values or the first returned row from `data_source` and renders progress between static or field-driven bounds. |
-| `pivot_table` | `pivot_table` | `row_field`, `column_field`, `value_field`, `aggregation` | Uses grouped aggregate rows from `data_source.type = 'aggregate'`. `aggregation` supports `count` and `sum`. |
+| `table` | `table` | `pagination`, `page_size`, `columns` | Uses `query` to display raw or aggregate rows. |
+| `chart` | `chart` | `type`, `x`, `y`, `label`, `value`, `series`, `buckets`, `color`, `colors` | Uses `query`; funnel charts use `query.steps`. |
+| `kpi_card` | `card` | `value`, `subtitle`, `comparison`, `sparkline` | Reads the first returned query row. |
+| `gauge_card` | `card` | `value`, `target`, `progress`, `color` | Reads the first returned query row. |
+| `pivot_table` | `pivot` | `rows`, `columns`, `values` | Uses query rows to build a pivot table. |
 
 Chart widget types:
 
 | Chart type | Notes |
 | --- | --- |
-| `line` | Uses `x_field` and `y_field`; optional `series_name` and `color`. |
-| `pie` | Uses `label_field` and optional `value_field`; without `value_field`, rows are counted by label. |
-| `bar` | Uses `label_field` and `value_field`, or `bucket_field` with `buckets`. |
-| `stacked_bar` | Uses `x_field` and `series`; if `series` is omitted, non-x columns become series. |
-| `funnel` | Uses `label_field`, `value_field`, and optional `colors`. |
-| `histogram` | Uses the same bucket settings as `bar`. |
+| `line` | Uses `x` and `y`; `y` may contain multiple fields in config. |
+| `pie` | Uses `label` and `value`. |
+| `bar` | Uses `x` and `y`. |
+| `stacked_bar` | Uses `x`, `y`, and `series`. |
+| `funnel` | Uses `query.steps` and optional `label`, `value`, `colors`. |
+| `histogram` | Uses `x`, `y`, and optional `buckets`. |
 
-## Data Source Shape
+## Query Shape
 
 ```ts
-type WidgetDataSource =
-  | {
-      type: 'resource'
-      resource_id: string
-      columns?: string[]
-      filters?: unknown
-      sort?: unknown
-    }
-  | {
-      type: 'aggregate'
-      resource_id: string
-      aggregations: Record<string, {
-        operation: 'sum' | 'count' | 'avg' | 'min' | 'max' | 'median'
-        field?: string
-      }>
-      group_by?:
-        | { type: 'field'; field: string }
-        | {
-            type: 'date_trunc'
-            field: string
-            truncation: 'day' | 'week' | 'month' | 'year'
-            timezone?: string
-          }
-      filters?: unknown
-    }
+type QueryConfig = {
+  resource: string
+  select?: Array<
+    | { field: string; as?: string; grain?: 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' }
+    | { agg: 'sum' | 'count' | 'count_distinct' | 'avg' | 'min' | 'max' | 'median'; field?: string; as: string; filters?: unknown }
+    | { calc: string; as: string }
+  >
+  filters?: unknown
+  group_by?: Array<string | { field: string; as?: string; grain?: 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'; timezone?: string }>
+  order_by?: Array<{ field: string; direction?: 'asc' | 'desc' }>
+  limit?: number
+  offset?: number
+}
 ```
 
-  `resource_id` is an AdminForth `resourceId`. The data source is executed through AdminForth resources, so widgets use the same resource contracts as the rest of the application.
+Funnel charts use a steps query:
+
+```yaml
+target: chart
+chart:
+  type: funnel
+  title: Sales funnel
+query:
+  steps:
+    - name: Leads
+      resource: leads
+      metric:
+        agg: count
+        as: value
+    - name: Customers
+      resource: orders
+      metric:
+        agg: count_distinct
+        field: customer_id
+        as: value
+```
 
 ## Runtime Structure
 

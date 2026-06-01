@@ -113,10 +113,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useWidgetData } from '../../queries/useWidgetData.js'
-import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
+import { getFieldRefField } from '../../model/dashboard.types.js'
+import type { DashboardWidgetConfig, DashboardWidgetTableData, FieldRef } from '../../model/dashboard.types.js'
 
 type TableWidgetConfig = {
-  columns?: string[]
+  columns?: FieldRef[]
   pagination?: boolean
   pageSize?: number
 }
@@ -168,7 +169,11 @@ const tableData = computed(() => {
 
 const columns = computed(() => {
   const configuredColumns = tableConfig.value?.columns
-  return configuredColumns ?? tableData.value?.columns ?? []
+  if (configuredColumns) {
+    return configuredColumns.map((column) => getFieldRefField(column)).filter(Boolean) as string[]
+  }
+
+  return tableData.value?.columns ?? []
 })
 
 const pagination = computed(() => tableData.value?.pagination)

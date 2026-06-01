@@ -13,6 +13,7 @@ export function useElementSize<T extends HTMLElement>(): ElementSizeState<T> {
   const height = ref(0)
 
   let observer: ResizeObserver | undefined
+  let frameId: number | undefined
 
   onMounted(() => {
     observer = new ResizeObserver(([entry]) => {
@@ -20,8 +21,18 @@ export function useElementSize<T extends HTMLElement>(): ElementSizeState<T> {
         return
       }
 
-      width.value = Math.floor(entry.contentRect.width)
-      height.value = Math.floor(entry.contentRect.height)
+      const nextWidth = Math.floor(entry.contentRect.width)
+      const nextHeight = Math.floor(entry.contentRect.height)
+
+      if (frameId !== undefined) {
+        cancelAnimationFrame(frameId)
+      }
+
+      frameId = requestAnimationFrame(() => {
+        frameId = undefined
+        width.value = nextWidth
+        height.value = nextHeight
+      })
     })
 
     if (el.value) {
@@ -30,6 +41,10 @@ export function useElementSize<T extends HTMLElement>(): ElementSizeState<T> {
   })
 
   onBeforeUnmount(() => {
+    if (frameId !== undefined) {
+      cancelAnimationFrame(frameId)
+    }
+
     observer?.disconnect()
   })
 

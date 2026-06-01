@@ -1,42 +1,5 @@
 import type { ChartWidgetConfig } from '../widgets/chart/chart.types.js'
 
-export type AggregationOperation = 'sum' | 'count' | 'avg' | 'min' | 'max' | 'median'
-
-export type AggregationRule = {
-  operation: AggregationOperation
-  field?: string
-}
-
-export type GroupByRule =
-  | {
-      type: 'field'
-      field: string
-    }
-  | {
-      type: 'date_trunc'
-      field: string
-      truncation: 'day' | 'week' | 'month' | 'year'
-      timezone?: string
-    }
-
-export type ResourceWidgetDataSource = {
-  type: 'resource'
-  resourceId: string
-  columns?: string[]
-  sort?: unknown
-  filters?: unknown
-}
-
-export type AggregateWidgetDataSource = {
-  type: 'aggregate'
-  resourceId: string
-  aggregations: Record<string, AggregationRule>
-  groupBy?: GroupByRule
-  filters?: unknown
-}
-
-export type WidgetDataSource = ResourceWidgetDataSource | AggregateWidgetDataSource
-
 export type DashboardConfig = {
   version: number
   groups: DashboardGroupConfig[]
@@ -50,18 +13,19 @@ export type DashboardGroupConfig = {
 }
 
 export type DashboardGroupMoveDirection = 'up' | 'down'
-
 export type DashboardWidgetMoveDirection = 'up' | 'down'
-
-export type DashboardWidgetTarget =
-  | 'empty'
-  | 'table'
-  | 'chart'
-  | 'kpi_card'
-  | 'pivot_table'
-  | 'gauge_card'
-
+export type DashboardWidgetTarget = 'empty' | 'table' | 'chart' | 'kpi_card' | 'pivot_table' | 'gauge_card'
 export type DashboardWidgetSize = 'small' | 'medium' | 'large' | 'wide' | 'full'
+export type QueryAggregateOperation = 'sum' | 'count' | 'count_distinct' | 'avg' | 'min' | 'max' | 'median'
+export type TimeGrain = 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year'
+export type ValueFormat =
+  | 'number'
+  | 'compact_number'
+  | 'currency'
+  | 'percent'
+  | 'percent_delta'
+  | 'number_delta'
+  | 'currency_delta'
 
 export type WidgetLayout = {
   size?: DashboardWidgetSize
@@ -71,7 +35,7 @@ export type WidgetLayout = {
   height?: number
 }
 
-export type DashboardWidgetConfig = {
+export type WidgetBaseConfig = {
   id: string
   group_id: string
   label?: string
@@ -81,14 +45,199 @@ export type DashboardWidgetConfig = {
   minWidth?: number
   maxWidth?: number | null
   order: number
-  target: DashboardWidgetTarget
-  dataSource?: WidgetDataSource
-  chart?: ChartWidgetConfig
-  table?: unknown
-  kpi_card?: unknown
-  pivot_table?: unknown
-  gauge_card?: unknown
 }
+
+export type FilterExpression =
+  | { and: FilterExpression[] }
+  | { or: FilterExpression[] }
+  | Array<FilterExpression>
+  | {
+      field: string
+      eq?: unknown
+      neq?: unknown
+      gt?: unknown
+      gte?: unknown
+      lt?: unknown
+      lte?: unknown
+      in?: unknown[]
+      not_in?: unknown[]
+      like?: unknown
+      ilike?: unknown
+    }
+
+export type QueryFieldSelectItem = {
+  field: string
+  as?: string
+  grain?: TimeGrain
+}
+
+export type QueryAggregateSelectItem = {
+  agg: QueryAggregateOperation
+  field?: string
+  as: string
+  filters?: FilterExpression
+}
+
+export type QueryCalcSelectItem = {
+  calc: string
+  as: string
+}
+
+export type QuerySelectItem = QueryFieldSelectItem | QueryAggregateSelectItem | QueryCalcSelectItem
+
+export type QueryGroupByItem =
+  | string
+  | {
+      field: string
+      as?: string
+      grain?: TimeGrain
+      timezone?: string
+    }
+
+export type QueryOrderByItem = {
+  field: string
+  direction?: 'asc' | 'desc'
+}
+
+export type QueryConfig = {
+  resource: string
+  select?: QuerySelectItem[]
+  filters?: FilterExpression
+  groupBy?: QueryGroupByItem[]
+  orderBy?: QueryOrderByItem[]
+  limit?: number
+  offset?: number
+  timeSeries?: {
+    field: string
+    grain: TimeGrain
+    timezone?: string
+  }
+  period?: {
+    field: string
+    gte?: unknown
+    lt?: unknown
+  }
+  bucket?: {
+    field: string
+    buckets: Array<{ label: string, min?: number, max?: number }>
+  }
+  calcs?: QueryCalcSelectItem[]
+  formatting?: Record<string, unknown>
+}
+
+export type FunnelQueryConfig = {
+  steps: FunnelQueryStep[]
+}
+
+export type FunnelQueryStep = {
+  name: string
+  resource: string
+  metric: QueryAggregateSelectItem
+  filters?: FilterExpression
+}
+
+export type FieldRef = string | {
+  field: string
+  label?: string
+  format?: ValueFormat
+}
+
+export type TableViewConfig = {
+  columns?: FieldRef[]
+  pagination?: boolean
+  pageSize?: number
+}
+
+export type KpiCardViewConfig = {
+  title?: string
+  value: {
+    field: string
+    format?: ValueFormat
+    prefix?: string
+    suffix?: string
+  }
+  subtitle?: {
+    text?: string
+    field?: string
+  }
+  comparison?: unknown
+  sparkline?: unknown
+}
+
+export type GaugeCardViewConfig = {
+  title?: string
+  value: {
+    field: string
+    format?: ValueFormat
+    prefix?: string
+    suffix?: string
+  }
+  target?: {
+    value?: number
+    field?: string
+    label?: string
+  }
+  progress?: {
+    valueField: string
+    targetValue?: number
+    targetField?: string
+    format?: ValueFormat
+  }
+  color?: string
+}
+
+export type PivotTableViewConfig = {
+  rows: FieldRef[]
+  columns?: FieldRef[]
+  values: Array<{
+    field: string
+    label?: string
+    format?: ValueFormat
+    aggregation?: 'sum' | 'count' | 'avg' | 'min' | 'max'
+  }>
+}
+
+export type EmptyWidgetConfig = WidgetBaseConfig & {
+  target: 'empty'
+}
+
+export type TableWidgetConfig = WidgetBaseConfig & {
+  target: 'table'
+  table?: TableViewConfig
+  query: QueryConfig
+}
+
+export type ChartDashboardWidgetConfig = WidgetBaseConfig & {
+  target: 'chart'
+  chart: ChartWidgetConfig
+  query: QueryConfig | FunnelQueryConfig
+}
+
+export type KpiCardWidgetConfig = WidgetBaseConfig & {
+  target: 'kpi_card'
+  card: KpiCardViewConfig
+  query: QueryConfig
+}
+
+export type GaugeCardWidgetConfig = WidgetBaseConfig & {
+  target: 'gauge_card'
+  card: GaugeCardViewConfig
+  query: QueryConfig
+}
+
+export type PivotTableWidgetConfig = WidgetBaseConfig & {
+  target: 'pivot_table'
+  pivot: PivotTableViewConfig
+  query: QueryConfig
+}
+
+export type DashboardWidgetConfig =
+  | EmptyWidgetConfig
+  | TableWidgetConfig
+  | ChartDashboardWidgetConfig
+  | KpiCardWidgetConfig
+  | GaugeCardWidgetConfig
+  | PivotTableWidgetConfig
 
 export type DashboardWidgetTableData = {
   kind?: 'table'
@@ -107,33 +256,15 @@ export type DashboardWidgetAggregateData = {
   columns: string[]
   rows: Record<string, unknown>[]
   values?: Record<string, unknown>
+  pagination?: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }
 }
 
 export type DashboardWidgetData = DashboardWidgetTableData | DashboardWidgetAggregateData
-
-export type NormalizedKpiCardWidgetConfig = {
-  valueField?: string
-  labelField?: string
-  prefix?: string
-  suffix?: string
-}
-
-export type NormalizedGaugeCardWidgetConfig = {
-  valueField?: string
-  min?: number | string
-  max?: number | string
-  minField?: string
-  maxField?: string
-  suffix?: string
-  color?: string
-}
-
-export type NormalizedPivotTableWidgetConfig = {
-  rowField?: string
-  columnField?: string
-  valueField?: string
-  aggregation?: 'count' | 'sum'
-}
 
 export function normalizeDashboardConfig(config: unknown): DashboardConfig {
   const value = isRecord(config) ? config : {}
@@ -155,12 +286,20 @@ export function normalizeDashboardWidgetConfig(config: unknown) {
   const normalized: Record<string, unknown> = { ...config }
   normalizeWidgetLayoutConfig(normalized)
 
+  if (normalized.query !== undefined) {
+    normalized.query = normalizeQueryConfig(normalized.query)
+  }
+
   if (normalized.table !== undefined) {
     normalized.table = normalizeTableConfig(normalized.table)
   }
 
-  if (normalized.data_source !== undefined) {
-    normalized.dataSource = normalizeWidgetDataSource(normalized.data_source)
+  if (normalized.card !== undefined) {
+    normalized.card = normalizeCardConfig(normalized.card)
+  }
+
+  if (normalized.pivot !== undefined) {
+    normalized.pivot = normalizePivotConfig(normalized.pivot)
   }
 
   const target = normalizeDashboardWidgetTarget(normalized.target)
@@ -185,82 +324,31 @@ export function serializeDashboardWidgetConfigForEditor(widget: DashboardWidgetC
     delete serialized.maxWidth
   }
 
-  if (widget.table !== undefined) {
+  if ('query' in widget) {
+    serialized.query = serializeQueryConfigForEditor(widget.query)
+  }
+
+  if ('table' in widget && widget.table !== undefined) {
     serialized.table = serializeTableConfigForEditor(widget.table)
   }
 
-  if (widget.dataSource !== undefined) {
-    serialized.data_source = serializeWidgetDataSourceForEditor(widget.dataSource)
-    delete serialized.dataSource
+  if ('card' in widget && widget.card !== undefined) {
+    serialized.card = serializeCardConfigForEditor(widget.card)
+  }
+
+  if ('pivot' in widget && widget.pivot !== undefined) {
+    serialized.pivot = serializePivotConfigForEditor(widget.pivot)
   }
 
   return serialized
 }
 
-export function normalizeKpiCardWidgetConfig(value: unknown): NormalizedKpiCardWidgetConfig | undefined {
-  const config = asWidgetConfigRecord(value)
-
-  if (!config) {
-    return undefined
-  }
-
-  const valueField = getStringField(config, 'value_field')
-  const labelField = getStringField(config, 'label_field')
-  const prefix = getStringField(config, 'prefix')
-  const suffix = getStringField(config, 'suffix')
-
-  return {
-    ...(valueField !== undefined ? { valueField } : {}),
-    ...(labelField !== undefined ? { labelField } : {}),
-    ...(prefix !== undefined ? { prefix } : {}),
-    ...(suffix !== undefined ? { suffix } : {}),
-  }
+export function getFieldRefField(value: FieldRef | undefined) {
+  return typeof value === 'string' ? value : value?.field
 }
 
-export function normalizeGaugeCardWidgetConfig(value: unknown): NormalizedGaugeCardWidgetConfig | undefined {
-  const config = asWidgetConfigRecord(value)
-
-  if (!config) {
-    return undefined
-  }
-
-  const valueField = getStringField(config, 'value_field')
-  const minField = getStringField(config, 'min_field')
-  const maxField = getStringField(config, 'max_field')
-  const suffix = getStringField(config, 'suffix')
-  const color = getStringField(config, 'color')
-
-  return {
-    ...(valueField !== undefined ? { valueField } : {}),
-    ...(config.min !== undefined ? { min: config.min as number | string } : {}),
-    ...(config.max !== undefined ? { max: config.max as number | string } : {}),
-    ...(minField !== undefined ? { minField } : {}),
-    ...(maxField !== undefined ? { maxField } : {}),
-    ...(suffix !== undefined ? { suffix } : {}),
-    ...(color !== undefined ? { color } : {}),
-  }
-}
-
-export function normalizePivotTableWidgetConfig(value: unknown): NormalizedPivotTableWidgetConfig | undefined {
-  const config = asWidgetConfigRecord(value)
-
-  if (!config) {
-    return undefined
-  }
-
-  const rowField = getStringField(config, 'row_field')
-  const columnField = getStringField(config, 'column_field')
-  const valueField = getStringField(config, 'value_field')
-  const aggregation = config.aggregation === 'count' || config.aggregation === 'sum'
-    ? config.aggregation
-    : undefined
-
-  return {
-    ...(rowField !== undefined ? { rowField } : {}),
-    ...(columnField !== undefined ? { columnField } : {}),
-    ...(valueField !== undefined ? { valueField } : {}),
-    ...(aggregation !== undefined ? { aggregation } : {}),
-  }
+export function getFieldRefLabel(value: FieldRef | undefined) {
+  return typeof value === 'string' ? value : value?.label
 }
 
 function normalizeDashboardWidgetTarget(value: unknown): DashboardWidgetTarget | undefined {
@@ -287,138 +375,143 @@ function normalizeWidgetLayoutConfig(value: Record<string, unknown>) {
   }
 }
 
+function normalizeQueryConfig(value: unknown): unknown {
+  if (!isRecord(value)) {
+    return value
+  }
+
+  if (Array.isArray(value.steps)) {
+    return {
+      steps: value.steps.map((step) => normalizeFunnelQueryStep(step)),
+    }
+  }
+
+  return {
+    ...value,
+    ...(Array.isArray(value.group_by) ? { groupBy: value.group_by } : {}),
+    ...(Array.isArray(value.order_by) ? { orderBy: value.order_by } : {}),
+    ...(value.time_series !== undefined ? { timeSeries: value.time_series } : {}),
+  }
+}
+
+function normalizeFunnelQueryStep(value: unknown) {
+  if (!isRecord(value)) {
+    return value
+  }
+
+  return {
+    ...value,
+    ...(typeof value.resource_id === 'string' ? { resource: value.resource_id } : {}),
+  }
+}
+
 function normalizeTableConfig(value: unknown) {
+  if (!isRecord(value)) {
+    return value
+  }
+
+  return {
+    ...value,
+    ...(value.page_size !== undefined ? { pageSize: value.page_size } : {}),
+  }
+}
+
+function normalizeCardConfig(value: unknown): unknown {
   if (!isRecord(value)) {
     return value
   }
 
   const normalized = { ...value }
 
-  if (normalized.page_size !== undefined) {
-    normalized.pageSize = normalized.page_size
+  if (isRecord(normalized.progress)) {
+    normalized.progress = {
+      ...normalized.progress,
+      ...(normalized.progress.value_field !== undefined ? { valueField: normalized.progress.value_field } : {}),
+      ...(normalized.progress.target_value !== undefined ? { targetValue: normalized.progress.target_value } : {}),
+      ...(normalized.progress.target_field !== undefined ? { targetField: normalized.progress.target_field } : {}),
+    }
+  }
+
+  if (isRecord(normalized.comparison)) {
+    normalized.comparison = {
+      ...normalized.comparison,
+      ...(normalized.comparison.positive_is_good !== undefined ? { positiveIsGood: normalized.comparison.positive_is_good } : {}),
+    }
   }
 
   return normalized
 }
 
-function normalizeWidgetDataSource(value: unknown) {
-  if (!isRecord(value) || typeof value.type !== 'string') {
-    return value
-  }
-
-  const resourceId = typeof value.resource_id === 'string'
-    ? value.resource_id
-    : undefined
-
-  if (value.type === 'resource') {
-    return {
-      type: 'resource',
-      ...(resourceId !== undefined ? { resourceId } : {}),
-      ...(value.columns !== undefined ? { columns: value.columns } : {}),
-      ...(value.filters !== undefined ? { filters: value.filters } : {}),
-      ...(value.sort !== undefined ? { sort: value.sort } : {}),
-    }
-  }
-
-  if (value.type === 'aggregate') {
-    const groupBy = normalizeGroupByRule(value.group_by)
-
-    return {
-      type: 'aggregate',
-      ...(resourceId !== undefined ? { resourceId } : {}),
-      ...(value.aggregations !== undefined ? { aggregations: value.aggregations } : {}),
-      ...(groupBy !== undefined ? { groupBy } : {}),
-      ...(value.filters !== undefined ? { filters: value.filters } : {}),
-    }
-  }
-
+function normalizePivotConfig(value: unknown): unknown {
   return value
 }
 
-function normalizeGroupByRule(value: unknown) {
-  if (!isRecord(value) || typeof value.type !== 'string') {
-    return value
-  }
-
-  if (value.type === 'field') {
+function serializeQueryConfigForEditor(value: QueryConfig | FunnelQueryConfig) {
+  if ('steps' in value) {
     return {
-      type: 'field',
-      ...(value.field !== undefined ? { field: value.field } : {}),
+      steps: value.steps.map((step) => ({
+        ...step,
+        resource_id: step.resource,
+        resource: undefined,
+      })).map((step) => removeUndefinedFields(step)),
     }
   }
 
-  if (value.type === 'date_trunc') {
-    return {
-      type: 'date_trunc',
-      ...(value.field !== undefined ? { field: value.field } : {}),
-      ...(value.truncation !== undefined ? { truncation: value.truncation } : {}),
-      ...(value.timezone !== undefined ? { timezone: value.timezone } : {}),
-    }
+  return removeUndefinedFields({
+    ...value,
+    group_by: value.groupBy,
+    groupBy: undefined,
+    order_by: value.orderBy,
+    orderBy: undefined,
+    time_series: value.timeSeries,
+    timeSeries: undefined,
+  })
+}
+
+function serializeTableConfigForEditor(value: TableViewConfig) {
+  return removeUndefinedFields({
+    ...value,
+    page_size: value.pageSize,
+    pageSize: undefined,
+  })
+}
+
+function serializeCardConfigForEditor(value: KpiCardViewConfig | GaugeCardViewConfig) {
+  const serialized: Record<string, unknown> = { ...value }
+
+  if (isRecord(serialized.progress)) {
+    serialized.progress = removeUndefinedFields({
+      ...serialized.progress,
+      value_field: serialized.progress.valueField,
+      valueField: undefined,
+      target_value: serialized.progress.targetValue,
+      targetValue: undefined,
+      target_field: serialized.progress.targetField,
+      targetField: undefined,
+    })
   }
 
+  if (isRecord(serialized.comparison)) {
+    serialized.comparison = removeUndefinedFields({
+      ...serialized.comparison,
+      positive_is_good: serialized.comparison.positiveIsGood,
+      positiveIsGood: undefined,
+    })
+  }
+
+  return removeUndefinedFields(serialized)
+}
+
+function serializePivotConfigForEditor(value: PivotTableViewConfig) {
   return value
 }
 
-function serializeTableConfigForEditor(value: unknown) {
-  if (!isRecord(value)) {
-    return value
-  }
-
-  const serialized = { ...value }
-
-  if (Object.prototype.hasOwnProperty.call(serialized, 'pageSize')) {
-    serialized.page_size = serialized.pageSize
-    delete serialized.pageSize
-  }
-
-  return serialized
+function removeUndefinedFields<T extends Record<string, unknown>>(value: T) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, item]) => item !== undefined),
+  )
 }
 
-function serializeWidgetDataSourceForEditor(value: WidgetDataSource) {
-  if (value.type === 'resource') {
-    return {
-      type: 'resource',
-      resource_id: value.resourceId,
-      ...(value.columns !== undefined ? { columns: value.columns } : {}),
-      ...(value.filters !== undefined ? { filters: value.filters } : {}),
-      ...(value.sort !== undefined ? { sort: value.sort } : {}),
-    }
-  }
-
-  return {
-    type: 'aggregate',
-    resource_id: value.resourceId,
-    aggregations: value.aggregations,
-    ...(value.groupBy !== undefined ? { group_by: serializeGroupByRuleForEditor(value.groupBy) } : {}),
-    ...(value.filters !== undefined ? { filters: value.filters } : {}),
-  }
-}
-
-function serializeGroupByRuleForEditor(value: GroupByRule) {
-  if (value.type === 'field') {
-    return {
-      type: 'field',
-      field: value.field,
-    }
-  }
-
-  return {
-    type: 'date_trunc',
-    field: value.field,
-    truncation: value.truncation,
-    ...(value.timezone !== undefined ? { timezone: value.timezone } : {}),
-  }
-}
-
-function asWidgetConfigRecord(value: unknown): Record<string, unknown> | undefined {
-  return isRecord(value) ? value : undefined
-}
-
-function getStringField(record: Record<string, unknown>, key: string) {
-  const value = record[key]
-  return typeof value === 'string' ? value : undefined
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
+function isRecord(value: unknown): value is Record<string, any> {
   return typeof value === 'object' && value !== null
 }

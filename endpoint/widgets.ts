@@ -53,10 +53,13 @@ function formatWidgetConfigFieldPath(field: string) {
   const fieldAliases = new Map([
     ['minWidth', 'min_width'],
     ['maxWidth', 'max_width'],
-    ['dataSource', 'data_source'],
-    ['resourceId', 'resource_id'],
     ['groupBy', 'group_by'],
+    ['orderBy', 'order_by'],
     ['pageSize', 'page_size'],
+    ['timeSeries', 'time_series'],
+    ['valueField', 'value_field'],
+    ['targetValue', 'target_value'],
+    ['targetField', 'target_field'],
   ]);
 
   return field

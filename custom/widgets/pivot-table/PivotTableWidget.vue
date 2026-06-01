@@ -2,7 +2,7 @@
 import { computed, watch } from 'vue'
 import { useWidgetData } from '../../queries/useWidgetData.js'
 import {
-  normalizePivotTableWidgetConfig,
+  getFieldRefField,
 } from '../../model/dashboard.types.js'
 import type { DashboardWidgetConfig, DashboardWidgetData } from '../../model/dashboard.types.js'
 import { formatChartLabel, formatChartValue, toFiniteNumber } from '../chart/chart.utils.js'
@@ -29,16 +29,17 @@ watch(
   { deep: true },
 )
 
-const pivotConfig = computed(() => normalizePivotTableWidgetConfig(props.widget.pivot_table))
+const pivotConfig = computed(() => props.widget.target === 'pivot_table' ? props.widget.pivot : undefined)
 const widgetData = computed(() => data.value?.data as DashboardWidgetData | null)
 const rows = computed(() => widgetData.value?.rows ?? [])
 const columns = computed(() => widgetData.value?.columns ?? [])
 const isAggregateData = computed(() => widgetData.value?.kind === 'aggregate')
-const shouldRenderAggregateMatrix = computed(() => isAggregateData.value && !pivotConfig.value?.columnField)
-const rowField = computed(() => pivotConfig.value?.rowField || (isAggregateData.value ? 'group' : columns.value[0]))
-const columnField = computed(() => pivotConfig.value?.columnField || columns.value[1])
-const valueField = computed(() => pivotConfig.value?.valueField || columns.value[2] || columns.value[1])
-const aggregation = computed(() => pivotConfig.value?.aggregation || (valueField.value ? 'sum' : 'count'))
+const shouldRenderAggregateMatrix = computed(() => isAggregateData.value && !pivotConfig.value?.columns?.length)
+const rowField = computed(() => getFieldRefField(pivotConfig.value?.rows[0]) || columns.value[0])
+const columnField = computed(() => getFieldRefField(pivotConfig.value?.columns?.[0]) || columns.value[1])
+const valueConfig = computed(() => pivotConfig.value?.values[0])
+const valueField = computed(() => valueConfig.value?.field || columns.value[2] || columns.value[1])
+const aggregation = computed(() => valueConfig.value?.aggregation || (valueField.value ? 'sum' : 'count'))
 const pivotColumnLabels = computed(() => {
   if (shouldRenderAggregateMatrix.value) {
     return columns.value.filter((column) => column !== rowField.value)

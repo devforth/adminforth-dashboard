@@ -26,7 +26,7 @@
       :rows="rows"
       :x-field="xField"
       :y-field="yField"
-      :series-name="chartConfig.seriesName"
+      :series-name="lineSeriesName"
       :color="chartConfig.color"
       :height="chartHeight"
     />
@@ -71,7 +71,8 @@
       v-else-if="chartConfig?.type === 'stacked_bar'"
       :rows="rows"
       :x-field="xField"
-      :series="stackedBarSeries"
+      :y-field="yField"
+      :series-field="seriesField"
       :colors="chartConfig.colors"
       :height="chartHeight"
     />
@@ -98,7 +99,7 @@ import HistogramChart from './histogram/HistogramChart.vue'
 import LineChart from './line/LineChart.vue'
 import PieChart from './pie/PieChart.vue'
 import StackedBarChart from './stacked-bar/StackedBarChart.vue'
-import { formatChartLabel, toFiniteNumber } from './chart.utils.js'
+import { toFiniteNumber } from './chart.utils.js'
 
 const DEFAULT_WIDGET_HEIGHT = 500
 
@@ -128,15 +129,6 @@ const chartData = computed(() => data.value?.data as DashboardWidgetTableData | 
 const rows = computed(() => chartData.value?.rows ?? [])
 const columns = computed(() => chartData.value?.columns ?? [])
 const chartConfig = computed(() => normalizeChartWidgetConfig(props.widget.chart))
-const aggregateGroupField = computed(() => {
-  const dataSource = props.widget.dataSource
-
-  if (dataSource?.type !== 'aggregate' || !dataSource.groupBy) {
-    return undefined
-  }
-
-  return dataSource.groupBy.field
-})
 
 function resolveChartDimensionField(field: string | undefined, fallbackField: string | undefined) {
   const resolvedField = field ?? fallbackField
@@ -149,41 +141,24 @@ function resolveChartDimensionField(field: string | undefined, fallbackField: st
     return resolvedField
   }
 
-  if (
-    aggregateGroupField.value
-    && resolvedField === aggregateGroupField.value
-    && columns.value.includes('group')
-  ) {
-    return 'group'
-  }
-
   return resolvedField
 }
 
-const xField = computed(() => resolveChartDimensionField(chartConfig.value?.xField, columns.value[0]))
-const yField = computed(() => chartConfig.value?.yField || columns.value[1])
-const labelField = computed(() => resolveChartDimensionField(chartConfig.value?.labelField, columns.value[0]))
-const valueField = computed(() => chartConfig.value?.valueField || columns.value[1])
-const pieRows = computed(() => {
-  if (chartConfig.value?.valueField) {
-    return rows.value
-  }
-
-  const groupedRows = new Map<string, { label: string, value: number }>()
-
-  for (const row of rows.value) {
-    const label = formatChartLabel(row[labelField.value])
-    const item = groupedRows.get(label) ?? { label, value: 0 }
-    item.value += 1
-    groupedRows.set(label, item)
-  }
-
-  return Array.from(groupedRows.values())
+const firstYField = computed(() => {
+  const y = chartConfig.value?.y
+  return Array.isArray(y) ? y[0]?.field : y?.field
 })
-const pieLabelField = computed(() => chartConfig.value?.valueField ? labelField.value : 'label')
-const pieValueField = computed(() => chartConfig.value?.valueField ? valueField.value : 'value')
+const xField = computed(() => resolveChartDimensionField(chartConfig.value?.x?.field, columns.value[0]))
+const yField = computed(() => firstYField.value || columns.value[1])
+const labelField = computed(() => resolveChartDimensionField(chartConfig.value?.label?.field, columns.value[0] || 'name'))
+const valueField = computed(() => chartConfig.value?.value?.field || columns.value[1] || 'value')
+const pieRows = computed(() => rows.value)
+const pieLabelField = computed(() => labelField.value)
+const pieValueField = computed(() => valueField.value)
 const barRows = computed(() => {
-  const bucketField = chartConfig.value?.bucketField
+  const bucketField = chartConfig.value?.type === 'histogram'
+    ? chartConfig.value.x?.field
+    : undefined
 
   if (!bucketField) {
     return rows.value
@@ -200,19 +175,12 @@ const barRows = computed(() => {
     }).length,
   }))
 })
-const barLabelField = computed(() => chartConfig.value?.bucketField ? 'label' : labelField.value)
-const barValueField = computed(() => chartConfig.value?.bucketField ? 'count' : valueField.value)
-const stackedBarSeries = computed(() => {
-  if (chartConfig.value?.series?.length) {
-    return chartConfig.value.series
-  }
-
-  return columns.value
-    .filter((column) => column !== xField.value)
-    .map((column) => ({
-      name: column,
-      field: column,
-    }))
+const barLabelField = computed(() => chartConfig.value?.type === 'histogram' && chartConfig.value.buckets ? 'label' : xField.value)
+const barValueField = computed(() => chartConfig.value?.type === 'histogram' && chartConfig.value.buckets ? 'count' : yField.value)
+const seriesField = computed(() => chartConfig.value?.series?.field || columns.value[2] || '')
+const lineSeriesName = computed(() => {
+  const y = chartConfig.value?.y
+  return Array.isArray(y) ? y[0]?.label : undefined
 })
 
 const chartHeight = computed(() => {

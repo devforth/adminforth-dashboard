@@ -18,6 +18,17 @@ export function formatChartValue(value: number, options: Intl.NumberFormatOption
   return new Intl.NumberFormat(undefined, options).format(value)
 }
 
+export function getChartYAxisWidth(values: number[], chartWidth: number) {
+  const maxLabelLength = Math.max(
+    ...values.map((value) => formatChartValue(value).length),
+    1,
+  )
+  const estimatedWidth = Math.ceil(maxLabelLength * 6.5) + 18
+  const responsiveMaxWidth = Math.max(Math.floor(chartWidth * 0.36), 38)
+
+  return Math.min(Math.max(estimatedWidth, 38), responsiveMaxWidth, 120)
+}
+
 export function formatChartLabel(value: unknown) {
   if (typeof value !== 'string') {
     return String(value)

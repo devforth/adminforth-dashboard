@@ -48,9 +48,11 @@ const funnelRows = computed(() => {
     groupedRows.set(label, item)
   }
 
-  return Array.from(groupedRows.values())
-    .filter((row) => row.value > 0)
-    .sort((left, right) => right.value - left.value)
+  const rows = Array.from(groupedRows.values()).filter((row) => row.value > 0)
+
+  return props.labelField === 'name'
+    ? rows
+    : rows.sort((left, right) => right.value - left.value)
 })
 
 const maxValue = computed(() => {

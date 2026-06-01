@@ -1,6 +1,5 @@
 import type { IAdminForth } from 'adminforth';
-import type { DashboardWidgetConfig } from '../custom/model/dashboard.types.js';
-import { normalizeChartWidgetConfig } from '../custom/widgets/chart/chart.types.js';
+import type { DashboardWidgetConfig, QueryConfig } from '../custom/model/dashboard.types.js';
 import type { DashboardWidgetConfigValidationError } from '../schema/widget.js';
 
 export type WidgetConfigValidatorService = {
@@ -13,50 +12,44 @@ export function validateDashboardWidgetApiConfig(
   adminforth: IAdminForth,
   widget: DashboardWidgetConfig,
 ): DashboardWidgetConfigValidationError[] {
-  if (widget.target !== 'chart') {
+  if (!('query' in widget)) {
     return [];
   }
 
-  const errors: DashboardWidgetConfigValidationError[] = [];
-
-  const chart = normalizeChartWidgetConfig(widget.chart);
-
-  if (!chart) {
-    errors.push({
-      field: 'chart',
-      message: 'Chart widget must have chart config',
-    });
-    return errors;
+  if ('steps' in widget.query) {
+    return widget.query.steps.flatMap((step, index) => validateResource(
+      adminforth,
+      step.resource,
+      `query.steps.${index}.resource`,
+    ));
   }
 
-  const aggregateDataSource = getAggregateDataSource(widget.dataSource);
+  return validateQueryConfig(adminforth, widget.query, 'query');
+}
 
-  if (aggregateDataSource) {
-    const resource = adminforth.config.resources.find((item) => item.resourceId === aggregateDataSource.resourceId);
+function validateQueryConfig(
+  adminforth: IAdminForth,
+  query: QueryConfig,
+  fieldPrefix: string,
+): DashboardWidgetConfigValidationError[] {
+  return validateResource(adminforth, query.resource, `${fieldPrefix}.resource`);
+}
 
-    if (!resource) {
-      errors.push({
-        field: 'data_source.resource_id',
-        message: `Resource "${aggregateDataSource.resourceId}" is not registered`,
-      });
-    }
+function validateResource(
+  adminforth: IAdminForth,
+  resourceId: string,
+  field: string,
+): DashboardWidgetConfigValidationError[] {
+  const resource = adminforth.config.resources.find((item) => item.resourceId === resourceId);
 
-    if (!aggregateDataSource.groupBy) {
-      errors.push({
-        field: 'data_source.group_by',
-        message: 'Chart aggregate dataSource must define groupBy',
-      });
-    }
-
-    return errors;
+  if (resource) {
+    return [];
   }
 
-  errors.push({
-    field: 'data_source',
-    message: 'Chart widget must have aggregate dataSource config',
-  });
-
-  return errors;
+  return [{
+    field,
+    message: `Resource "${resourceId}" is not registered`,
+  }];
 }
 
 export function createWidgetConfigValidatorService(
@@ -64,22 +57,5 @@ export function createWidgetConfigValidatorService(
 ): WidgetConfigValidatorService {
   return {
     validateDashboardWidgetApiConfig: (widget) => validateDashboardWidgetApiConfig(adminforth, widget),
-  };
-}
-
-function getAggregateDataSource(dataSource: unknown) {
-  if (
-    typeof dataSource !== 'object'
-    || dataSource === null
-    || (dataSource as { type?: string }).type !== 'aggregate'
-    || typeof (dataSource as { resourceId?: unknown }).resourceId !== 'string'
-  ) {
-    return null;
-  }
-
-  return dataSource as {
-    type: 'aggregate';
-    resourceId: string;
-    groupBy?: unknown;
   };
 }

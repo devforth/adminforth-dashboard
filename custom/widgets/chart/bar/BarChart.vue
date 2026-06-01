@@ -83,7 +83,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useElementSize } from '../../../composables/useElementSize.js'
-import { CHART_COLORS, formatChartAxisLabel, formatChartLabel, formatChartValue, toFiniteNumber } from '../chart.utils.js'
+import {
+  CHART_COLORS,
+  formatChartAxisLabel,
+  formatChartLabel,
+  formatChartValue,
+  getChartYAxisWidth,
+  toFiniteNumber,
+} from '../chart.utils.js'
 
 const props = withDefaults(defineProps<{
   rows: Record<string, unknown>[]
@@ -97,12 +104,6 @@ const props = withDefaults(defineProps<{
 
 const { el: rootEl, width: rootWidth, height: rootHeight } = useElementSize<HTMLDivElement>()
 
-const padding = {
-  top: 20,
-  right: 6,
-  bottom: 34,
-  left: 38,
-}
 const chartWidth = computed(() => Math.max(rootWidth.value, 1))
 const chartHeight = computed(() => {
   if (rootHeight.value > 0) {
@@ -115,8 +116,15 @@ const chartHeight = computed(() => {
 const chartColor = computed(() => props.color || CHART_COLORS[0])
 const values = computed(() => props.rows.map((row) => toFiniteNumber(row[props.valueField])))
 const maxValue = computed(() => Math.max(...values.value, 1))
-const innerWidth = computed(() => Math.max(chartWidth.value - padding.left - padding.right, 1))
-const innerHeight = computed(() => Math.max(chartHeight.value - padding.top - padding.bottom, 1))
+const yTickValues = computed(() => [maxValue.value, maxValue.value * 0.5, 0])
+const padding = computed(() => ({
+  top: 20,
+  right: 6,
+  bottom: 34,
+  left: getChartYAxisWidth(yTickValues.value, chartWidth.value),
+}))
+const innerWidth = computed(() => Math.max(chartWidth.value - padding.value.left - padding.value.right, 1))
+const innerHeight = computed(() => Math.max(chartHeight.value - padding.value.top - padding.value.bottom, 1))
 const barGap = 12
 const barWidth = computed(() => {
   const count = Math.max(props.rows.length, 1)
@@ -126,7 +134,7 @@ const totalChartWidth = computed(() => {
   const count = Math.max(props.rows.length, 1)
   return count * barWidth.value + (count - 1) * barGap
 })
-const chartStartX = computed(() => padding.left + Math.max((innerWidth.value - totalChartWidth.value) / 2, 0))
+const chartStartX = computed(() => padding.value.left + Math.max((innerWidth.value - totalChartWidth.value) / 2, 0))
 const visibleLabelIndexes = computed(() => {
   const count = props.rows.length
   const approxLabelWidth = 52
@@ -155,13 +163,13 @@ const bars = computed(() => props.rows.map((row, index) => {
     axisLabel: formatChartAxisLabel(row[props.labelField]),
     value,
     x: chartStartX.value + index * (barWidth.value + barGap),
-    y: padding.top + innerHeight.value - height,
+    y: padding.value.top + innerHeight.value - height,
     height,
   }
 }))
 
 const yTicks = computed(() => [0, 0.5, 1].map((ratio) => ({
   value: maxValue.value * (1 - ratio),
-  y: padding.top + innerHeight.value * ratio,
+  y: padding.value.top + innerHeight.value * ratio,
 })))
 </script>

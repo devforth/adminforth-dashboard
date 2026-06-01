@@ -1,13 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useElementSize } from '../../../composables/useElementSize.js'
-import type { ChartWidgetSeriesConfig } from '../chart.types.js'
-import { CHART_COLORS, formatChartAxisLabel, formatChartLabel, formatChartValue, toFiniteNumber } from '../chart.utils.js'
+import {
+  CHART_COLORS,
+  formatChartAxisLabel,
+  formatChartLabel,
+  formatChartValue,
+  getChartYAxisWidth,
+  toFiniteNumber,
+} from '../chart.utils.js'
 
 const props = withDefaults(defineProps<{
   rows: Record<string, unknown>[]
   xField: string
-  series: ChartWidgetSeriesConfig[]
+  yField: string
+  seriesField: string
   colors?: string[]
   height?: number
 }>(), {
@@ -17,16 +24,11 @@ const props = withDefaults(defineProps<{
 const { el: rootEl, width: rootWidth } = useElementSize<HTMLDivElement>()
 const { el: svgEl, width: svgWidth, height: svgHeight } = useElementSize<HTMLDivElement>()
 
-const padding = {
-  top: 24,
-  right: 6,
-  bottom: 34,
-  left: 38,
-}
 const barGap = 10
-const normalizedSeries = computed(() => props.series.map((series, index) => ({
-  ...series,
-  color: series.color || props.colors?.[index] || CHART_COLORS[index % CHART_COLORS.length],
+const seriesNames = computed(() => Array.from(new Set(props.rows.map((row) => formatChartLabel(row[props.seriesField])))))
+const normalizedSeries = computed(() => seriesNames.value.map((name, index) => ({
+  name,
+  color: props.colors?.[index] || CHART_COLORS[index % CHART_COLORS.length],
 })))
 const showLegend = computed(() => normalizedSeries.value.length > 0)
 const isCompact = computed(() => rootWidth.value > 0 && rootWidth.value < 420)
@@ -38,19 +40,15 @@ const chartHeight = computed(() => {
 
   return Math.max(props.height - (showLegend.value ? 28 : 0), 96)
 })
-const innerWidth = computed(() => Math.max(chartWidth.value - padding.left - padding.right, 1))
-const innerHeight = computed(() => Math.max(chartHeight.value - padding.top - padding.bottom, 1))
 const groupedRows = computed(() => {
   const grouped = new Map<string, Record<string, unknown>>()
 
   for (const row of props.rows) {
     const label = formatChartLabel(row[props.xField])
     const item = grouped.get(label) ?? { [props.xField]: label }
+    const seriesName = formatChartLabel(row[props.seriesField])
 
-    for (const series of normalizedSeries.value) {
-      item[series.name] = toFiniteNumber(item[series.name])
-        + getSeriesContribution(row[series.field], series.name)
-    }
+    item[seriesName] = toFiniteNumber(item[seriesName]) + toFiniteNumber(row[props.yField])
 
     grouped.set(label, item)
   }
@@ -65,15 +63,24 @@ const totalChartWidth = computed(() => {
   const count = Math.max(groupedRows.value.length, 1)
   return count * barWidth.value + (count - 1) * barGap
 })
-const chartStartX = computed(() => padding.left + Math.max((innerWidth.value - totalChartWidth.value) / 2, 0))
+const chartStartX = computed(() => padding.value.left + Math.max((innerWidth.value - totalChartWidth.value) / 2, 0))
 const totals = computed(() => groupedRows.value.map((row) => normalizedSeries.value.reduce(
   (sum, series) => sum + toFiniteNumber(row[series.name]),
   0,
 )))
 const maxTotal = computed(() => Math.max(...totals.value, 1))
+const yTickValues = computed(() => [maxTotal.value, maxTotal.value * 0.5, 0])
+const padding = computed(() => ({
+  top: 24,
+  right: 6,
+  bottom: 34,
+  left: getChartYAxisWidth(yTickValues.value, chartWidth.value),
+}))
+const innerWidth = computed(() => Math.max(chartWidth.value - padding.value.left - padding.value.right, 1))
+const innerHeight = computed(() => Math.max(chartHeight.value - padding.value.top - padding.value.bottom, 1))
 
 const bars = computed(() => groupedRows.value.map((row, rowIndex) => {
-  let y = padding.top + innerHeight.value
+  let y = padding.value.top + innerHeight.value
 
   return {
     label: String(row[props.xField]),
@@ -118,30 +125,8 @@ const visibleLabelIndexes = computed(() => {
 
 const yTicks = computed(() => [0, 0.5, 1].map((ratio) => ({
   value: maxTotal.value * (1 - ratio),
-  y: padding.top + innerHeight.value * ratio,
+  y: padding.value.top + innerHeight.value * ratio,
 })))
-
-function getSeriesContribution(value: unknown, seriesName: string) {
-  if (typeof value === 'boolean') {
-    return value === getBooleanSeriesValue(seriesName) ? 1 : 0
-  }
-
-  if (typeof value === 'string' && ['true', 'false'].includes(value.toLowerCase())) {
-    return (value.toLowerCase() === 'true') === getBooleanSeriesValue(seriesName) ? 1 : 0
-  }
-
-  return toFiniteNumber(value)
-}
-
-function getBooleanSeriesValue(seriesName: string) {
-  const normalizedName = seriesName.toLowerCase()
-
-  if (normalizedName.includes('unlisted') || normalizedName.includes('false')) {
-    return false
-  }
-
-  return true
-}
 
 function getBarTooltip(bar: { label: string, total: number, segments: Array<{ name: string, value: number }> }) {
   const percentFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 })

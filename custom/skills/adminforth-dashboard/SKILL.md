@@ -119,7 +119,11 @@ Use the current schema keys exactly:
 
 - Use `target`, not `type`.
 - Use `label`, not `title`.
-- Use `data_source`, not `dataSource`.
-- Use `resource_id`, not `resourceId`.
+- Use `query`, not `data_source`.
+- Use `resource`, not `resource_id`.
 - Use `group_by`, not `groupBy`.
+- Use `order_by`, not `orderBy`.
 - Use `page_size`, not `pageSize`.
+- For funnel charts, use `query.steps` as an ordered array of `{ name, resource, metric, filters }` steps.
+- Use `card` for KPI and gauge widget view config.
+- Use `pivot` for pivot table view config.

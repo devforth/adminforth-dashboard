@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useWidgetData } from '../../queries/useWidgetData.js'
-import {
-  normalizeKpiCardWidgetConfig,
-} from '../../model/dashboard.types.js'
 import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
 import { formatChartValue, toFiniteNumber } from '../chart/chart.utils.js'
 
@@ -29,15 +26,16 @@ watch(
   { deep: true },
 )
 
-const kpiConfig = computed(() => normalizeKpiCardWidgetConfig(props.widget.kpi_card))
+const kpiConfig = computed(() => props.widget.target === 'kpi_card' ? props.widget.card : undefined)
 const widgetData = computed(() => data.value?.data as DashboardWidgetTableData | null)
 const columns = computed(() => widgetData.value?.columns ?? [])
 const firstRow = computed(() => widgetData.value?.rows[0] ?? {})
-const valueField = computed(() => kpiConfig.value?.valueField || columns.value[0])
-const labelField = computed(() => kpiConfig.value?.labelField)
+const valueField = computed(() => kpiConfig.value?.value.field || columns.value[0])
 const value = computed(() => toFiniteNumber(firstRow.value[valueField.value]))
-const label = computed(() => labelField.value ? String(firstRow.value[labelField.value]) : props.widget.label)
-const formattedValue = computed(() => `${kpiConfig.value?.prefix ?? ''}${formatChartValue(value.value)}${kpiConfig.value?.suffix ?? ''}`)
+const label = computed(() => kpiConfig.value?.subtitle?.field
+  ? String(firstRow.value[kpiConfig.value.subtitle.field])
+  : kpiConfig.value?.subtitle?.text ?? kpiConfig.value?.title ?? props.widget.label)
+const formattedValue = computed(() => `${kpiConfig.value?.value.prefix ?? ''}${formatChartValue(value.value)}${kpiConfig.value?.value.suffix ?? ''}`)
 </script>
 
 <template>

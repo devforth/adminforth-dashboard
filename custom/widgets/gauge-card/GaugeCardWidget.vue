@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useWidgetData } from '../../queries/useWidgetData.js'
-import {
-  normalizeGaugeCardWidgetConfig,
-} from '../../model/dashboard.types.js'
 import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
 import { CHART_COLORS, formatChartValue, toFiniteNumber } from '../chart/chart.utils.js'
 
@@ -55,20 +52,18 @@ watch(
   { deep: true },
 )
 
-const gaugeConfig = computed(() => normalizeGaugeCardWidgetConfig(props.widget.gauge_card))
+const gaugeConfig = computed(() => props.widget.target === 'gauge_card' ? props.widget.card : undefined)
 const widgetData = computed(() => data.value?.data as DashboardWidgetTableData | null)
 const columns = computed(() => widgetData.value?.columns ?? [])
 const firstRow = computed(() => widgetData.value?.rows[0] ?? {})
-const valueField = computed(() => gaugeConfig.value?.valueField || columns.value[0])
-const minField = computed(() => gaugeConfig.value?.minField)
-const maxField = computed(() => gaugeConfig.value?.maxField)
+const valueField = computed(() => gaugeConfig.value?.value.field || columns.value[0])
+const targetField = computed(() => gaugeConfig.value?.target?.field ?? gaugeConfig.value?.progress?.targetField)
 const minValue = computed(() => {
-  const dynamicMin = minField.value ? parseOptionalNumber(firstRow.value[minField.value]) : undefined
-  return dynamicMin ?? parseOptionalNumber(gaugeConfig.value?.min) ?? 0
+  return 0
 })
 const maxValue = computed(() => {
-  const dynamicMax = maxField.value ? parseOptionalNumber(firstRow.value[maxField.value]) : undefined
-  return dynamicMax ?? parseOptionalNumber(gaugeConfig.value?.max) ?? 100
+  const dynamicMax = targetField.value ? parseOptionalNumber(firstRow.value[targetField.value]) : undefined
+  return dynamicMax ?? parseOptionalNumber(gaugeConfig.value?.target?.value ?? gaugeConfig.value?.progress?.targetValue) ?? 100
 })
 const value = computed(() => toFiniteNumber(firstRow.value[valueField.value]))
 const fractionDigits = computed(() => Math.min([
@@ -148,7 +143,7 @@ const gaugeColor = computed(() => gaugeConfig.value?.color || CHART_COLORS[0])
       </svg>
 
       <div class="text-3xl font-bold text-lightNavbarText dark:text-darkNavbarText">
-        {{ formattedValue }}{{ gaugeConfig?.suffix ?? '' }}
+        {{ gaugeConfig?.value.prefix ?? '' }}{{ formattedValue }}{{ gaugeConfig?.value.suffix ?? '' }}
       </div>
       <div class="text-sm text-lightListTableText dark:text-darkListTableText">
         {{ formattedMinValue }} - {{ formattedMaxValue }}

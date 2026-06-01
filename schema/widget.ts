@@ -13,61 +13,164 @@ const DashboardWidgetSizeSchema = z.enum([
   'full',
 ])
 
-export const AggregationOperationZodSchema = z.enum([
+const ValueFormatSchema = z.enum([
+  'number',
+  'compact_number',
+  'currency',
+  'percent',
+  'percent_delta',
+  'number_delta',
+  'currency_delta',
+]).optional()
+
+const ChartFieldRefSchema = z.object({
+  field: z.string(),
+  label: z.string().optional(),
+  format: ValueFormatSchema,
+}).strict()
+
+const FieldRefSchema = z.union([
+  z.string(),
+  z.object({
+    field: z.string(),
+    label: z.string().optional(),
+    format: ValueFormatSchema,
+  }).strict(),
+])
+
+const FilterExpressionSchema: z.ZodType = z.lazy(() => z.union([
+  z.array(FilterExpressionSchema),
+  z.object({
+    and: z.array(FilterExpressionSchema),
+  }).strict(),
+  z.object({
+    or: z.array(FilterExpressionSchema),
+  }).strict(),
+  z.object({
+    field: z.string(),
+    eq: z.unknown().optional(),
+    neq: z.unknown().optional(),
+    gt: z.unknown().optional(),
+    gte: z.unknown().optional(),
+    lt: z.unknown().optional(),
+    lte: z.unknown().optional(),
+    in: z.array(z.unknown()).optional(),
+    not_in: z.array(z.unknown()).optional(),
+    like: z.unknown().optional(),
+    ilike: z.unknown().optional(),
+  }).strict(),
+]))
+
+const QueryAggregateOperationSchema = z.enum([
   'sum',
   'count',
+  'count_distinct',
   'avg',
   'min',
   'max',
   'median',
 ])
 
-export const AggregationRuleZodSchema = z.object({
-  operation: AggregationOperationZodSchema,
+const QueryFieldSelectItemSchema = z.object({
+  field: z.string(),
+  as: z.string().optional(),
+  grain: z.enum(['hour', 'day', 'week', 'month', 'quarter', 'year']).optional(),
+}).strict()
+
+const QueryAggregateSelectItemSchema = z.object({
+  agg: QueryAggregateOperationSchema,
   field: z.string().optional(),
-}).superRefine((rule, ctx) => {
-  if (rule.operation !== 'count' && !rule.field) {
+  as: z.string(),
+  filters: FilterExpressionSchema.optional(),
+}).strict().superRefine((item, ctx) => {
+  if (!['count'].includes(item.agg) && !item.field) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['field'],
-      message: `field is required for ${rule.operation}`,
+      message: `field is required for ${item.agg}`,
     })
   }
 })
 
-export const GroupByRuleZodSchema = z.discriminatedUnion('type', [
+const QueryCalcSelectItemSchema = z.object({
+  calc: z.string(),
+  as: z.string(),
+}).strict()
+
+const QuerySelectItemSchema = z.union([
+  QueryFieldSelectItemSchema,
+  QueryAggregateSelectItemSchema,
+  QueryCalcSelectItemSchema,
+])
+
+const QueryGroupByItemSchema = z.union([
+  z.string(),
   z.object({
-    type: z.literal('field'),
     field: z.string(),
-  }),
-  z.object({
-    type: z.literal('date_trunc'),
-    field: z.string(),
-    truncation: z.enum(['day', 'week', 'month', 'year']),
+    as: z.string().optional(),
+    grain: z.enum(['hour', 'day', 'week', 'month', 'quarter', 'year']).optional(),
     timezone: z.string().optional(),
-  }),
+  }).strict(),
 ])
 
-export const AggregateDataSourceZodSchema = z.object({
-  type: z.literal('aggregate'),
-  resourceId: z.string(),
-  aggregations: z.record(z.string(), AggregationRuleZodSchema),
-  groupBy: GroupByRuleZodSchema.optional(),
-  filters: z.unknown().optional(),
+const QueryOrderByItemSchema = z.object({
+  field: z.string(),
+  direction: z.enum(['asc', 'desc']).optional(),
 }).strict()
 
-export const ResourceDataSourceZodSchema = z.object({
-  type: z.literal('resource'),
-  resourceId: z.string(),
-  columns: z.array(z.string()).optional(),
-  filters: z.unknown().optional(),
-  sort: z.unknown().optional(),
+const TimeSeriesConfigSchema = z.object({
+  field: z.string(),
+  grain: z.enum(['hour', 'day', 'week', 'month', 'quarter', 'year']),
+  timezone: z.string().optional(),
 }).strict()
 
-export const WidgetDataSourceZodSchema = z.discriminatedUnion('type', [
-  ResourceDataSourceZodSchema,
-  AggregateDataSourceZodSchema,
-])
+const PeriodConfigSchema = z.object({
+  field: z.string(),
+  gte: z.unknown().optional(),
+  lt: z.unknown().optional(),
+}).strict()
+
+const BucketConfigSchema = z.object({
+  field: z.string(),
+  buckets: z.array(z.object({
+    label: z.string(),
+    min: z.number().optional(),
+    max: z.number().optional(),
+  }).strict()),
+}).strict()
+
+const QueryCalcItemSchema = z.object({
+  calc: z.string(),
+  as: z.string(),
+}).strict()
+
+const FormattingConfigSchema = z.record(z.string(), z.unknown())
+
+export const QueryConfigSchema = z.object({
+  resource: z.string(),
+  select: z.array(QuerySelectItemSchema).optional(),
+  filters: FilterExpressionSchema.optional(),
+  groupBy: z.array(QueryGroupByItemSchema).optional(),
+  orderBy: z.array(QueryOrderByItemSchema).optional(),
+  limit: z.number().int().positive().optional(),
+  offset: z.number().int().nonnegative().optional(),
+  timeSeries: TimeSeriesConfigSchema.optional(),
+  period: PeriodConfigSchema.optional(),
+  bucket: BucketConfigSchema.optional(),
+  calcs: z.array(QueryCalcItemSchema).optional(),
+  formatting: FormattingConfigSchema.optional(),
+}).strict()
+
+const FunnelQueryStepSchema = z.object({
+  name: z.string(),
+  resource: z.string(),
+  metric: QueryAggregateSelectItemSchema,
+  filters: FilterExpressionSchema.optional(),
+}).strict()
+
+export const FunnelQueryConfigSchema = z.object({
+  steps: z.array(FunnelQueryStepSchema).min(1),
+}).strict()
 
 const WidgetBaseSchema = z.object({
   id: z.string().optional(),
@@ -79,8 +182,13 @@ const WidgetBaseSchema = z.object({
   minWidth: z.number().nonnegative('Min width must be a non-negative number').optional(),
   maxWidth: z.number().nonnegative('Max width must be a non-negative number').nullable().optional(),
   order: z.number().optional(),
-  dataSource: WidgetDataSourceZodSchema.optional(),
 })
+
+const TableViewConfigSchema = z.object({
+  columns: z.array(FieldRefSchema).optional(),
+  pagination: z.boolean().optional(),
+  pageSize: z.number().int().positive().optional(),
+}).strict()
 
 const ChartBaseSchema = z.object({
   title: z.string().optional(),
@@ -90,58 +198,56 @@ const ChartBucketSchema = z.object({
   label: z.string().min(1, 'Bucket label is required'),
   min: z.number().optional(),
   max: z.number().optional(),
-})
+}).strict()
 
-const ChartSeriesSchema = z.object({
-  name: z.string().min(1, 'Series name is required'),
-  field: z.string().min(1, 'Series field is required'),
-  color: z.string().optional(),
-})
+const ChartSeriesRefSchema = z.object({
+  field: z.string(),
+  label: z.string().optional(),
+}).strict()
 
 const LineChartSchema = ChartBaseSchema.extend({
   type: z.literal('line'),
-  x_field: z.string().optional(),
-  y_field: z.string().optional(),
-  series_name: z.string().optional(),
+  x: ChartFieldRefSchema,
+  y: z.array(ChartFieldRefSchema).min(1),
+  series: ChartSeriesRefSchema.optional(),
   color: z.string().optional(),
+  colors: z.array(z.string()).optional(),
 })
 
 const BarChartSchema = ChartBaseSchema.extend({
   type: z.literal('bar'),
-  label_field: z.string().optional(),
-  value_field: z.string().optional(),
-  bucket_field: z.string().optional(),
-  buckets: z.array(ChartBucketSchema).optional(),
+  x: ChartFieldRefSchema,
+  y: ChartFieldRefSchema,
   color: z.string().optional(),
 })
 
 const StackedBarChartSchema = ChartBaseSchema.extend({
   type: z.literal('stacked_bar'),
-  x_field: z.string().optional(),
-  series: z.array(ChartSeriesSchema).optional(),
+  x: ChartFieldRefSchema,
+  y: ChartFieldRefSchema,
+  series: ChartSeriesRefSchema,
   colors: z.array(z.string()).optional(),
 })
 
 const PieChartSchema = ChartBaseSchema.extend({
   type: z.literal('pie'),
-  label_field: z.string().optional(),
-  value_field: z.string().optional(),
+  label: ChartFieldRefSchema,
+  value: ChartFieldRefSchema,
   colors: z.array(z.string()).optional(),
 })
 
 const HistogramChartSchema = ChartBaseSchema.extend({
   type: z.literal('histogram'),
-  label_field: z.string().optional(),
-  value_field: z.string().optional(),
-  bucket_field: z.string().optional(),
+  x: ChartFieldRefSchema,
+  y: ChartFieldRefSchema,
   buckets: z.array(ChartBucketSchema).optional(),
   color: z.string().optional(),
 })
 
 const FunnelChartSchema = ChartBaseSchema.extend({
   type: z.literal('funnel'),
-  label_field: z.string().optional(),
-  value_field: z.string().optional(),
+  label: ChartFieldRefSchema.optional(),
+  value: ChartFieldRefSchema.optional(),
   colors: z.array(z.string()).optional(),
 })
 
@@ -154,121 +260,98 @@ export const ChartConfigSchema = z.discriminatedUnion('type', [
   FunnelChartSchema,
 ])
 
+const KpiCardViewConfigSchema = z.object({
+  title: z.string().optional(),
+  value: z.object({
+    field: z.string(),
+    format: ValueFormatSchema,
+    prefix: z.string().optional(),
+    suffix: z.string().optional(),
+  }).strict(),
+  subtitle: z.object({
+    text: z.string().optional(),
+    field: z.string().optional(),
+  }).strict().optional(),
+  comparison: z.unknown().optional(),
+  sparkline: z.unknown().optional(),
+}).strict()
+
+const GaugeCardViewConfigSchema = z.object({
+  title: z.string().optional(),
+  value: z.object({
+    field: z.string(),
+    format: ValueFormatSchema,
+    prefix: z.string().optional(),
+    suffix: z.string().optional(),
+  }).strict(),
+  target: z.object({
+    value: z.number().optional(),
+    field: z.string().optional(),
+    label: z.string().optional(),
+  }).strict().optional(),
+  progress: z.object({
+    valueField: z.string(),
+    targetValue: z.number().optional(),
+    targetField: z.string().optional(),
+    format: ValueFormatSchema,
+  }).strict().optional(),
+  color: z.string().optional(),
+}).strict()
+
+const PivotTableViewConfigSchema = z.object({
+  rows: z.array(FieldRefSchema).min(1),
+  columns: z.array(FieldRefSchema).optional(),
+  values: z.array(z.object({
+    field: z.string(),
+    label: z.string().optional(),
+    format: ValueFormatSchema,
+    aggregation: z.enum(['sum', 'count', 'avg', 'min', 'max']).optional(),
+  }).strict()).min(1),
+}).strict()
+
 export const EmptyWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('empty'),
 })
 
 const TableWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('table'),
-  table: z.unknown().optional(),
-}).superRefine((widget, ctx) => {
-  if (!widget.dataSource) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['dataSource'],
-      message: 'Table widget must have dataSource config',
-    })
-  }
-
-  if (widget.dataSource?.type === 'aggregate') {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['dataSource'],
-      message: 'Table widget dataSource must use resource type',
-    })
-  }
+  table: TableViewConfigSchema.optional(),
+  query: QueryConfigSchema,
 })
 
 const ChartWidgetTargetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('chart'),
   chart: ChartConfigSchema,
+  query: z.union([QueryConfigSchema, FunnelQueryConfigSchema]),
 }).superRefine((widget, ctx) => {
-  if (!widget.dataSource) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['dataSource'],
-      message: 'Chart widget must have dataSource config',
-    })
-  }
+  const isFunnelChart = widget.chart.type === 'funnel'
+  const isFunnelQuery = 'steps' in widget.query
 
-  if (widget.dataSource?.type === 'resource') {
+  if (isFunnelChart !== isFunnelQuery) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ['dataSource'],
-      message: 'Chart widget dataSource must use aggregate type',
-    })
-  }
-
-  if (widget.dataSource?.type === 'aggregate' && !widget.dataSource.groupBy) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['dataSource', 'groupBy'],
-      message: 'Chart widget aggregate dataSource must define groupBy',
+      path: ['query'],
+      message: 'Funnel charts must use steps query, other charts must use resource query',
     })
   }
 })
 
 const KpiCardWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('kpi_card'),
-  kpi_card: z.unknown().optional(),
-}).superRefine((widget, ctx) => {
-  if (!widget.dataSource) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['dataSource'],
-      message: 'KPI card widget must have dataSource config',
-    })
-  }
-
-  if (widget.dataSource?.type === 'aggregate' && widget.dataSource.groupBy) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['dataSource', 'groupBy'],
-      message: 'KPI card aggregate dataSource must not define groupBy',
-    })
-  }
+  card: KpiCardViewConfigSchema,
+  query: QueryConfigSchema,
 })
 
 const GaugeCardWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('gauge_card'),
-  gauge_card: z.unknown().optional(),
-}).superRefine((widget, ctx) => {
-  if (!widget.dataSource) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['dataSource'],
-      message: 'Gauge card widget must have dataSource config',
-    })
-  }
-
-  if (widget.dataSource?.type === 'aggregate' && widget.dataSource.groupBy) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['dataSource', 'groupBy'],
-      message: 'Gauge card aggregate dataSource must not define groupBy',
-    })
-  }
+  card: GaugeCardViewConfigSchema,
+  query: QueryConfigSchema,
 })
 
 const PivotTableWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('pivot_table'),
-  pivot_table: z.unknown().optional(),
-}).superRefine((widget, ctx) => {
-  if (!widget.dataSource) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['dataSource'],
-      message: 'Pivot table widget must have dataSource config',
-    })
-  }
-
-  if (widget.dataSource?.type === 'aggregate' && !widget.dataSource.groupBy) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['dataSource', 'groupBy'],
-      message: 'Pivot table aggregate dataSource must define groupBy',
-    })
-  }
+  pivot: PivotTableViewConfigSchema,
+  query: QueryConfigSchema,
 })
 
 export const WidgetConfigSchema = z.discriminatedUnion('target', [
