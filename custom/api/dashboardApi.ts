@@ -1,15 +1,12 @@
 import type {
   DashboardConfig,
-  DashboardGroupConfig,
+  EditableDashboardGroupConfig,
+  EditableDashboardWidgetConfig,
   DashboardGroupMoveDirection,
   DashboardWidgetConfig,
+  DashboardWidgetConfigValidationError,
   DashboardWidgetMoveDirection,
 } from '../model/dashboard.types.js'
-
-export type DashboardWidgetConfigValidationError = {
-  field: string
-  message: string
-}
 
 export type DashboardResponse = {
   id: string
@@ -170,7 +167,7 @@ export const dashboardApi = {
     })
   },
 
-  async setDashboardGroupConfig(slug: string, groupId: string, config: DashboardGroupConfig): Promise<DashboardResponse> {
+  async setDashboardGroupConfig(slug: string, groupId: string, config: EditableDashboardGroupConfig): Promise<DashboardResponse> {
     return callDashboardApi('/adminapi/v1/dashboard/set_dashboard_group_config', {
       slug,
       groupId,
@@ -204,7 +201,7 @@ export const dashboardApi = {
     })
   },
 
-  async setWidgetConfig(slug: string, widgetId: string, config: DashboardWidgetConfig): Promise<DashboardResponse> {
+  async setWidgetConfig(slug: string, widgetId: string, config: EditableDashboardWidgetConfig): Promise<DashboardResponse> {
     return callDashboardApi('/adminapi/v1/dashboard/set_widget_config', {
       slug,
       widgetId,

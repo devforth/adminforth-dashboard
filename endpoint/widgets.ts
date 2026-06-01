@@ -1,9 +1,11 @@
 import type { AdminUser, IHttpServer } from 'adminforth';
 import { randomUUID } from 'crypto';
-import {
-  normalizeDashboardWidgetConfig,
+import type {
+  DashboardConfig,
+  DashboardVariables,
+  DashboardWidgetConfig,
+  EditableDashboardWidgetConfig,
 } from '../custom/model/dashboard.types.js';
-import type { DashboardConfig, DashboardVariables, DashboardWidgetConfig } from '../custom/model/dashboard.types.js';
 import {
   DashboardApiResponseSchema,
   DashboardWidgetDataResponseSchema,
@@ -13,7 +15,6 @@ import {
   WidgetDataRequestSchema,
   WidgetIdRequestSchema,
 } from '../schema/api.js';
-import { StoredWidgetConfigSchema } from '../schema/widget.js';
 import type { DashboardWidgetConfigValidationError } from '../schema/widget.js';
 import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
 
@@ -25,7 +26,6 @@ type WidgetEndpointsContext = {
     dashboard: DashboardRecord,
     config: DashboardConfig,
   ) => Promise<PersistedDashboardResponse>;
-  buildDashboardResponse: (dashboard: DashboardRecord) => PersistedDashboardResponse;
   validateDashboardWidgetApiConfig: (
     widget: DashboardWidgetConfig,
   ) => DashboardWidgetConfigValidationError[];
@@ -37,39 +37,6 @@ type WidgetEndpointsContext = {
     },
   ) => Promise<unknown>;
 };
-
-function formatWidgetConfigValidationErrors(error: { issues: { path: PropertyKey[], message: string }[] }) {
-  return error.issues.map((issue) => ({
-    field: issue.path.length ? formatWidgetConfigFieldPath(issue.path.map(String).join('.')) : 'config',
-    message: issue.message,
-  }));
-}
-
-function formatWidgetConfigApiValidationErrors(errors: DashboardWidgetConfigValidationError[]) {
-  return errors.map((error) => ({
-    ...error,
-    field: formatWidgetConfigFieldPath(error.field),
-  }));
-}
-
-function formatWidgetConfigFieldPath(field: string) {
-  const fieldAliases = new Map([
-    ['minWidth', 'min_width'],
-    ['maxWidth', 'max_width'],
-    ['groupBy', 'group_by'],
-    ['orderBy', 'order_by'],
-    ['pageSize', 'page_size'],
-    ['timeSeries', 'time_series'],
-    ['valueField', 'value_field'],
-    ['targetValue', 'target_value'],
-    ['targetField', 'target_field'],
-  ]);
-
-  return field
-    .split('.')
-    .map((segment) => fieldAliases.get(segment) ?? segment)
-    .join('.');
-}
 
 export function registerWidgetEndpoints(
   server: IHttpServer,
@@ -87,9 +54,7 @@ export function registerWidgetEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const slug = String(body?.slug || 'default');
-      const groupId = String(body?.groupId || '');
-      const dashboard = await ctx.getDashboardRecord(slug);
+      const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
         response.setStatus(404);
@@ -97,17 +62,17 @@ export function registerWidgetEndpoints(
       }
 
       const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const group = config.groups.find((item) => item.id === groupId);
+      const group = config.groups.find((item) => item.id === body.groupId);
 
       if (!group) {
         response.setStatus(404);
         return { error: 'Dashboard group not found' };
       }
 
-      const nextOrder = config.widgets.filter((item) => item.group_id === groupId).length + 1;
+      const nextOrder = config.widgets.filter((item) => item.group_id === body.groupId).length + 1;
       const widget: DashboardWidgetConfig = {
         id: `widget_${randomUUID()}`,
-        group_id: groupId,
+        group_id: body.groupId,
         label: 'New widget',
         size: 'small',
         order: nextOrder,
@@ -133,10 +98,7 @@ export function registerWidgetEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const slug = String(body?.slug || 'default');
-      const widgetId = String(body?.widgetId || '');
-      const direction = body?.direction === 'down' ? 'down' : 'up';
-      const dashboard = await ctx.getDashboardRecord(slug);
+      const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
         response.setStatus(404);
@@ -144,7 +106,7 @@ export function registerWidgetEndpoints(
       }
 
       const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const widget = config.widgets.find((item) => item.id === widgetId);
+      const widget = config.widgets.find((item) => item.id === body.widgetId);
 
       if (!widget) {
         response.setStatus(404);
@@ -154,11 +116,17 @@ export function registerWidgetEndpoints(
       const sortedWidgets = config.widgets
         .filter((item) => item.group_id === widget.group_id)
         .sort((a, b) => a.order - b.order);
-      const currentIndex = sortedWidgets.findIndex((item) => item.id === widgetId);
-      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      const currentIndex = sortedWidgets.findIndex((item) => item.id === body.widgetId);
+      const targetIndex = body.direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
       if (targetIndex < 0 || targetIndex >= sortedWidgets.length) {
-        return ctx.buildDashboardResponse(dashboard);
+        return {
+          id: dashboard.id,
+          slug: dashboard.slug,
+          label: dashboard.label,
+          revision: dashboard.revision,
+          config: ctx.parseStoredDashboardConfig(dashboard.config),
+        };
       }
 
       const reorderedWidgets = [...sortedWidgets];
@@ -188,9 +156,7 @@ export function registerWidgetEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const slug = String(body?.slug || 'default');
-      const widgetId = String(body?.widgetId || '');
-      const dashboard = await ctx.getDashboardRecord(slug);
+      const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
         response.setStatus(404);
@@ -198,7 +164,7 @@ export function registerWidgetEndpoints(
       }
 
       const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const nextWidgets = config.widgets.filter((item) => item.id !== widgetId);
+      const nextWidgets = config.widgets.filter((item) => item.id !== body.widgetId);
 
       if (nextWidgets.length === config.widgets.length) {
         response.setStatus(404);
@@ -224,9 +190,7 @@ export function registerWidgetEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const slug = String(body?.slug || 'default');
-      const widgetId = String(body?.widgetId || '');
-      const dashboard = await ctx.getDashboardRecord(slug);
+      const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
         response.setStatus(404);
@@ -234,43 +198,34 @@ export function registerWidgetEndpoints(
       }
 
       const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const widget = config.widgets.find((item) => item.id === widgetId);
+      const widget = config.widgets.find((item) => item.id === body.widgetId);
 
       if (!widget) {
         response.setStatus(404);
         return { error: 'Dashboard widget not found' };
       }
 
-      const parsedWidgetConfig = StoredWidgetConfigSchema.safeParse(normalizeDashboardWidgetConfig(body.config));
-
-      if (!parsedWidgetConfig.success) {
-        response.setStatus(422);
-        return {
-          error: 'Invalid widget config',
-          validationErrors: formatWidgetConfigValidationErrors(parsedWidgetConfig.error),
-        };
-      }
-
-      const typedWidgetConfig = parsedWidgetConfig.data as DashboardWidgetConfig;
-      const apiValidationErrors = ctx.validateDashboardWidgetApiConfig(typedWidgetConfig);
+      const typedWidgetConfig = body.config as EditableDashboardWidgetConfig;
+      const nextWidget: DashboardWidgetConfig = {
+        ...typedWidgetConfig,
+        id: widget.id,
+        group_id: widget.group_id,
+        order: widget.order,
+      };
+      const apiValidationErrors = ctx.validateDashboardWidgetApiConfig(nextWidget);
 
       if (apiValidationErrors.length) {
         response.setStatus(422);
         return {
           error: 'Invalid widget config',
-          validationErrors: formatWidgetConfigApiValidationErrors(apiValidationErrors),
+          validationErrors: apiValidationErrors,
         };
       }
 
       return ctx.persistDashboardConfig(dashboard, {
         ...config,
-        widgets: config.widgets.map((item) => item.id === widgetId
-          ? {
-              ...typedWidgetConfig,
-              id: widget.id,
-              group_id: widget.group_id,
-              order: widget.order,
-            }
+        widgets: config.widgets.map((item) => item.id === body.widgetId
+          ? nextWidget
           : item),
       });
     },
@@ -283,9 +238,7 @@ export function registerWidgetEndpoints(
     request_schema: WidgetDataRequestSchema,
     response_schema: DashboardWidgetDataResponseSchema,
     handler: async ({ body, response }) => {
-      const slug = String(body?.slug || 'default');
-      const widgetId = String(body?.widgetId || '');
-      const dashboard = await ctx.getDashboardRecord(slug);
+      const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
         response.setStatus(404);
@@ -293,7 +246,7 @@ export function registerWidgetEndpoints(
       }
 
       const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const widget = config.widgets.find((item) => item.id === widgetId);
+      const widget = config.widgets.find((item) => item.id === body.widgetId);
 
       if (!widget) {
         response.setStatus(404);
@@ -303,7 +256,7 @@ export function registerWidgetEndpoints(
       return {
         widget,
         data: await ctx.getWidgetData(widget, {
-          pagination: body?.pagination,
+          pagination: body.pagination,
           variables: widget.variables,
         }),
       };

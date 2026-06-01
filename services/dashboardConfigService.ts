@@ -1,9 +1,8 @@
 import { Filters } from 'adminforth';
 import type { IAdminForth } from 'adminforth';
-import { normalizeDashboardConfig } from '../custom/model/dashboard.types.js';
 import type { DashboardConfig, DashboardWidgetConfig } from '../custom/model/dashboard.types.js';
-
-const DASHBOARD_CONFIG_UPDATED_TOPIC_PREFIX = '/opentopic/dashboard-config-updated';
+import { getDashboardConfigUpdatedTopic } from '../custom/model/dashboardTopics.js';
+import { DashboardConfigZodSchema } from '../schema/api.js';
 
 export type DashboardRecord = {
   id: string;
@@ -14,21 +13,9 @@ export type DashboardRecord = {
 };
 
 export function parseStoredDashboardConfig(config: unknown): DashboardConfig {
-  if (typeof config === 'string') {
-    return normalizeDashboardConfig(JSON.parse(config));
-  }
+  const parsedConfig = typeof config === 'string' ? JSON.parse(config) : config;
 
-  return normalizeDashboardConfig(config);
-}
-
-export function buildDashboardResponse(dashboard: DashboardRecord) {
-  return {
-    id: dashboard.id,
-    slug: dashboard.slug,
-    label: dashboard.label,
-    revision: dashboard.revision,
-    config: parseStoredDashboardConfig(dashboard.config),
-  };
+  return DashboardConfigZodSchema.parse(parsedConfig) as DashboardConfig;
 }
 
 export type PersistedDashboardResponse = {
@@ -39,11 +26,7 @@ export type PersistedDashboardResponse = {
   config: DashboardConfig;
 };
 
-export function dashboardConfigUpdatedTopic(slug: string) {
-  return `${DASHBOARD_CONFIG_UPDATED_TOPIC_PREFIX}/${slug}`;
-}
-
-export function normalizeDashboardOrder(config: DashboardConfig): DashboardConfig {
+function normalizeDashboardOrder(config: DashboardConfig): DashboardConfig {
   const widgetsByGroupId = new Map<string, DashboardWidgetConfig[]>();
 
   for (const widget of config.widgets) {
@@ -93,7 +76,7 @@ export async function persistDashboardConfig(
     revision: dashboard.revision + 1,
   });
 
-  await adminforth.websocket.publish(dashboardConfigUpdatedTopic(dashboard.slug), {
+  await adminforth.websocket.publish(getDashboardConfigUpdatedTopic(dashboard.slug), {
     id: dashboard.id,
     slug: dashboard.slug,
     revision: dashboard.revision + 1,
@@ -115,7 +98,6 @@ export type DashboardConfigService = {
     dashboard: DashboardRecord,
     config: DashboardConfig,
   ) => Promise<PersistedDashboardResponse>;
-  buildDashboardResponse: typeof buildDashboardResponse;
 };
 
 export function createDashboardConfigService(
@@ -131,6 +113,5 @@ export function createDashboardConfigService(
       dashboard,
       config,
     ),
-    buildDashboardResponse,
   };
 }

@@ -207,6 +207,8 @@ import { DashboardApiError, dashboardApi, type DashboardResponse } from '../api/
 import type {
   DashboardConfig,
   DashboardGroupConfig,
+  EditableDashboardGroupConfig,
+  EditableDashboardWidgetConfig,
   DashboardGroupMoveDirection,
   DashboardWidgetConfig,
   DashboardWidgetMoveDirection,
@@ -252,13 +254,15 @@ const sortedGroups = computed(() => {
   return [...draftConfig.value.groups].sort((a, b) => a.order - b.order)
 })
 
-const widgetsByGroupId = computed<Map<string, DashboardWidgetConfig[]>>(() => {
+function groupWidgetsByGroupId(widgets: DashboardWidgetConfig[]) {
   const result = new Map<string, DashboardWidgetConfig[]>()
 
-  for (const widget of draftConfig.value.widgets) {
-    const widgets = result.get(widget.group_id) ?? []
-    widgets.push(widget)
-    result.set(widget.group_id, widgets)
+  for (const widget of widgets) {
+    const nextWidgets = result.get(widget.group_id)
+      ? [...result.get(widget.group_id)!, widget]
+      : [widget]
+
+    result.set(widget.group_id, nextWidgets)
   }
 
   for (const [groupId, widgets] of result.entries()) {
@@ -266,6 +270,10 @@ const widgetsByGroupId = computed<Map<string, DashboardWidgetConfig[]>>(() => {
   }
 
   return result
+}
+
+const widgetsByGroupId = computed<Map<string, DashboardWidgetConfig[]>>(() => {
+  return groupWidgetsByGroupId(draftConfig.value.widgets as DashboardWidgetConfig[])
 })
 
 const visibleGroups = computed(() => {
@@ -329,8 +337,12 @@ async function removeGroup(groupId: string) {
 }
 
 function editGroup(group: DashboardGroupConfig) {
+  const editableGroupConfig: EditableDashboardGroupConfig = {
+    label: group.label,
+  }
+
   editingGroupId.value = group.id
-  groupConfigCode.value = stringifyYaml(group)
+  groupConfigCode.value = stringifyYaml(editableGroupConfig)
   groupConfigError.value = ''
 }
 
@@ -340,7 +352,7 @@ async function saveGroupConfig() {
   }
 
   try {
-    const groupConfig = parseYaml(groupConfigCode.value) as DashboardGroupConfig
+    const groupConfig = parseYaml(groupConfigCode.value) as EditableDashboardGroupConfig
 
     applyDashboardResponse(
       await dashboardApi.setDashboardGroupConfig(
@@ -402,7 +414,7 @@ async function saveWidgetConfig() {
   try {
     widgetConfigError.value = ''
     widgetConfigFieldErrors.value = []
-    const widgetConfig = parseYaml(widgetConfigCode.value) as DashboardWidgetConfig
+    const widgetConfig = parseYaml(widgetConfigCode.value) as EditableDashboardWidgetConfig
 
     applyDashboardResponse(
       await dashboardApi.setWidgetConfig(

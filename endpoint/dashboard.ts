@@ -1,19 +1,17 @@
 import type { AdminUser, IHttpServer } from 'adminforth';
-import { normalizeDashboardConfig } from '../custom/model/dashboard.types.js';
 import type { DashboardConfig, DashboardWidgetConfig } from '../custom/model/dashboard.types.js';
 import {
   DashboardApiResponseSchema,
-  DashboardConfigZodSchema,
   SetDashboardConfigRequestSchema,
   SlugRequestSchema,
 } from '../schema/api.js';
 import type { DashboardWidgetConfigValidationError } from '../schema/widget.js';
 import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
-import { buildDashboardResponse } from '../services/dashboardConfigService.js';
 
 type DashboardEndpointsContext = {
   canEditDashboard: (adminUser: AdminUser) => boolean;
   getDashboardRecord: (slug: string) => Promise<DashboardRecord | null>;
+  parseStoredDashboardConfig: (config: unknown) => DashboardConfig;
   persistDashboardConfig: (
     dashboard: DashboardRecord,
     config: DashboardConfig,
@@ -22,13 +20,6 @@ type DashboardEndpointsContext = {
     widget: DashboardWidgetConfig,
   ) => DashboardWidgetConfigValidationError[];
 };
-
-function formatDashboardConfigValidationErrors(error: { issues: { path: PropertyKey[], message: string }[] }) {
-  return error.issues.map((issue) => ({
-    field: issue.path.length ? issue.path.map(String).join('.') : 'config',
-    message: issue.message,
-  }));
-}
 
 export function registerDashboardEndpoints(
   server: IHttpServer,
@@ -41,15 +32,20 @@ export function registerDashboardEndpoints(
     request_schema: SlugRequestSchema,
     response_schema: DashboardApiResponseSchema,
     handler: async ({ body, response }) => {
-      const slug = String(body?.slug || 'default');
-      const dashboard = await ctx.getDashboardRecord(slug);
+      const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
         response.setStatus(404);
         return { error: 'Dashboard not found' };
       }
 
-      return buildDashboardResponse(dashboard);
+      return {
+        id: dashboard.id,
+        slug: dashboard.slug,
+        label: dashboard.label,
+        revision: dashboard.revision,
+        config: ctx.parseStoredDashboardConfig(dashboard.config),
+      };
     },
   });
 
@@ -65,26 +61,15 @@ export function registerDashboardEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const slug = String(body?.slug || 'default');
-      const dashboard = await ctx.getDashboardRecord(slug);
+      const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
         response.setStatus(404);
         return { error: 'Dashboard not found' };
       }
 
-      const normalizedConfig = normalizeDashboardConfig(body?.config);
-      const parsedConfig = DashboardConfigZodSchema.safeParse(normalizedConfig);
-
-      if (!parsedConfig.success) {
-        response.setStatus(422);
-        return {
-          error: 'Invalid dashboard config',
-          validationErrors: formatDashboardConfigValidationErrors(parsedConfig.error),
-        };
-      }
-
-      const widgetValidationErrors = parsedConfig.data.widgets.flatMap((widget, index) => (
+      const config = body.config as DashboardConfig;
+      const widgetValidationErrors = config.widgets.flatMap((widget, index) => (
         ctx.validateDashboardWidgetApiConfig(widget as DashboardWidgetConfig).map((error) => ({
           ...error,
           field: `widgets.${index}.${error.field}`,
@@ -99,7 +84,7 @@ export function registerDashboardEndpoints(
         };
       }
 
-      return ctx.persistDashboardConfig(dashboard, parsedConfig.data as DashboardConfig);
+      return ctx.persistDashboardConfig(dashboard, config);
     },
   });
 }

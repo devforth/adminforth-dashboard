@@ -9,9 +9,7 @@ import type {
   DashboardWidgetConfig,
   DashboardWidgetData,
   DashboardVariables,
-  FilterExpression,
   FunnelQueryConfig,
-  QueryAggregateOperation,
   QueryAggregateSelectItem,
   QueryCalcSelectItem,
   QueryConfig,
@@ -35,9 +33,37 @@ type DashboardWidgetFilters =
   | IAdminForthAndOrFilter
   | Array<IAdminForthSingleFilter | IAdminForthAndOrFilter>;
 
-type QueryRowGroup = {
-  rows: Record<string, unknown>[];
-  values: Record<string, unknown>;
+type AggregateRule =
+  | { operation: 'count' }
+  | { operation: Exclude<QueryAggregateSelectItem['agg'], 'count'>; field: string };
+
+type AggregateGroupByRule =
+  | {
+      type: 'date_trunc';
+      field: string;
+      truncation: TimeGrain;
+      timezone?: string;
+      as: string;
+    }
+  | {
+      type: 'field';
+      field: string;
+      as: string;
+    };
+
+type AggregateResource = {
+  aggregate: (
+    filters: DashboardWidgetFilters,
+    aggregations: Record<string, AggregateRule>,
+    groupBy?: AggregateGroupByRule | AggregateGroupByRule[],
+  ) => Promise<Record<string, unknown>[]>;
+};
+
+type EffectiveGroupByItem = {
+  field: string;
+  as: string;
+  grain?: TimeGrain;
+  timezone?: string;
 };
 
 const NOW_MINUS_RE = /^(\d+)([dhw])$/;
@@ -90,12 +116,18 @@ async function getFunnelWidgetData(
 ): Promise<DashboardWidgetData> {
   const rows = await Promise.all(query.steps.map(async (step) => {
     const valueField = step.metric.as;
-    const sourceRows = await getResourceRows(adminforth, step.resource, step.filters);
+    const [values = {}] = await getAggregateRows(
+      adminforth,
+      step.resource,
+      step.filters,
+      [step.metric],
+      [],
+    );
 
     const row: Record<string, unknown> = {
       name: step.name,
       resource: step.resource,
-      [valueField]: calculateAggregate(sourceRows, step.metric),
+      [valueField]: values[valueField] ?? 0,
     };
 
     for (const calc of query.calcs ?? []) {
@@ -121,8 +153,13 @@ async function getQueryWidgetData(
   query: QueryConfig,
   variables: DashboardVariables,
 ): Promise<DashboardWidgetData> {
-  const rows = await getResourceRows(adminforth, query.resource, query.filters, getBackendSort(query.orderBy));
-  const selectedRows = buildQueryRows(rows, query, variables);
+  const selectedRows = isAggregateQuery(query)
+    ? await buildAggregateQueryRows(adminforth, query, variables)
+    : buildPlainQueryRows(
+      await getResourceRows(adminforth, query.resource, query.filters, getBackendSort(query.orderBy)),
+      query,
+      variables,
+    );
   const orderedRows = sortRows(selectedRows, query.orderBy);
   const slicedRows = typeof query.limit === 'number'
     ? orderedRows.slice(query.offset ?? 0, (query.offset ?? 0) + query.limit)
@@ -161,73 +198,85 @@ async function getResourceRows(
   );
 }
 
-function buildQueryRows(rows: Record<string, unknown>[], query: QueryConfig, variables: DashboardVariables) {
+function buildPlainQueryRows(rows: Record<string, unknown>[], query: QueryConfig, variables: DashboardVariables) {
   const select = query.select ?? getDefaultSelect(rows);
-  const groupBy = query.groupBy ?? [];
-
-  if (isAggregateQuery(query)) {
-    return buildGroupedRows(rows, select, groupBy, variables, query.calcs);
-  }
-
   return rows.map((row) => buildPlainRow(row, select, query.calcs, variables));
 }
 
-function buildGroupedRows(
-  rows: Record<string, unknown>[],
-  select: QuerySelectItem[],
-  groupBy: QueryGroupByItem[],
+async function buildAggregateQueryRows(
+  adminforth: IAdminForth,
+  query: QueryConfig,
   variables: DashboardVariables,
-  calcs: QueryCalcSelectItem[] = [],
 ) {
-  const groups = new Map<string, QueryRowGroup>();
-  const effectiveGroupBy = groupBy.length
-    ? groupBy
-    : select.filter(isFieldSelectItem).map((item) => ({ field: item.field, as: item.as, grain: item.grain }));
+  const select = query.select ?? [];
+  const effectiveGroupBy = getEffectiveGroupBy(query.groupBy, select);
+  const aggregateSelect = select.filter(isAggregateSelectItem);
+  const rows = await getAggregateRows(
+    adminforth,
+    query.resource,
+    query.filters,
+    aggregateSelect,
+    effectiveGroupBy,
+  );
 
-  if (!effectiveGroupBy.length) {
-    const values = calculateGroupValues(rows, select, calcs, variables);
-    return Object.keys(values).length ? [values] : [];
-  }
-
-  for (const row of rows) {
-    const values = Object.fromEntries(effectiveGroupBy.map((item) => {
-      const field = getGroupByField(item);
-      const alias = getGroupByAlias(item);
-      const grain = getGroupByGrain(item);
-
-      return [alias, formatGroupValue(row[field], grain)];
-    }));
-    const key = JSON.stringify(values);
-    const group = groups.get(key) ?? { values, rows: [] };
-
-    group.rows.push(row);
-    groups.set(key, group);
-  }
-
-  return Array.from(groups.values()).map((group) => ({
-    ...group.values,
-    ...calculateGroupValues(group.rows, select, calcs, variables, group.values),
-  }));
+  return rows.map((row) => buildCalculatedRow(row, select, query.calcs, variables));
 }
 
-function calculateGroupValues(
-  rows: Record<string, unknown>[],
-  select: QuerySelectItem[],
-  calcs: QueryCalcSelectItem[],
-  variables: DashboardVariables,
-  baseValues: Record<string, unknown> = {},
+async function getAggregateRows(
+  adminforth: IAdminForth,
+  resourceId: string,
+  baseFilters: unknown,
+  select: QueryAggregateSelectItem[],
+  groupBy: EffectiveGroupByItem[],
 ) {
-  const values: Record<string, unknown> = { ...baseValues };
+  const resource = adminforth.resource(resourceId) as unknown as AggregateResource;
+  const groups = new Map<string, Record<string, unknown>>();
+  const groupByRules = groupBy.length ? groupBy.map(toAggregateGroupByRule) : undefined;
+  const aggregateSelectGroups = groupAggregateSelectItems(select);
 
-  for (const item of select) {
-    if (isAggregateSelectItem(item)) {
-      const filteredRows = item.filters
-        ? rows.filter((row) => matchesFilterExpression(row, item.filters as FilterExpression))
-        : rows;
+  if (groupBy.length) {
+    const groupSeedAlias = getHiddenAggregateAlias(groupBy, select);
+    const groupSeedRows = await resource.aggregate(
+      normalizeFilters(baseFilters),
+      { [groupSeedAlias]: { operation: 'count' } },
+      groupByRules,
+    );
 
-      values[item.as] = calculateAggregate(filteredRows, item);
+    for (const row of groupSeedRows) {
+      ensureAggregateGroup(groups, row, groupBy);
     }
   }
+
+  for (const filterGroup of aggregateSelectGroups) {
+    const rows = await resource.aggregate(
+      mergeFilters(baseFilters, filterGroup.filters),
+      Object.fromEntries(filterGroup.items.map((item) => [item.as, toAggregationRule(item)])),
+      groupByRules,
+    );
+
+    for (const row of rows) {
+      const values = ensureAggregateGroup(groups, row, groupBy);
+
+      for (const item of filterGroup.items) {
+        values[item.as] = row[item.as] ?? 0;
+      }
+    }
+  }
+
+  if (!groups.size && !groupBy.length && select.length) {
+    groups.set(JSON.stringify({}), {});
+  }
+
+  return Array.from(groups.values(), (row) => applyAggregateDefaults(row, select));
+}
+
+function buildCalculatedRow(
+  baseValues: Record<string, unknown>,
+  select: QuerySelectItem[],
+  calcs: QueryCalcSelectItem[] = [],
+  variables: DashboardVariables,
+) {
+  const values: Record<string, unknown> = { ...baseValues };
 
   for (const item of [...select.filter(isCalcSelectItem), ...calcs]) {
     values[item.as] = evaluateCalc(item.calc, values, variables);
@@ -257,50 +306,6 @@ function buildPlainRow(
   }
 
   return values;
-}
-
-function calculateAggregate(rows: Record<string, unknown>[], item: QueryAggregateSelectItem) {
-  switch (item.agg) {
-    case 'count':
-      return rows.length;
-    case 'count_distinct':
-      return new Set(rows.map((row) => row[item.field!])).size;
-    case 'sum':
-      return aggregateNumbers(rows, item.field!, (values) => values.reduce((sum, value) => sum + value, 0));
-    case 'avg':
-      return aggregateNumbers(rows, item.field!, (values) => values.length
-        ? values.reduce((sum, value) => sum + value, 0) / values.length
-        : 0);
-    case 'min':
-      return aggregateNumbers(rows, item.field!, (values) => values.length ? Math.min(...values) : 0);
-    case 'max':
-      return aggregateNumbers(rows, item.field!, (values) => values.length ? Math.max(...values) : 0);
-    case 'median':
-      return aggregateNumbers(rows, item.field!, calculateMedian);
-    default:
-      throw new Error(`Unsupported aggregation operation: ${(item as { agg: QueryAggregateOperation }).agg}`);
-  }
-}
-
-function aggregateNumbers(
-  rows: Record<string, unknown>[],
-  field: string,
-  aggregate: (values: number[]) => number,
-) {
-  return aggregate(rows.map((row) => toFiniteNumber(row[field])).filter(Number.isFinite));
-}
-
-function calculateMedian(values: number[]) {
-  if (!values.length) {
-    return 0;
-  }
-
-  const sorted = [...values].sort((left, right) => left - right);
-  const middle = Math.floor(sorted.length / 2);
-
-  return sorted.length % 2
-    ? sorted[middle]
-    : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
 function evaluateCalc(calc: string, values: Record<string, unknown>, variables: DashboardVariables) {
@@ -408,16 +413,165 @@ function getSelectAlias(item: QuerySelectItem) {
   return item.as;
 }
 
-function getGroupByField(item: QueryGroupByItem) {
-  return typeof item === 'string' ? item : item.field;
-}
-
 function getGroupByAlias(item: QueryGroupByItem) {
   return typeof item === 'string' ? item : item.as ?? item.field;
 }
 
-function getGroupByGrain(item: QueryGroupByItem) {
-  return typeof item === 'string' ? undefined : item.grain;
+function getEffectiveGroupBy(groupBy: QueryGroupByItem[] | undefined, select: QuerySelectItem[]) {
+  if (groupBy?.length) {
+    return groupBy.map((item) => normalizeGroupByItem(item));
+  }
+
+  return select
+    .filter(isFieldSelectItem)
+    .map((item) => normalizeGroupByItem({ field: item.field, as: item.as, grain: item.grain }));
+}
+
+function normalizeGroupByItem(item: QueryGroupByItem | Pick<QueryFieldSelectItem, 'field' | 'as' | 'grain'>): EffectiveGroupByItem {
+  if (typeof item === 'string') {
+    return { field: item, as: item };
+  }
+
+  return {
+    field: item.field,
+    as: item.as ?? item.field,
+    grain: item.grain,
+    timezone: 'timezone' in item ? item.timezone : undefined,
+  };
+}
+
+function toAggregateGroupByRule(item: EffectiveGroupByItem): AggregateGroupByRule {
+  if (item.grain) {
+    return {
+      type: 'date_trunc',
+      field: item.field,
+      truncation: item.grain,
+      timezone: item.timezone,
+      as: item.as,
+    };
+  }
+
+  return {
+    type: 'field',
+    field: item.field,
+    as: item.as,
+  };
+}
+
+function toAggregationRule(item: QueryAggregateSelectItem): AggregateRule {
+  switch (item.agg) {
+    case 'count':
+      return { operation: 'count' };
+    case 'count_distinct':
+      return { operation: 'count_distinct', field: item.field! };
+    case 'sum':
+      return { operation: 'sum', field: item.field! };
+    case 'avg':
+      return { operation: 'avg', field: item.field! };
+    case 'min':
+      return { operation: 'min', field: item.field! };
+    case 'max':
+      return { operation: 'max', field: item.field! };
+    case 'median':
+      return { operation: 'median', field: item.field! };
+  }
+}
+
+function extractAggregateGroupValues(row: Record<string, unknown>, groupBy: EffectiveGroupByItem[]) {
+  return Object.fromEntries(groupBy.map((item) => [
+    item.as,
+    formatGroupValue(row[item.as], item.grain),
+  ]));
+}
+
+function ensureAggregateGroup(
+  groups: Map<string, Record<string, unknown>>,
+  row: Record<string, unknown>,
+  groupBy: EffectiveGroupByItem[],
+) {
+  const groupValues = groupBy.length ? extractAggregateGroupValues(row, groupBy) : {};
+  const key = JSON.stringify(groupValues);
+  const existingGroup = groups.get(key);
+
+  if (existingGroup) {
+    return existingGroup;
+  }
+
+  groups.set(key, groupValues);
+  return groupValues;
+}
+
+function applyAggregateDefaults(values: Record<string, unknown>, select: QueryAggregateSelectItem[]) {
+  for (const item of select) {
+    if (typeof values[item.as] === 'undefined') {
+      values[item.as] = 0;
+    }
+  }
+
+  return values;
+}
+
+function groupAggregateSelectItems(select: QueryAggregateSelectItem[]) {
+  const groups = new Map<string, {
+    filters: DashboardWidgetFilters;
+    items: QueryAggregateSelectItem[];
+  }>();
+
+  for (const item of select) {
+    const filters = normalizeFilters(item.filters);
+    const key = getFilterCacheKey(filters);
+    const group = groups.get(key) ?? { filters, items: [] };
+
+    group.items.push(item);
+    groups.set(key, group);
+  }
+
+  return Array.from(groups.values());
+}
+
+function getFilterCacheKey(filters: DashboardWidgetFilters) {
+  if (Array.isArray(filters) && !filters.length) {
+    return '__base__';
+  }
+
+  return JSON.stringify(filters);
+}
+
+function mergeFilters(...filters: Array<unknown>) {
+  const merged: Array<IAdminForthSingleFilter | IAdminForthAndOrFilter> = [];
+
+  for (const filter of filters) {
+    const normalized = normalizeFilters(filter);
+
+    if (Array.isArray(normalized)) {
+      merged.push(...normalized);
+      continue;
+    }
+
+    if (normalized) {
+      merged.push(normalized);
+    }
+  }
+
+  if (!merged.length) {
+    return [] as DashboardWidgetFilters;
+  }
+
+  return merged.length === 1 ? merged[0] : merged;
+}
+
+function getHiddenAggregateAlias(groupBy: EffectiveGroupByItem[], select: QueryAggregateSelectItem[]) {
+  const usedAliases = new Set([
+    ...groupBy.map((item) => item.as),
+    ...select.map((item) => item.as),
+  ]);
+  let alias = '__adminforth_dashboard_group_seed__';
+
+  while (usedAliases.has(alias)) {
+    alias = `_${alias}`;
+  }
+
+  return alias;
 }
 
 function formatGroupValue(value: unknown, grain: TimeGrain | undefined) {
@@ -433,10 +587,6 @@ function formatGroupValue(value: unknown, grain: TimeGrain | undefined) {
 
   if (grain === 'year') {
     return `${date.getUTCFullYear()}`;
-  }
-
-  if (grain === 'quarter') {
-    return `${date.getUTCFullYear()}-Q${Math.floor(date.getUTCMonth() / 3) + 1}`;
   }
 
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -457,8 +607,7 @@ function formatGroupValue(value: unknown, grain: TimeGrain | undefined) {
     return `${date.getUTCFullYear()}-${month}-${day}`;
   }
 
-  const hour = String(date.getUTCHours()).padStart(2, '0');
-  return `${date.getUTCFullYear()}-${month}-${day}T${hour}:00:00.000Z`;
+  return value;
 }
 
 function normalizeFilters(filters: unknown): DashboardWidgetFilters {
@@ -521,67 +670,6 @@ function normalizeFilterNode(filter: unknown): IAdminForthSingleFilter | IAdminF
   }
 
   return filter as IAdminForthSingleFilter | IAdminForthAndOrFilter;
-}
-
-function matchesFilterExpression(row: Record<string, unknown>, filter: FilterExpression): boolean {
-  if (Array.isArray(filter)) {
-    return filter.every((item) => matchesFilterExpression(row, item));
-  }
-
-  if ('and' in filter) {
-    return filter.and.every((item) => matchesFilterExpression(row, item));
-  }
-
-  if ('or' in filter) {
-    return filter.or.some((item) => matchesFilterExpression(row, item));
-  }
-
-  const value = row[filter.field];
-
-  if (Object.prototype.hasOwnProperty.call(filter, 'eq')) {
-    return value === normalizeFilterValue(filter.eq);
-  }
-
-  if (Object.prototype.hasOwnProperty.call(filter, 'neq')) {
-    return value !== normalizeFilterValue(filter.neq);
-  }
-
-  if (Object.prototype.hasOwnProperty.call(filter, 'gt')) {
-    return compareComparableValues(value, normalizeFilterValue(filter.gt)) > 0;
-  }
-
-  if (Object.prototype.hasOwnProperty.call(filter, 'gte')) {
-    return compareComparableValues(value, normalizeFilterValue(filter.gte)) >= 0;
-  }
-
-  if (Object.prototype.hasOwnProperty.call(filter, 'lt')) {
-    return compareComparableValues(value, normalizeFilterValue(filter.lt)) < 0;
-  }
-
-  if (Object.prototype.hasOwnProperty.call(filter, 'lte')) {
-    return compareComparableValues(value, normalizeFilterValue(filter.lte)) <= 0;
-  }
-
-  if (Object.prototype.hasOwnProperty.call(filter, 'in')) {
-    return filter.in?.includes(value) ?? false;
-  }
-
-  if (Object.prototype.hasOwnProperty.call(filter, 'not_in')) {
-    return !(filter.not_in?.includes(value) ?? false);
-  }
-
-  return true;
-}
-
-function compareComparableValues(left: unknown, right: unknown) {
-  const leftNumber = Number(left);
-  const rightNumber = Number(right);
-
-  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
-    return leftNumber - rightNumber;
-  }
-
-  return String(left ?? '').localeCompare(String(right ?? ''));
 }
 
 function normalizeFilterValue(value: unknown) {

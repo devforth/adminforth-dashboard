@@ -50,20 +50,31 @@ import { useRoute } from 'vue-router'
 import { Button } from '@/afcl'
 import { useCoreStore } from '@/stores/core'
 import websocket from '@/websocket'
+import { getDashboardConfigUpdatedTopic } from '../model/dashboardTopics.js'
 import DashboardRuntime from './DashboardRuntime.vue'
 import { useDashboardConfig } from '../queries/useDashboardConfig.js'
 
 const route = useRoute()
 const coreStore = useCoreStore()
 
-const dashboardSlug = computed(() => {
-  const slug = route.params.slug
+function getDashboardSlugFromRouteParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    if (!value[0]) {
+      throw new Error('Dashboard slug route param is required')
+    }
 
-  if (Array.isArray(slug)) {
-    return slug[0] || 'default'
+    return value[0]
   }
 
-  return (slug as string) || 'default'
+  if (!value) {
+    throw new Error('Dashboard slug route param is required')
+  }
+
+  return value
+}
+
+const dashboardSlug = computed(() => {
+  return getDashboardSlugFromRouteParam(route.params.slug as string | string[] | undefined)
 })
 
 const {
@@ -78,11 +89,10 @@ const isAdmin = computed(() => {
   return coreStore.adminUser?.dbUser.role === 'superadmin'
 })
 
-const DASHBOARD_CONFIG_UPDATED_TOPIC_PREFIX = '/opentopic/dashboard-config-updated'
 const subscribedTopic = ref<string | null>(null)
 
 const dashboardConfigUpdatedTopic = computed(() => {
-  return `${DASHBOARD_CONFIG_UPDATED_TOPIC_PREFIX}/${dashboardSlug.value}`
+  return getDashboardConfigUpdatedTopic(dashboardSlug.value)
 })
 
 function handleDashboardConfigUpdated(data: { slug?: string; revision?: number }) {

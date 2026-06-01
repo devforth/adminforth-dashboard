@@ -2,6 +2,7 @@ import type { AdminUser, IHttpServer } from 'adminforth';
 import { randomUUID } from 'crypto';
 import type {
   DashboardConfig,
+  EditableDashboardGroupConfig,
   DashboardGroupConfig,
 } from '../custom/model/dashboard.types.js';
 import {
@@ -11,14 +12,7 @@ import {
   SetGroupConfigRequestSchema,
   SlugRequestSchema,
 } from '../schema/api.js';
-
-type DashboardRecord = {
-  id: string;
-  slug: string;
-  label: string;
-  revision: number;
-  config: unknown;
-};
+import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
 
 type GroupEndpointsContext = {
   canEditDashboard: (adminUser: AdminUser) => boolean;
@@ -27,20 +21,7 @@ type GroupEndpointsContext = {
   persistDashboardConfig: (
     dashboard: DashboardRecord,
     config: DashboardConfig,
-  ) => Promise<{
-    id: string;
-    slug: string;
-    label: string;
-    revision: number;
-    config: DashboardConfig;
-  }>;
-  buildDashboardResponse: (dashboard: DashboardRecord) => {
-    id: string;
-    slug: string;
-    label: string;
-    revision: number;
-    config: DashboardConfig;
-  };
+  ) => Promise<PersistedDashboardResponse>;
 };
 
 export function registerGroupEndpoints(
@@ -59,8 +40,7 @@ export function registerGroupEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const slug = String(body?.slug || 'default');
-      const dashboard = await ctx.getDashboardRecord(slug);
+      const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
         response.setStatus(404);
@@ -95,9 +75,8 @@ export function registerGroupEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const slug = String(body?.slug || 'default');
-      const groupId = String(body?.groupId || '');
-      const dashboard = await ctx.getDashboardRecord(slug);
+      const groupId = body.groupId;
+      const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
         response.setStatus(404);
@@ -112,14 +91,16 @@ export function registerGroupEndpoints(
         return { error: 'Dashboard group not found' };
       }
 
+      const nextGroup: DashboardGroupConfig = {
+        ...(body.config as EditableDashboardGroupConfig),
+        id: group.id,
+        order: group.order,
+      };
+
       return ctx.persistDashboardConfig(dashboard, {
         ...config,
         groups: config.groups.map((item) => item.id === groupId
-          ? {
-              ...(body.config as DashboardGroupConfig),
-              id: group.id,
-              order: group.order,
-            }
+          ? nextGroup
           : item),
       });
     },
@@ -137,10 +118,7 @@ export function registerGroupEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const slug = String(body?.slug || 'default');
-      const groupId = String(body?.groupId || '');
-      const direction = body?.direction === 'down' ? 'down' : 'up';
-      const dashboard = await ctx.getDashboardRecord(slug);
+      const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
         response.setStatus(404);
@@ -149,17 +127,23 @@ export function registerGroupEndpoints(
 
       const config = ctx.parseStoredDashboardConfig(dashboard.config);
       const sortedGroups = [...config.groups].sort((a, b) => a.order - b.order);
-      const currentIndex = sortedGroups.findIndex((group) => group.id === groupId);
+      const currentIndex = sortedGroups.findIndex((group) => group.id === body.groupId);
 
       if (currentIndex === -1) {
         response.setStatus(404);
         return { error: 'Dashboard group not found' };
       }
 
-      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      const targetIndex = body.direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
       if (targetIndex < 0 || targetIndex >= sortedGroups.length) {
-        return ctx.buildDashboardResponse(dashboard);
+        return {
+          id: dashboard.id,
+          slug: dashboard.slug,
+          label: dashboard.label,
+          revision: dashboard.revision,
+          config: ctx.parseStoredDashboardConfig(dashboard.config),
+        };
       }
 
       const reorderedGroups = [...sortedGroups];
@@ -185,9 +169,8 @@ export function registerGroupEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const slug = String(body?.slug || 'default');
-      const groupId = String(body?.groupId || '');
-      const dashboard = await ctx.getDashboardRecord(slug);
+      const groupId = body.groupId;
+      const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
         response.setStatus(404);

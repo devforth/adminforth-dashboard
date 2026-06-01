@@ -1,5 +1,5 @@
 import { toJSONSchema, z } from 'zod'
-import { StoredWidgetConfigSchema, WidgetConfigSchema } from './widget.js'
+import { EditableDashboardWidgetConfigSchema, StoredWidgetConfigSchema } from './widget.js'
 
 function toAdminForthJsonSchema(schema: z.ZodType) {
   return toJSONSchema(schema, { target: 'draft-7' })
@@ -47,38 +47,42 @@ export const DashboardWidgetDataResponseZodSchema = z.union([
 ])
 
 export const SlugRequestZodSchema = z.object({
-  slug: z.string().optional(),
+  slug: z.string(),
 }).strict()
 
 export const SetDashboardConfigRequestZodSchema = z.object({
-  slug: z.string().optional(),
-  config: z.record(z.string(), z.unknown()),
+  slug: z.string(),
+  config: DashboardConfigZodSchema,
 }).strict()
 
 export const GroupIdRequestZodSchema = z.object({
-  slug: z.string().optional(),
+  slug: z.string(),
   groupId: z.string(),
 }).strict()
 
 export const MoveGroupRequestZodSchema = z.object({
-  slug: z.string().optional(),
+  slug: z.string(),
   groupId: z.string(),
   direction: z.enum(['up', 'down']),
 }).strict()
 
+export const EditableDashboardGroupConfigZodSchema = z.object({
+  label: z.string(),
+}).strict()
+
 export const SetGroupConfigRequestZodSchema = z.object({
-  slug: z.string().optional(),
+  slug: z.string(),
   groupId: z.string(),
-  config: DashboardGroupZodSchema,
+  config: EditableDashboardGroupConfigZodSchema,
 }).strict()
 
 export const WidgetIdRequestZodSchema = z.object({
-  slug: z.string().optional(),
+  slug: z.string(),
   widgetId: z.string(),
 }).strict()
 
 export const WidgetDataRequestZodSchema = z.object({
-  slug: z.string().optional(),
+  slug: z.string(),
   widgetId: z.string(),
   pagination: z.object({
     page: z.number().int().positive(),
@@ -87,15 +91,15 @@ export const WidgetDataRequestZodSchema = z.object({
 }).strict()
 
 export const MoveWidgetRequestZodSchema = z.object({
-  slug: z.string().optional(),
+  slug: z.string(),
   widgetId: z.string(),
   direction: z.enum(['up', 'down']),
 }).strict()
 
 export const SetWidgetConfigRequestZodSchema = z.object({
-  slug: z.string().optional(),
+  slug: z.string(),
   widgetId: z.string(),
-  config: z.record(z.string(), z.unknown()),
+  config: EditableDashboardWidgetConfigSchema,
 }).strict()
 
 export const DashboardErrorResponseSchema = toAdminForthJsonSchema(DashboardErrorResponseZodSchema)

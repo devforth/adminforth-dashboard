@@ -1,9 +1,5 @@
 import { z } from 'zod'
-
-export type DashboardWidgetConfigValidationError = {
-  field: string
-  message: string
-}
+export type { DashboardWidgetConfigValidationError } from '../custom/model/dashboard.types.js'
 
 const DashboardWidgetSizeSchema = z.enum([
   'small',
@@ -74,7 +70,7 @@ const QueryAggregateOperationSchema = z.enum([
 const QueryFieldSelectItemSchema = z.object({
   field: z.string(),
   as: z.string().optional(),
-  grain: z.enum(['hour', 'day', 'week', 'month', 'quarter', 'year']).optional(),
+  grain: z.enum(['day', 'week', 'month', 'year']).optional(),
 }).strict()
 
 const QueryAggregateSelectItemSchema = z.object({
@@ -85,7 +81,7 @@ const QueryAggregateSelectItemSchema = z.object({
 }).strict().superRefine((item, ctx) => {
   if (!['count'].includes(item.agg) && !item.field) {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       path: ['field'],
       message: `field is required for ${item.agg}`,
     })
@@ -108,7 +104,7 @@ const QueryGroupByItemSchema = z.union([
   z.object({
     field: z.string(),
     as: z.string().optional(),
-    grain: z.enum(['hour', 'day', 'week', 'month', 'quarter', 'year']).optional(),
+    grain: z.enum(['day', 'week', 'month', 'year']).optional(),
     timezone: z.string().optional(),
   }).strict(),
 ])
@@ -120,7 +116,7 @@ const QueryOrderByItemSchema = z.object({
 
 const TimeSeriesConfigSchema = z.object({
   field: z.string(),
-  grain: z.enum(['hour', 'day', 'week', 'month', 'quarter', 'year']),
+  grain: z.enum(['day', 'week', 'month', 'year']),
   timezone: z.string().optional(),
 }).strict()
 
@@ -174,9 +170,7 @@ export const FunnelQueryConfigSchema = z.object({
   calcs: z.array(QueryCalcItemSchema).optional(),
 }).strict()
 
-const WidgetBaseSchema = z.object({
-  id: z.string().optional(),
-  group_id: z.string().optional(),
+const EditableWidgetBaseSchema = z.object({
   label: z.string().optional(),
   variables: VariablesConfigSchema.optional(),
   size: DashboardWidgetSizeSchema.optional(),
@@ -184,7 +178,12 @@ const WidgetBaseSchema = z.object({
   height: z.number().positive('Height must be greater than 0').optional(),
   minWidth: z.number().nonnegative('Min width must be a non-negative number').optional(),
   maxWidth: z.number().nonnegative('Max width must be a non-negative number').nullable().optional(),
-  order: z.number().optional(),
+})
+
+const StoredWidgetBaseSchema = EditableWidgetBaseSchema.extend({
+  id: z.string(),
+  group_id: z.string(),
+  order: z.number(),
 })
 
 const TableViewConfigSchema = z.object({
@@ -312,17 +311,27 @@ const PivotTableViewConfigSchema = z.object({
   }).strict()).min(1),
 }).strict()
 
-export const EmptyWidgetConfigSchema = WidgetBaseSchema.extend({
+const EditableEmptyWidgetConfigSchema = EditableWidgetBaseSchema.extend({
   target: z.literal('empty'),
 })
 
-const TableWidgetConfigSchema = WidgetBaseSchema.extend({
+export const EmptyWidgetConfigSchema = StoredWidgetBaseSchema.extend({
+  target: z.literal('empty'),
+})
+
+const EditableTableWidgetConfigSchema = EditableWidgetBaseSchema.extend({
   target: z.literal('table'),
   table: TableViewConfigSchema.optional(),
   query: QueryConfigSchema,
 })
 
-const ChartWidgetTargetConfigSchema = WidgetBaseSchema.extend({
+const TableWidgetConfigSchema = StoredWidgetBaseSchema.extend({
+  target: z.literal('table'),
+  table: TableViewConfigSchema.optional(),
+  query: QueryConfigSchema,
+})
+
+const EditableChartWidgetTargetConfigSchema = EditableWidgetBaseSchema.extend({
   target: z.literal('chart'),
   chart: ChartConfigSchema,
   query: z.union([QueryConfigSchema, FunnelQueryConfigSchema]),
@@ -332,37 +341,81 @@ const ChartWidgetTargetConfigSchema = WidgetBaseSchema.extend({
 
   if (isFunnelChart && !isFunnelQuery) {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       path: ['query'],
       message: 'Funnel charts must use steps query',
     })
   }
 })
 
-const KpiCardWidgetConfigSchema = WidgetBaseSchema.extend({
+const ChartWidgetTargetConfigSchema = StoredWidgetBaseSchema.extend({
+  target: z.literal('chart'),
+  chart: ChartConfigSchema,
+  query: z.union([QueryConfigSchema, FunnelQueryConfigSchema]),
+}).superRefine((widget, ctx) => {
+  const isFunnelChart = widget.chart.type === 'funnel'
+  const isFunnelQuery = 'steps' in widget.query
+
+  if (isFunnelChart && !isFunnelQuery) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['query'],
+      message: 'Funnel charts must use steps query',
+    })
+  }
+})
+
+const EditableKpiCardWidgetConfigSchema = EditableWidgetBaseSchema.extend({
   target: z.literal('kpi_card'),
   card: KpiCardViewConfigSchema,
   query: QueryConfigSchema,
 })
 
-const GaugeCardWidgetConfigSchema = WidgetBaseSchema.extend({
+const KpiCardWidgetConfigSchema = StoredWidgetBaseSchema.extend({
+  target: z.literal('kpi_card'),
+  card: KpiCardViewConfigSchema,
+  query: QueryConfigSchema,
+})
+
+const EditableGaugeCardWidgetConfigSchema = EditableWidgetBaseSchema.extend({
   target: z.literal('gauge_card'),
   card: GaugeCardViewConfigSchema,
   query: QueryConfigSchema,
 })
 
-const PivotTableWidgetConfigSchema = WidgetBaseSchema.extend({
+const GaugeCardWidgetConfigSchema = StoredWidgetBaseSchema.extend({
+  target: z.literal('gauge_card'),
+  card: GaugeCardViewConfigSchema,
+  query: QueryConfigSchema,
+})
+
+const EditablePivotTableWidgetConfigSchema = EditableWidgetBaseSchema.extend({
   target: z.literal('pivot_table'),
   pivot: PivotTableViewConfigSchema,
   query: QueryConfigSchema,
 })
 
+const PivotTableWidgetConfigSchema = StoredWidgetBaseSchema.extend({
+  target: z.literal('pivot_table'),
+  pivot: PivotTableViewConfigSchema,
+  query: QueryConfigSchema,
+})
+
+export const EditableDashboardWidgetConfigSchema = z.discriminatedUnion('target', [
+  EditableEmptyWidgetConfigSchema,
+  EditableTableWidgetConfigSchema,
+  EditableChartWidgetTargetConfigSchema,
+  EditableKpiCardWidgetConfigSchema,
+  EditableGaugeCardWidgetConfigSchema,
+  EditablePivotTableWidgetConfigSchema,
+])
+
 export const WidgetConfigSchema = z.discriminatedUnion('target', [
-  TableWidgetConfigSchema,
-  ChartWidgetTargetConfigSchema,
-  KpiCardWidgetConfigSchema,
-  GaugeCardWidgetConfigSchema,
-  PivotTableWidgetConfigSchema,
+  EditableTableWidgetConfigSchema,
+  EditableChartWidgetTargetConfigSchema,
+  EditableKpiCardWidgetConfigSchema,
+  EditableGaugeCardWidgetConfigSchema,
+  EditablePivotTableWidgetConfigSchema,
 ])
 
 export const StoredWidgetConfigSchema = z.discriminatedUnion('target', [

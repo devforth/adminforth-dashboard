@@ -91,8 +91,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
 import { useWidgetData } from '../../queries/useWidgetData.js'
-import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
-import { normalizeChartWidgetConfig } from './chart.types.js'
+import type { ChartDashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
 import BarChart from './bar/BarChart.vue'
 import FunnelChart from './funnel/FunnelChart.vue'
 import HistogramChart from './histogram/HistogramChart.vue'
@@ -105,7 +104,7 @@ const DEFAULT_WIDGET_HEIGHT = 500
 
 const props = defineProps<{
   dashboardSlug: string
-  widget: DashboardWidgetConfig
+  widget: ChartDashboardWidgetConfig
 }>()
 
 const dashboardSlugRef = computed(() => props.dashboardSlug)
@@ -128,7 +127,7 @@ watch(
 const chartData = computed(() => data.value?.data as DashboardWidgetTableData | null)
 const rows = computed(() => chartData.value?.rows ?? [])
 const columns = computed(() => chartData.value?.columns ?? [])
-const chartConfig = computed(() => normalizeChartWidgetConfig(props.widget.chart))
+const chartConfig = computed(() => props.widget.chart)
 
 function resolveChartDimensionField(field: string | undefined, fallbackField: string | undefined) {
   const resolvedField = field ?? fallbackField
