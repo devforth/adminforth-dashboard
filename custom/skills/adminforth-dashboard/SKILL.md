@@ -41,6 +41,7 @@ If the user asks how the schema works, how to implement the API, or how to chang
 Use these tools whenever available:
 
 - `dashboard_get_config`
+- `dashboard_set_dashboard_config`
 - `dashboard_add_dashboard_group`
 - `dashboard_set_dashboard_group_config`
 - `dashboard_move_dashboard_group`
@@ -58,6 +59,7 @@ If a dashboard tool is known by name but its argument schema is not loaded, call
 Do not pass fields between dashboard tools by analogy. Use each tool's schema.
 
 - `dashboard_add_dashboard_group` creates a new group. It accepts the dashboard slug only. Never pass `groupId` to this tool.
+- `dashboard_set_dashboard_config` replaces the full dashboard config. Use it when the user explicitly asks to edit the whole dashboard config.
 - `dashboard_add_dashboard_widget` creates a widget inside an existing group. Use it when you already have a `groupId`.
 - `dashboard_set_dashboard_group_config`, `dashboard_move_dashboard_group`, and `dashboard_remove_dashboard_group` operate on an existing group and need `groupId`.
 - `dashboard_set_widget_config`, `dashboard_move_dashboard_widget`, `dashboard_remove_dashboard_widget`, and `dashboard_get_dashboard_widget_data` operate on an existing widget and need `widgetId`.
@@ -113,6 +115,24 @@ For group requests:
 
 If slug is missing, use `default`.
 
+## Dashboard Config Workflow
+
+Use `dashboard_set_dashboard_config` only when the user explicitly asks to edit the whole dashboard root config.
+
+For requests like:
+
+- "update root dashboard config"
+- "replace the whole dashboard config"
+
+do this:
+
+1. Call `dashboard_get_config`.
+2. Modify the returned root config, preserving existing `version`, `groups`, and `widgets` unless the user asked to change them.
+3. Call `dashboard_set_dashboard_config` with the full updated config.
+4. Return a short summary of the root-level fields changed.
+
+Do not use `dashboard_set_dashboard_config` to store reusable widget variables.
+
 ## Widget Config Rules
 
 Use the current schema keys exactly:
@@ -124,6 +144,93 @@ Use the current schema keys exactly:
 - Use `group_by`, not `groupBy`.
 - Use `order_by`, not `orderBy`.
 - Use `page_size`, not `pageSize`.
-- For funnel charts, use `query.steps` as an ordered array of `{ name, resource, metric, filters }` steps.
+- For step-based chart queries, use `query.steps` as an ordered array of `{ name, resource, metric, filters }` steps and add `query.calcs` when derived fields are needed.
 - Use `card` for KPI and gauge widget view config.
 - Use `pivot` for pivot table view config.
+- Use `variables` for reusable static maps or constants at widget level.
+- In `query.calcs`, use `lookup($variables.some.map, row_field, default_number)` to read a numeric value from a variable map by the current row/group field.
+
+## Variables And Lookup Calcs
+
+Widget config can define variables:
+
+```yaml
+variables:
+  token_prices_per_1m:
+    input:
+      gpt-4.1: 2.00
+      gpt-4.1-mini: 0.40
+      gpt-4o-mini: 0.15
+    output:
+      gpt-4.1: 8.00
+      gpt-4.1-mini: 1.60
+      gpt-4o-mini: 0.60
+    cached:
+      gpt-4.1: 0.50
+      gpt-4.1-mini: 0.10
+      gpt-4o-mini: 0.075
+```
+
+Use variables when a calculation needs a static rate table, threshold table, coefficient map, or other reusable constants. In calcs, `lookup($variables.path.to.map, field_name, 0)` returns the value from the map using `field_name` from the current row/group. The third argument is the numeric fallback when the key is missing.
+
+Example widget:
+
+```yaml
+target: chart
+label: Model costs
+size: large
+variables:
+  token_prices_per_1m:
+    input:
+      gpt-4.1: 2.00
+      gpt-4.1-mini: 0.40
+      gpt-4o-mini: 0.15
+    output:
+      gpt-4.1: 8.00
+      gpt-4.1-mini: 1.60
+      gpt-4o-mini: 0.60
+    cached:
+      gpt-4.1: 0.50
+      gpt-4.1-mini: 0.10
+      gpt-4o-mini: 0.075
+
+chart:
+  type: stacked_bar
+  title: LLM costs by model
+  x:
+    field: model
+    label: Model
+  y:
+    - field: input_cost
+      label: Input
+      format: currency
+    - field: output_cost
+      label: Output
+      format: currency
+    - field: cached_cost
+      label: Cached
+      format: currency
+
+query:
+  resource: model_usage
+  select:
+    - field: model
+    - agg: sum
+      field: input_tokens
+      as: input_tokens
+    - agg: sum
+      field: output_tokens
+      as: output_tokens
+    - agg: sum
+      field: cached_tokens
+      as: cached_tokens
+  group_by:
+    - model
+  calcs:
+    - calc: input_tokens / 1000000 * lookup($variables.token_prices_per_1m.input, model, 0)
+      as: input_cost
+    - calc: output_tokens / 1000000 * lookup($variables.token_prices_per_1m.output, model, 0)
+      as: output_cost
+    - calc: cached_tokens / 1000000 * lookup($variables.token_prices_per_1m.cached, model, 0)
+      as: cached_cost
+```

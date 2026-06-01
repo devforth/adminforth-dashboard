@@ -8,6 +8,7 @@ import type {
 import type {
   DashboardWidgetConfig,
   DashboardWidgetData,
+  DashboardVariables,
   FilterExpression,
   FunnelQueryConfig,
   QueryAggregateOperation,
@@ -26,6 +27,7 @@ export type DashboardWidgetDataOptions = {
     page: number;
     pageSize: number;
   };
+  variables?: DashboardVariables;
 };
 
 type DashboardWidgetFilters =
@@ -40,6 +42,8 @@ type QueryRowGroup = {
 
 const NOW_MINUS_RE = /^(\d+)([dhw])$/;
 const CALC_IDENTIFIER_RE = /\b[a-zA-Z_][a-zA-Z0-9_]*\b/g;
+const LOOKUP_CALL_RE = /lookup\(\s*(\$variables(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/g;
+const VARIABLE_PATH_PREFIX_RE = /^\$variables\.?/;
 const SAFE_CALC_EXPRESSION_RE = /^[\d+\-*/().\s]+$/;
 
 export type WidgetDataService = {
@@ -56,8 +60,8 @@ export async function getWidgetData(
   }
 
   const data = 'steps' in widget.query
-    ? await getFunnelWidgetData(adminforth, widget.query)
-    : await getQueryWidgetData(adminforth, widget.query);
+    ? await getFunnelWidgetData(adminforth, widget.query, options.variables ?? {})
+    : await getQueryWidgetData(adminforth, widget.query, options.variables ?? {});
 
   if (widget.target !== 'table' || !options.pagination) {
     return data;
@@ -82,20 +86,32 @@ export async function getWidgetData(
 async function getFunnelWidgetData(
   adminforth: IAdminForth,
   query: FunnelQueryConfig,
+  variables: DashboardVariables,
 ): Promise<DashboardWidgetData> {
   const rows = await Promise.all(query.steps.map(async (step) => {
     const valueField = step.metric.as;
     const sourceRows = await getResourceRows(adminforth, step.resource, step.filters);
 
-    return {
+    const row: Record<string, unknown> = {
       name: step.name,
+      resource: step.resource,
       [valueField]: calculateAggregate(sourceRows, step.metric),
     };
+
+    for (const calc of query.calcs ?? []) {
+      row[calc.as] = evaluateCalc(calc.calc, row, variables);
+    }
+
+    return row;
   }));
 
   return {
     kind: 'aggregate',
-    columns: ['name', ...Array.from(new Set(query.steps.map((step) => step.metric.as)))],
+    columns: [
+      'name',
+      ...Array.from(new Set(query.steps.map((step) => step.metric.as))),
+      ...Array.from(new Set((query.calcs ?? []).map((calc) => calc.as))),
+    ],
     rows,
   };
 }
@@ -103,9 +119,10 @@ async function getFunnelWidgetData(
 async function getQueryWidgetData(
   adminforth: IAdminForth,
   query: QueryConfig,
+  variables: DashboardVariables,
 ): Promise<DashboardWidgetData> {
   const rows = await getResourceRows(adminforth, query.resource, query.filters, getBackendSort(query.orderBy));
-  const selectedRows = buildQueryRows(rows, query);
+  const selectedRows = buildQueryRows(rows, query, variables);
   const orderedRows = sortRows(selectedRows, query.orderBy);
   const slicedRows = typeof query.limit === 'number'
     ? orderedRows.slice(query.offset ?? 0, (query.offset ?? 0) + query.limit)
@@ -144,21 +161,22 @@ async function getResourceRows(
   );
 }
 
-function buildQueryRows(rows: Record<string, unknown>[], query: QueryConfig) {
+function buildQueryRows(rows: Record<string, unknown>[], query: QueryConfig, variables: DashboardVariables) {
   const select = query.select ?? getDefaultSelect(rows);
   const groupBy = query.groupBy ?? [];
 
   if (isAggregateQuery(query)) {
-    return buildGroupedRows(rows, select, groupBy, query.calcs);
+    return buildGroupedRows(rows, select, groupBy, variables, query.calcs);
   }
 
-  return rows.map((row) => buildPlainRow(row, select, query.calcs));
+  return rows.map((row) => buildPlainRow(row, select, query.calcs, variables));
 }
 
 function buildGroupedRows(
   rows: Record<string, unknown>[],
   select: QuerySelectItem[],
   groupBy: QueryGroupByItem[],
+  variables: DashboardVariables,
   calcs: QueryCalcSelectItem[] = [],
 ) {
   const groups = new Map<string, QueryRowGroup>();
@@ -167,7 +185,7 @@ function buildGroupedRows(
     : select.filter(isFieldSelectItem).map((item) => ({ field: item.field, as: item.as, grain: item.grain }));
 
   if (!effectiveGroupBy.length) {
-    const values = calculateGroupValues(rows, select, calcs);
+    const values = calculateGroupValues(rows, select, calcs, variables);
     return Object.keys(values).length ? [values] : [];
   }
 
@@ -188,7 +206,7 @@ function buildGroupedRows(
 
   return Array.from(groups.values()).map((group) => ({
     ...group.values,
-    ...calculateGroupValues(group.rows, select, calcs),
+    ...calculateGroupValues(group.rows, select, calcs, variables, group.values),
   }));
 }
 
@@ -196,8 +214,10 @@ function calculateGroupValues(
   rows: Record<string, unknown>[],
   select: QuerySelectItem[],
   calcs: QueryCalcSelectItem[],
+  variables: DashboardVariables,
+  baseValues: Record<string, unknown> = {},
 ) {
-  const values: Record<string, unknown> = {};
+  const values: Record<string, unknown> = { ...baseValues };
 
   for (const item of select) {
     if (isAggregateSelectItem(item)) {
@@ -210,7 +230,7 @@ function calculateGroupValues(
   }
 
   for (const item of [...select.filter(isCalcSelectItem), ...calcs]) {
-    values[item.as] = evaluateCalc(item.calc, values);
+    values[item.as] = evaluateCalc(item.calc, values, variables);
   }
 
   return values;
@@ -220,6 +240,7 @@ function buildPlainRow(
   row: Record<string, unknown>,
   select: QuerySelectItem[],
   calcs: QueryCalcSelectItem[] = [],
+  variables: DashboardVariables,
 ) {
   const values: Record<string, unknown> = {};
 
@@ -232,7 +253,7 @@ function buildPlainRow(
   }
 
   for (const item of [...select.filter(isCalcSelectItem), ...calcs]) {
-    values[item.as] = evaluateCalc(item.calc, values);
+    values[item.as] = evaluateCalc(item.calc, values, variables);
   }
 
   return values;
@@ -282,14 +303,31 @@ function calculateMedian(values: number[]) {
     : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-function evaluateCalc(calc: string, values: Record<string, unknown>) {
-  const expression = calc.replace(CALC_IDENTIFIER_RE, (name) => String(toFiniteNumber(values[name])));
+function evaluateCalc(calc: string, values: Record<string, unknown>, variables: DashboardVariables) {
+  const expression = calc
+    .replace(LOOKUP_CALL_RE, (_match, path: string, keyField: string, defaultValue: string) => {
+      const map = resolveVariablePath(variables, path);
+      const key = String(values[keyField] ?? '');
+
+      return String(toFiniteNumber(isRecord(map) && Object.prototype.hasOwnProperty.call(map, key)
+        ? map[key]
+        : Number(defaultValue)));
+    })
+    .replace(CALC_IDENTIFIER_RE, (name) => String(toFiniteNumber(values[name])));
 
   if (!SAFE_CALC_EXPRESSION_RE.test(expression)) {
     throw new Error(`Unsupported calc expression: ${calc}`);
   }
 
   return Function(`"use strict"; return (${expression});`)();
+}
+
+function resolveVariablePath(variables: DashboardVariables, path: string) {
+  return path
+    .replace(VARIABLE_PATH_PREFIX_RE, '')
+    .split('.')
+    .filter(Boolean)
+    .reduce<unknown>((current, segment) => isRecord(current) ? current[segment] : undefined, variables);
 }
 
 function sortRows(rows: Record<string, unknown>[], orderBy: QueryOrderByItem[] = []) {

@@ -69,10 +69,10 @@
 
     <StackedBarChart
       v-else-if="chartConfig?.type === 'stacked_bar'"
-      :rows="rows"
+      :rows="stackedBarRows"
       :x-field="xField"
-      :y-field="yField"
-      :series-field="seriesField"
+      :y-field="stackedBarYField"
+      :series-field="stackedBarSeriesField"
       :colors="chartConfig.colors"
       :height="chartHeight"
     />
@@ -155,6 +155,21 @@ const valueField = computed(() => chartConfig.value?.value?.field || columns.val
 const pieRows = computed(() => rows.value)
 const pieLabelField = computed(() => labelField.value)
 const pieValueField = computed(() => valueField.value)
+const stackedBarYItems = computed(() => {
+  const y = chartConfig.value?.y
+  return Array.isArray(y) ? y : []
+})
+const stackedBarRows = computed(() => {
+  if (chartConfig.value?.type !== 'stacked_bar' || !stackedBarYItems.value.length) {
+    return rows.value
+  }
+
+  return rows.value.flatMap((row) => stackedBarYItems.value.map((item) => ({
+    [xField.value]: row[xField.value],
+    __series: item.label ?? item.field,
+    __value: row[item.field],
+  })))
+})
 const barRows = computed(() => {
   const bucketField = chartConfig.value?.type === 'histogram'
     ? chartConfig.value.x?.field
@@ -178,6 +193,8 @@ const barRows = computed(() => {
 const barLabelField = computed(() => chartConfig.value?.type === 'histogram' && chartConfig.value.buckets ? 'label' : xField.value)
 const barValueField = computed(() => chartConfig.value?.type === 'histogram' && chartConfig.value.buckets ? 'count' : yField.value)
 const seriesField = computed(() => chartConfig.value?.series?.field || columns.value[2] || '')
+const stackedBarYField = computed(() => stackedBarYItems.value.length ? '__value' : yField.value)
+const stackedBarSeriesField = computed(() => stackedBarYItems.value.length ? '__series' : seriesField.value)
 const lineSeriesName = computed(() => {
   const y = chartConfig.value?.y
   return Array.isArray(y) ? y[0]?.label : undefined

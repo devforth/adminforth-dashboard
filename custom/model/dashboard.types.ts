@@ -6,6 +6,8 @@ export type DashboardConfig = {
   widgets: DashboardWidgetConfig[]
 }
 
+export type DashboardVariables = Record<string, unknown>
+
 export type DashboardGroupConfig = {
   id: string
   label: string
@@ -39,6 +41,7 @@ export type WidgetBaseConfig = {
   id: string
   group_id: string
   label?: string
+  variables?: DashboardVariables
   size?: DashboardWidgetSize
   width?: number
   height?: number
@@ -127,6 +130,7 @@ export type QueryConfig = {
 
 export type FunnelQueryConfig = {
   steps: FunnelQueryStep[]
+  calcs?: QueryCalcSelectItem[]
 }
 
 export type FunnelQueryStep = {
@@ -381,9 +385,10 @@ function normalizeQueryConfig(value: unknown): unknown {
   }
 
   if (Array.isArray(value.steps)) {
-    return {
+    return removeUndefinedFields({
       steps: value.steps.map((step) => normalizeFunnelQueryStep(step)),
-    }
+      calcs: Array.isArray(value.calcs) ? value.calcs as QueryCalcSelectItem[] : undefined,
+    })
   }
 
   return {
@@ -399,10 +404,12 @@ function normalizeFunnelQueryStep(value: unknown) {
     return value
   }
 
-  return {
-    ...value,
-    ...(typeof value.resource_id === 'string' ? { resource: value.resource_id } : {}),
-  }
+  const { resource_id, ...rest } = value
+
+  return removeUndefinedFields({
+    ...rest,
+    resource: typeof resource_id === 'string' ? resource_id : rest.resource,
+  })
 }
 
 function normalizeTableConfig(value: unknown) {
@@ -448,13 +455,14 @@ function normalizePivotConfig(value: unknown): unknown {
 
 function serializeQueryConfigForEditor(value: QueryConfig | FunnelQueryConfig) {
   if ('steps' in value) {
-    return {
+    return removeUndefinedFields({
       steps: value.steps.map((step) => ({
         ...step,
         resource_id: step.resource,
         resource: undefined,
       })).map((step) => removeUndefinedFields(step)),
-    }
+      calcs: value.calcs,
+    })
   }
 
   return removeUndefinedFields({

@@ -145,6 +145,7 @@ const QueryCalcItemSchema = z.object({
 }).strict()
 
 const FormattingConfigSchema = z.record(z.string(), z.unknown())
+const VariablesConfigSchema = z.record(z.string(), z.unknown())
 
 export const QueryConfigSchema = z.object({
   resource: z.string(),
@@ -170,12 +171,14 @@ const FunnelQueryStepSchema = z.object({
 
 export const FunnelQueryConfigSchema = z.object({
   steps: z.array(FunnelQueryStepSchema).min(1),
+  calcs: z.array(QueryCalcItemSchema).optional(),
 }).strict()
 
 const WidgetBaseSchema = z.object({
   id: z.string().optional(),
   group_id: z.string().optional(),
   label: z.string().optional(),
+  variables: VariablesConfigSchema.optional(),
   size: DashboardWidgetSizeSchema.optional(),
   width: z.number().positive('Width must be greater than 0').optional(),
   height: z.number().positive('Height must be greater than 0').optional(),
@@ -224,8 +227,8 @@ const BarChartSchema = ChartBaseSchema.extend({
 const StackedBarChartSchema = ChartBaseSchema.extend({
   type: z.literal('stacked_bar'),
   x: ChartFieldRefSchema,
-  y: ChartFieldRefSchema,
-  series: ChartSeriesRefSchema,
+  y: z.union([ChartFieldRefSchema, z.array(ChartFieldRefSchema).min(1)]),
+  series: ChartSeriesRefSchema.optional(),
   colors: z.array(z.string()).optional(),
 })
 
@@ -327,11 +330,11 @@ const ChartWidgetTargetConfigSchema = WidgetBaseSchema.extend({
   const isFunnelChart = widget.chart.type === 'funnel'
   const isFunnelQuery = 'steps' in widget.query
 
-  if (isFunnelChart !== isFunnelQuery) {
+  if (isFunnelChart && !isFunnelQuery) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['query'],
-      message: 'Funnel charts must use steps query, other charts must use resource query',
+      message: 'Funnel charts must use steps query',
     })
   }
 })

@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import {
   normalizeDashboardWidgetConfig,
 } from '../custom/model/dashboard.types.js';
-import type { DashboardConfig, DashboardWidgetConfig } from '../custom/model/dashboard.types.js';
+import type { DashboardConfig, DashboardVariables, DashboardWidgetConfig } from '../custom/model/dashboard.types.js';
 import {
   DashboardApiResponseSchema,
   DashboardWidgetDataResponseSchema,
@@ -31,7 +31,10 @@ type WidgetEndpointsContext = {
   ) => DashboardWidgetConfigValidationError[];
   getWidgetData: (
     widget: DashboardWidgetConfig,
-    options?: { pagination?: { page: number, pageSize: number } },
+    options?: {
+      pagination?: { page: number, pageSize: number },
+      variables?: DashboardVariables,
+    },
   ) => Promise<unknown>;
 };
 
@@ -301,6 +304,7 @@ export function registerWidgetEndpoints(
         widget,
         data: await ctx.getWidgetData(widget, {
           pagination: body?.pagination,
+          variables: widget.variables,
         }),
       };
     },
