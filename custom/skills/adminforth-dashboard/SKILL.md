@@ -141,9 +141,9 @@ Use the current schema keys exactly:
 - Use `label`, not `title`.
 - Use `query`, not `dataSource`.
 - Use `resource`, not `resourceId`.
-- Use `groupBy`, not `group_by`.
-- Use `orderBy`, not `order_by`.
-- Use `pageSize`, not `page_size`.
+- Use `group_by`, not `groupBy`.
+- Use `order_by`, not `orderBy`.
+- Use `page_size`, not `pageSize`.
 - For step-based chart queries, use `query.steps` as an ordered array of `{ name, resource, metric, filters }` steps and add `query.calcs` when derived fields are needed.
 - Use `card` for KPI and gauge widget view config.
 - Use `pivot` for pivot table view config.
@@ -224,7 +224,7 @@ query:
     - agg: sum
       field: cached_tokens
       as: cached_tokens
-  groupBy:
+  group_by:
     - model
   calcs:
     - calc: input_tokens / 1000000 * lookup($variables.token_prices_per_1m.input, model, 0)

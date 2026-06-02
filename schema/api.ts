@@ -17,13 +17,13 @@ export const DashboardGroupZodSchema = z.object({
   id: z.string(),
   label: z.string(),
   order: z.number(),
-})
+}).strict()
 
 export const DashboardConfigZodSchema = z.object({
   version: z.number(),
   groups: z.array(DashboardGroupZodSchema),
   widgets: z.array(StoredWidgetConfigSchema),
-})
+}).strict()
 
 export const DashboardResponseZodSchema = z.object({
   id: z.string(),
@@ -52,7 +52,7 @@ export const SlugRequestZodSchema = z.object({
 
 export const SetDashboardConfigRequestZodSchema = z.object({
   slug: z.string(),
-  config: z.unknown(),
+  config: DashboardConfigZodSchema,
 }).strict()
 
 export const GroupIdRequestZodSchema = z.object({
@@ -99,7 +99,7 @@ export const MoveWidgetRequestZodSchema = z.object({
 export const SetWidgetConfigRequestZodSchema = z.object({
   slug: z.string(),
   widgetId: z.string(),
-  config: z.unknown(),
+  config: EditableDashboardWidgetConfigSchema,
 }).strict()
 
 export const DashboardErrorResponseSchema = toAdminForthJsonSchema(DashboardErrorResponseZodSchema)

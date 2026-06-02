@@ -115,13 +115,13 @@ const widgetData = computed(() => data.value?.data as DashboardWidgetTableData |
 const columns = computed(() => widgetData.value?.columns ?? [])
 const firstRow = computed(() => widgetData.value?.rows[0] ?? {})
 const valueField = computed(() => gaugeConfig.value?.value.field || columns.value[0])
-const targetField = computed(() => gaugeConfig.value?.target?.field ?? gaugeConfig.value?.progress?.targetField)
+const targetField = computed(() => gaugeConfig.value?.target?.field ?? gaugeConfig.value?.progress?.target_field)
 const minValue = computed(() => {
   return 0
 })
 const maxValue = computed(() => {
   const dynamicMax = targetField.value ? parseOptionalNumber(firstRow.value[targetField.value]) : undefined
-  return dynamicMax ?? parseOptionalNumber(gaugeConfig.value?.target?.value ?? gaugeConfig.value?.progress?.targetValue) ?? 100
+  return dynamicMax ?? parseOptionalNumber(gaugeConfig.value?.target?.value ?? gaugeConfig.value?.progress?.target_value) ?? 100
 })
 const value = computed(() => toFiniteNumber(firstRow.value[valueField.value]))
 const fractionDigits = computed(() => Math.min([

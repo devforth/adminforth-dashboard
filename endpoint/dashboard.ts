@@ -1,14 +1,10 @@
 import type { AdminUser, IHttpServer } from 'adminforth';
-import { ZodError } from 'zod';
-import type { DashboardConfig, DashboardWidgetConfig } from '../custom/model/dashboard.types.js';
-import { toInternalDashboardConfigShape } from '../custom/model/dashboardConfigFormat.js';
+import type { DashboardConfig } from '../custom/model/dashboard.types.js';
 import {
   DashboardApiResponseSchema,
-  DashboardConfigZodSchema,
   SetDashboardConfigRequestSchema,
   SlugRequestSchema,
 } from '../schema/api.js';
-import type { DashboardWidgetConfigValidationError } from '../schema/widget.js';
 import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
 
 type DashboardEndpointsContext = {
@@ -19,17 +15,7 @@ type DashboardEndpointsContext = {
     dashboard: DashboardRecord,
     config: DashboardConfig,
   ) => Promise<PersistedDashboardResponse>;
-  validateDashboardWidgetApiConfig: (
-    widget: DashboardWidgetConfig,
-  ) => DashboardWidgetConfigValidationError[];
 };
-
-function normalizeZodValidationErrors(error: ZodError, fieldPrefix = 'config') {
-  return error.issues.map((issue) => ({
-    field: issue.path.length ? `${fieldPrefix}.${issue.path.join('.')}` : fieldPrefix,
-    message: issue.message,
-  }));
-}
 
 export function registerDashboardEndpoints(
   server: IHttpServer,
@@ -78,38 +64,7 @@ export function registerDashboardEndpoints(
         return { error: 'Dashboard not found' };
       }
 
-      let config: DashboardConfig;
-
-      try {
-        config = DashboardConfigZodSchema.parse(
-          toInternalDashboardConfigShape(body.config),
-        ) as DashboardConfig;
-      } catch (error) {
-        if (error instanceof ZodError) {
-          response.setStatus(422);
-          return {
-            error: 'Invalid dashboard config',
-            validationErrors: normalizeZodValidationErrors(error),
-          };
-        }
-
-        throw error;
-      }
-
-      const widgetValidationErrors = config.widgets.flatMap((widget, index) => (
-        ctx.validateDashboardWidgetApiConfig(widget as DashboardWidgetConfig).map((error) => ({
-          ...error,
-          field: `widgets.${index}.${error.field}`,
-        }))
-      ));
-
-      if (widgetValidationErrors.length) {
-        response.setStatus(422);
-        return {
-          error: 'Invalid dashboard config',
-          validationErrors: widgetValidationErrors,
-        };
-      }
+      const config = body.config as DashboardConfig;
 
       return ctx.persistDashboardConfig(dashboard, config);
     },

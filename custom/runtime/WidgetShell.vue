@@ -136,10 +136,10 @@ const widgetLayoutVars = computed<CSSProperties>(() => {
 
   return {
     '--widget-basis': clampToContainerWidth(fixedWidth ?? basis),
-    '--widget-min-width': clampToContainerWidth(fixedWidth ?? formatWidth(props.layout?.minWidth) ?? basis),
-    '--widget-max-width': props.layout?.maxWidth === null
+    '--widget-min-width': clampToContainerWidth(fixedWidth ?? formatWidth(props.layout?.min_width) ?? basis),
+    '--widget-max-width': props.layout?.max_width === null
       ? '100%'
-      : clampToContainerWidth(fixedWidth ?? formatWidth(props.layout?.maxWidth) ?? '100%'),
+      : clampToContainerWidth(fixedWidth ?? formatWidth(props.layout?.max_width) ?? '100%'),
     height: formatWidth(props.layout?.height ?? DEFAULT_WIDGET_HEIGHT),
   }
 })

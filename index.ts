@@ -8,7 +8,6 @@ import { registerGroupEndpoints } from "./endpoint/groups.js";
 import { registerWidgetEndpoints } from './endpoint/widgets.js';
 import { createDashboardConfigService } from "./services/dashboardConfigService.js";
 import { createWidgetDataService } from "./services/widgetDataService.js";
-import { createWidgetConfigValidatorService } from "./services/widgetConfigValidator.js";
 
 const DEFAULT_DASHBOARD_CONFIG = {
   version: 1,
@@ -119,7 +118,6 @@ export default class DashboardPlugin extends AdminForthPlugin {
       this.options.dashboardConfigsResourceId,
     );
     const widgetDataService = createWidgetDataService(this.adminforth);
-    const widgetConfigValidatorService = createWidgetConfigValidatorService(this.adminforth);
 
     const ctx = {
       adminforth: this.adminforth,
@@ -127,7 +125,6 @@ export default class DashboardPlugin extends AdminForthPlugin {
       canEditDashboard,
       ...dashboardConfigService,
       ...widgetDataService,
-      ...widgetConfigValidatorService,
     };
 
     registerDashboardEndpoints(server, ctx);

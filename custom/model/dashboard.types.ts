@@ -1,4 +1,3 @@
-import { toSnakeDashboardConfigShape } from './dashboardConfigFormat.js'
 import type { ChartWidgetConfig } from '../widgets/chart/chart.types.js'
 
 export type DashboardConfig = {
@@ -7,7 +6,15 @@ export type DashboardConfig = {
   widgets: DashboardWidgetConfig[]
 }
 
-export type DashboardVariables = Record<string, unknown>
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+export type DashboardVariables = Record<string, JsonValue>
 
 export type DashboardGroupConfig = {
   id: string
@@ -39,8 +46,8 @@ export type ValueFormat =
 export type WidgetLayout = {
   size?: DashboardWidgetSize
   width?: number
-  minWidth?: number
-  maxWidth?: number | null
+  min_width?: number
+  max_width?: number | null
   height?: number
 }
 
@@ -52,8 +59,8 @@ export type WidgetBaseConfig = {
   size?: DashboardWidgetSize
   width?: number
   height?: number
-  minWidth?: number
-  maxWidth?: number | null
+  min_width?: number
+  max_width?: number | null
   order: number
 }
 
@@ -63,16 +70,16 @@ export type FilterExpression =
   | Array<FilterExpression>
   | {
       field: string
-      eq?: unknown
-      neq?: unknown
-      gt?: unknown
-      gte?: unknown
-      lt?: unknown
-      lte?: unknown
-      in?: unknown[]
-      not_in?: unknown[]
-      like?: unknown
-      ilike?: unknown
+      eq?: JsonValue
+      neq?: JsonValue
+      gt?: JsonValue
+      gte?: JsonValue
+      lt?: JsonValue
+      lte?: JsonValue
+      in?: JsonValue[]
+      not_in?: JsonValue[]
+      like?: JsonValue
+      ilike?: JsonValue
     }
 
 export type QueryFieldSelectItem = {
@@ -113,26 +120,26 @@ export type QueryConfig = {
   resource: string
   select?: QuerySelectItem[]
   filters?: FilterExpression
-  groupBy?: QueryGroupByItem[]
-  orderBy?: QueryOrderByItem[]
+  group_by?: QueryGroupByItem[]
+  order_by?: QueryOrderByItem[]
   limit?: number
   offset?: number
-  timeSeries?: {
+  time_series?: {
     field: string
     grain: TimeGrain
     timezone?: string
   }
   period?: {
     field: string
-    gte?: unknown
-    lt?: unknown
+    gte?: JsonValue
+    lt?: JsonValue
   }
   bucket?: {
     field: string
     buckets: Array<{ label: string, min?: number, max?: number }>
   }
   calcs?: QueryCalcSelectItem[]
-  formatting?: Record<string, unknown>
+  formatting?: Record<string, JsonValue>
 }
 
 export type FunnelQueryConfig = {
@@ -156,7 +163,7 @@ export type FieldRef = string | {
 export type TableViewConfig = {
   columns?: FieldRef[]
   pagination?: boolean
-  pageSize?: number
+  page_size?: number
 }
 
 export type KpiCardViewConfig = {
@@ -171,8 +178,8 @@ export type KpiCardViewConfig = {
     text?: string
     field?: string
   }
-  comparison?: unknown
-  sparkline?: unknown
+  comparison?: JsonValue
+  sparkline?: JsonValue
 }
 
 export type GaugeCardViewConfig = {
@@ -189,9 +196,9 @@ export type GaugeCardViewConfig = {
     label?: string
   }
   progress?: {
-    valueField: string
-    targetValue?: number
-    targetField?: string
+    value_field: string
+    target_value?: number
+    target_field?: string
     format?: ValueFormat
   }
   color?: string
@@ -295,7 +302,7 @@ export function serializeDashboardWidgetConfigForEditor(
     ...editableWidget
   } = widget
 
-  return toSnakeDashboardConfigShape(editableWidget)
+  return editableWidget
 }
 
 export function getFieldRefField(value: FieldRef | undefined) {

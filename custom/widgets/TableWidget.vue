@@ -119,7 +119,7 @@ import type { DashboardWidgetConfig, DashboardWidgetTableData, FieldRef } from '
 type TableWidgetConfig = {
   columns?: FieldRef[]
   pagination?: boolean
-  pageSize?: number
+  page_size?: number
 }
 
 const DEFAULT_PAGE_SIZE = 10
@@ -133,7 +133,7 @@ const currentPage = ref(1)
 const currentPageInput = ref(1)
 const tableConfig = computed(() => props.widget.table as TableWidgetConfig | undefined)
 const isPaginationEnabled = computed(() => tableConfig.value?.pagination !== false)
-const pageSize = computed(() => tableConfig.value?.pageSize ?? DEFAULT_PAGE_SIZE)
+const pageSize = computed(() => tableConfig.value?.page_size ?? DEFAULT_PAGE_SIZE)
 const dashboardSlugRef = computed(() => props.dashboardSlug)
 const widgetIdRef = computed(() => props.widget.id)
 const widgetDataRequest = computed(() => (

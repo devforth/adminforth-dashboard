@@ -1,13 +1,11 @@
 import type { AdminUser, IHttpServer } from 'adminforth';
 import { randomUUID } from 'crypto';
-import { ZodError } from 'zod';
 import type {
   DashboardConfig,
   DashboardVariables,
   DashboardWidgetConfig,
   EditableDashboardWidgetConfig,
 } from '../custom/model/dashboard.types.js';
-import { toInternalDashboardConfigShape } from '../custom/model/dashboardConfigFormat.js';
 import {
   DashboardApiResponseSchema,
   DashboardWidgetDataResponseSchema,
@@ -17,18 +15,7 @@ import {
   WidgetDataRequestSchema,
   WidgetIdRequestSchema,
 } from '../schema/api.js';
-import {
-  EditableDashboardWidgetConfigSchema,
-  type DashboardWidgetConfigValidationError,
-} from '../schema/widget.js';
 import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
-
-function normalizeZodValidationErrors(error: ZodError, fieldPrefix = 'config') {
-  return error.issues.map((issue) => ({
-    field: issue.path.length ? `${fieldPrefix}.${issue.path.join('.')}` : fieldPrefix,
-    message: issue.message,
-  }));
-}
 
 type WidgetEndpointsContext = {
   canEditDashboard: (adminUser: AdminUser) => boolean;
@@ -38,9 +25,6 @@ type WidgetEndpointsContext = {
     dashboard: DashboardRecord,
     config: DashboardConfig,
   ) => Promise<PersistedDashboardResponse>;
-  validateDashboardWidgetApiConfig: (
-    widget: DashboardWidgetConfig,
-  ) => DashboardWidgetConfigValidationError[];
   getWidgetData: (
     widget: DashboardWidgetConfig,
     options?: {
@@ -217,23 +201,7 @@ export function registerWidgetEndpoints(
         return { error: 'Dashboard widget not found' };
       }
 
-      let typedWidgetConfig: EditableDashboardWidgetConfig;
-
-      try {
-        typedWidgetConfig = EditableDashboardWidgetConfigSchema.parse(
-          toInternalDashboardConfigShape(body.config),
-        ) as EditableDashboardWidgetConfig;
-      } catch (error) {
-        if (error instanceof ZodError) {
-          response.setStatus(422);
-          return {
-            error: 'Invalid widget config',
-            validationErrors: normalizeZodValidationErrors(error),
-          };
-        }
-
-        throw error;
-      }
+      const typedWidgetConfig = body.config as EditableDashboardWidgetConfig;
 
       const nextWidget: DashboardWidgetConfig = {
         ...typedWidgetConfig,
@@ -241,15 +209,6 @@ export function registerWidgetEndpoints(
         group_id: widget.group_id,
         order: widget.order,
       };
-      const apiValidationErrors = ctx.validateDashboardWidgetApiConfig(nextWidget);
-
-      if (apiValidationErrors.length) {
-        response.setStatus(422);
-        return {
-          error: 'Invalid widget config',
-          validationErrors: apiValidationErrors,
-        };
-      }
 
       return ctx.persistDashboardConfig(dashboard, {
         ...config,

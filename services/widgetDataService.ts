@@ -10,6 +10,7 @@ import type {
   DashboardWidgetData,
   DashboardVariables,
   FunnelQueryConfig,
+  FilterExpression,
   QueryAggregateSelectItem,
   QueryCalcSelectItem,
   QueryConfig,
@@ -66,11 +67,22 @@ type EffectiveGroupByItem = {
   timezone?: string;
 };
 
-const NOW_MINUS_RE = /^(\d+)([dhw])$/;
 const CALC_IDENTIFIER_RE = /\b[a-zA-Z_][a-zA-Z0-9_]*\b/g;
 const LOOKUP_CALL_RE = /lookup\(\s*(\$variables(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/g;
 const VARIABLE_PATH_PREFIX_RE = /^\$variables\.?/;
 const SAFE_CALC_EXPRESSION_RE = /^[\d+\-*/().\s]+$/;
+const FILTER_OPERATORS = {
+  eq: Filters.EQ,
+  neq: Filters.NEQ,
+  gt: Filters.GT,
+  gte: Filters.GTE,
+  lt: Filters.LT,
+  lte: Filters.LTE,
+  in: Filters.IN,
+  not_in: Filters.NOT_IN,
+  like: Filters.LIKE,
+  ilike: Filters.ILIKE,
+} as const;
 
 export type WidgetDataService = {
   getWidgetData: (widget: DashboardWidgetConfig, options?: DashboardWidgetDataOptions) => Promise<DashboardWidgetData | null>;
@@ -156,11 +168,11 @@ async function getQueryWidgetData(
   const selectedRows = isAggregateQuery(query)
     ? await buildAggregateQueryRows(adminforth, query, variables)
     : buildPlainQueryRows(
-      await getResourceRows(adminforth, query.resource, query.filters, getBackendSort(query.orderBy)),
+      await getResourceRows(adminforth, query.resource, query.filters, getBackendSort(query.order_by)),
       query,
       variables,
     );
-  const orderedRows = sortRows(selectedRows, query.orderBy);
+  const orderedRows = sortRows(selectedRows, query.order_by);
   const slicedRows = typeof query.limit === 'number'
     ? orderedRows.slice(query.offset ?? 0, (query.offset ?? 0) + query.limit)
     : orderedRows.slice(query.offset ?? 0);
@@ -187,11 +199,11 @@ async function getQueryWidgetData(
 async function getResourceRows(
   adminforth: IAdminForth,
   resourceId: string,
-  filters: unknown,
+  filters: FilterExpression | undefined,
   sort?: IAdminForthSort | IAdminForthSort[],
 ) {
   return adminforth.resource(resourceId).list(
-    normalizeFilters(filters),
+    getAdminForthFilters(filters),
     undefined,
     0,
     sort,
@@ -209,7 +221,7 @@ async function buildAggregateQueryRows(
   variables: DashboardVariables,
 ) {
   const select = query.select ?? [];
-  const effectiveGroupBy = getEffectiveGroupBy(query.groupBy, select);
+  const effectiveGroupBy = getEffectiveGroupBy(query.group_by, select);
   const aggregateSelect = select.filter(isAggregateSelectItem);
   const rows = await getAggregateRows(
     adminforth,
@@ -225,7 +237,7 @@ async function buildAggregateQueryRows(
 async function getAggregateRows(
   adminforth: IAdminForth,
   resourceId: string,
-  baseFilters: unknown,
+  baseFilters: FilterExpression | undefined,
   select: QueryAggregateSelectItem[],
   groupBy: EffectiveGroupByItem[],
 ) {
@@ -237,7 +249,7 @@ async function getAggregateRows(
   if (groupBy.length) {
     const groupSeedAlias = getHiddenAggregateAlias(groupBy, select);
     const groupSeedRows = await resource.aggregate(
-      normalizeFilters(baseFilters),
+      getAdminForthFilters(baseFilters),
       { [groupSeedAlias]: { operation: 'count' } },
       groupByRules,
     );
@@ -374,7 +386,7 @@ function getBackendSort(orderBy: QueryOrderByItem[] | undefined) {
 
 function getColumns(rows: Record<string, unknown>[], query: QueryConfig) {
   const selectColumns = [
-    ...(query.groupBy ?? []).map(getGroupByAlias),
+    ...(query.group_by ?? []).map(getGroupByAlias),
     ...(query.select ?? []).map(getSelectAlias),
     ...(query.calcs ?? []).map((item) => item.as),
   ].filter(Boolean);
@@ -388,7 +400,7 @@ function getDefaultSelect(rows: Record<string, unknown>[]): QuerySelectItem[] {
 
 function isAggregateQuery(query: QueryConfig) {
   return Boolean(
-    query.groupBy?.length
+    query.group_by?.length
     || query.select?.some((item) => isAggregateSelectItem(item)),
   );
 }
@@ -518,7 +530,7 @@ function groupAggregateSelectItems(select: QueryAggregateSelectItem[]) {
   }>();
 
   for (const item of select) {
-    const filters = normalizeFilters(item.filters);
+    const filters = getAdminForthFilters(item.filters);
     const key = getFilterCacheKey(filters);
     const group = groups.get(key) ?? { filters, items: [] };
 
@@ -537,11 +549,11 @@ function getFilterCacheKey(filters: DashboardWidgetFilters) {
   return JSON.stringify(filters);
 }
 
-function mergeFilters(...filters: Array<unknown>) {
+function mergeFilters(...filters: Array<FilterExpression | DashboardWidgetFilters | undefined>) {
   const merged: Array<IAdminForthSingleFilter | IAdminForthAndOrFilter> = [];
 
   for (const filter of filters) {
-    const normalized = normalizeFilters(filter);
+    const normalized = getAdminForthFilters(filter);
 
     if (Array.isArray(normalized)) {
       merged.push(...normalized);
@@ -610,92 +622,67 @@ function formatGroupValue(value: unknown, grain: TimeGrain | undefined) {
   return value;
 }
 
-function normalizeFilters(filters: unknown): DashboardWidgetFilters {
+function getAdminForthFilters(filters: FilterExpression | DashboardWidgetFilters | undefined): DashboardWidgetFilters {
   if (Array.isArray(filters)) {
-    return filters.map((filter) => normalizeFilterNode(filter)) as DashboardWidgetFilters;
+    return filters.map((filter) => isDashboardFilterExpression(filter)
+      ? toAdminForthFilter(filter)
+      : filter);
   }
 
-  if (isRecord(filters)) {
-    return normalizeFilterNode(filters);
+  if (isDashboardFilterExpression(filters)) {
+    return toAdminForthFilter(filters);
+  }
+
+  if (filters) {
+    return filters;
   }
 
   return [];
 }
 
-function normalizeFilterNode(filter: unknown): IAdminForthSingleFilter | IAdminForthAndOrFilter {
-  if (!isRecord(filter)) {
-    return filter as IAdminForthSingleFilter;
+function isDashboardFilterExpression(value: unknown): value is FilterExpression {
+  if (Array.isArray(value)) {
+    return true;
   }
 
-  if (Array.isArray(filter.and)) {
-    return Filters.AND(filter.and.map((item) => normalizeFilterNode(item)));
+  if (!isRecord(value)) {
+    return false;
   }
 
-  if (Array.isArray(filter.or)) {
-    return Filters.OR(filter.or.map((item) => normalizeFilterNode(item)));
-  }
-
-  if (typeof filter.field === 'string') {
-    if (Object.prototype.hasOwnProperty.call(filter, 'eq')) {
-      return Filters.EQ(filter.field, normalizeFilterValue(filter.eq));
-    }
-
-    if (Object.prototype.hasOwnProperty.call(filter, 'neq')) {
-      return Filters.NEQ(filter.field, normalizeFilterValue(filter.neq));
-    }
-
-    if (Object.prototype.hasOwnProperty.call(filter, 'gt')) {
-      return Filters.GT(filter.field, normalizeFilterValue(filter.gt));
-    }
-
-    if (Object.prototype.hasOwnProperty.call(filter, 'gte')) {
-      return Filters.GTE(filter.field, normalizeFilterValue(filter.gte));
-    }
-
-    if (Object.prototype.hasOwnProperty.call(filter, 'lt')) {
-      return Filters.LT(filter.field, normalizeFilterValue(filter.lt));
-    }
-
-    if (Object.prototype.hasOwnProperty.call(filter, 'lte')) {
-      return Filters.LTE(filter.field, normalizeFilterValue(filter.lte));
-    }
-
-    if (Object.prototype.hasOwnProperty.call(filter, 'in')) {
-      return Filters.IN(filter.field, normalizeFilterValue(filter.in));
-    }
-
-    if (Object.prototype.hasOwnProperty.call(filter, 'not_in')) {
-      return Filters.NOT_IN(filter.field, normalizeFilterValue(filter.not_in));
-    }
-  }
-
-  return filter as IAdminForthSingleFilter | IAdminForthAndOrFilter;
+  return 'and' in value
+    || 'or' in value
+    || 'eq' in value
+    || 'neq' in value
+    || 'gt' in value
+    || 'gte' in value
+    || 'lt' in value
+    || 'lte' in value
+    || 'in' in value
+    || 'not_in' in value
+    || 'like' in value
+    || 'ilike' in value;
 }
 
-function normalizeFilterValue(value: unknown) {
-  if (!isRecord(value) || typeof value.now_minus !== 'string') {
-    return value;
+function toAdminForthFilter(filter: FilterExpression): IAdminForthSingleFilter | IAdminForthAndOrFilter {
+  if (Array.isArray(filter)) {
+    return Filters.AND(filter.map((item) => toAdminForthFilter(item)));
   }
 
-  const match = value.now_minus.match(NOW_MINUS_RE);
-
-  if (!match) {
-    return value;
+  if ('and' in filter) {
+    return Filters.AND(filter.and.map((item) => toAdminForthFilter(item)));
   }
 
-  const amount = Number(match[1]);
-  const unit = match[2];
-  const date = new Date();
-
-  if (unit === 'h') {
-    date.setHours(date.getHours() - amount);
-  } else if (unit === 'w') {
-    date.setDate(date.getDate() - amount * 7);
-  } else {
-    date.setDate(date.getDate() - amount);
+  if ('or' in filter) {
+    return Filters.OR(filter.or.map((item) => toAdminForthFilter(item)));
   }
 
-  return date.toISOString();
+  for (const [operator, createFilter] of Object.entries(FILTER_OPERATORS)) {
+    if (Object.prototype.hasOwnProperty.call(filter, operator)) {
+      return createFilter(filter.field, filter[operator as keyof typeof FILTER_OPERATORS]);
+    }
+  }
+
+  return Filters.AND([]);
 }
 
 function toFiniteNumber(value: unknown) {

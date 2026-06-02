@@ -31,14 +31,14 @@ Each widget has common fields:
 | `order` | Widget order inside its group. |
 | `variables` | Optional static maps/constants available inside widget `query.calcs` via `lookup($variables.path, field, default)`. |
 | `size` | Preset width: `small`, `medium`, `large`, `wide`, or `full`. |
-| `width`, `height`, `minWidth`, `maxWidth` | Optional explicit layout constraints. |
+| `width`, `height`, `min_width`, `max_width` | Optional explicit layout constraints. |
 | `query` | Data query definition. |
 
 ## Widget Support Matrix
 
 | Widget target | Config field | Main settings | Data usage |
 | --- | --- | --- | --- |
-| `table` | `table` | `pagination`, `pageSize`, `columns` | Uses `query` to display raw or aggregate rows. |
+| `table` | `table` | `pagination`, `page_size`, `columns` | Uses `query` to display raw or aggregate rows. |
 | `chart` | `chart` | `type`, `x`, `y`, `label`, `value`, `series`, `buckets`, `color`, `colors` | Uses `query`; step-based charts may use `query.steps` with optional `calcs`. |
 | `kpi_card` | `card` | `value`, `subtitle`, `comparison`, `sparkline` | Reads the first returned query row. |
 | `gauge_card` | `card` | `value`, `target`, `progress`, `color` | Reads the first returned query row. |
@@ -62,15 +62,34 @@ type QueryConfig = {
   resource: string
   select?: Array<
     | { field: string; as?: string; grain?: 'day' | 'week' | 'month' | 'year' }
-    | { agg: 'sum' | 'count' | 'count_distinct' | 'avg' | 'min' | 'max' | 'median'; field?: string; as: string; filters?: unknown }
+    | { agg: 'sum' | 'count' | 'count_distinct' | 'avg' | 'min' | 'max' | 'median'; field?: string; as: string; filters?: DashboardFilter | DashboardFilter[] }
     | { calc: string; as: string }
   >
-  filters?: unknown
-  groupBy?: Array<string | { field: string; as?: string; grain?: 'day' | 'week' | 'month' | 'year'; timezone?: string }>
-  orderBy?: Array<{ field: string; direction?: 'asc' | 'desc' }>
+  filters?: DashboardFilter | DashboardFilter[]
+  group_by?: Array<string | { field: string; as?: string; grain?: 'day' | 'week' | 'month' | 'year'; timezone?: string }>
+  order_by?: Array<{ field: string; direction?: 'asc' | 'desc' }>
   limit?: number
   offset?: number
 }
+
+type DashboardFilter =
+  | { and: DashboardFilter[] }
+  | { or: DashboardFilter[] }
+  | {
+      field: string
+      eq?: JsonValue
+      neq?: JsonValue
+      gt?: JsonValue
+      gte?: JsonValue
+      lt?: JsonValue
+      lte?: JsonValue
+      in?: JsonValue[]
+      not_in?: JsonValue[]
+      like?: JsonValue
+      ilike?: JsonValue
+    }
+
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 ```
 
 Step-based chart queries use `steps` and may include `calcs`:
@@ -152,7 +171,7 @@ query:
     - agg: sum
       field: cached_tokens
       as: cached_tokens
-  groupBy:
+  group_by:
     - model
   calcs:
     - calc: input_tokens / 1000000 * lookup($variables.token_prices_per_1m.input, model, 0)

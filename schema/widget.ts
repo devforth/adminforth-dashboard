@@ -1,6 +1,5 @@
 import { z } from 'zod'
 export type { DashboardWidgetConfigValidationError } from '../custom/model/dashboard.types.js'
-
 const DashboardWidgetSizeSchema = z.enum([
   'small',
   'medium',
@@ -34,6 +33,15 @@ const FieldRefSchema = z.union([
   }).strict(),
 ])
 
+const JsonValueSchema: z.ZodType = z.lazy(() => z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z.array(JsonValueSchema),
+  z.record(z.string(), JsonValueSchema),
+]))
+
 const FilterExpressionSchema: z.ZodType = z.lazy(() => z.union([
   z.array(FilterExpressionSchema),
   z.object({
@@ -44,16 +52,16 @@ const FilterExpressionSchema: z.ZodType = z.lazy(() => z.union([
   }).strict(),
   z.object({
     field: z.string(),
-    eq: z.unknown().optional(),
-    neq: z.unknown().optional(),
-    gt: z.unknown().optional(),
-    gte: z.unknown().optional(),
-    lt: z.unknown().optional(),
-    lte: z.unknown().optional(),
-    in: z.array(z.unknown()).optional(),
-    not_in: z.array(z.unknown()).optional(),
-    like: z.unknown().optional(),
-    ilike: z.unknown().optional(),
+    eq: JsonValueSchema.optional(),
+    neq: JsonValueSchema.optional(),
+    gt: JsonValueSchema.optional(),
+    gte: JsonValueSchema.optional(),
+    lt: JsonValueSchema.optional(),
+    lte: JsonValueSchema.optional(),
+    in: z.array(JsonValueSchema).optional(),
+    not_in: z.array(JsonValueSchema).optional(),
+    like: JsonValueSchema.optional(),
+    ilike: JsonValueSchema.optional(),
   }).strict(),
 ]))
 
@@ -122,8 +130,8 @@ const TimeSeriesConfigSchema = z.object({
 
 const PeriodConfigSchema = z.object({
   field: z.string(),
-  gte: z.unknown().optional(),
-  lt: z.unknown().optional(),
+  gte: JsonValueSchema.optional(),
+  lt: JsonValueSchema.optional(),
 }).strict()
 
 const BucketConfigSchema = z.object({
@@ -140,18 +148,18 @@ const QueryCalcItemSchema = z.object({
   as: z.string(),
 }).strict()
 
-const FormattingConfigSchema = z.record(z.string(), z.unknown())
-const VariablesConfigSchema = z.record(z.string(), z.unknown())
+const FormattingConfigSchema = z.record(z.string(), JsonValueSchema)
+const VariablesConfigSchema = z.record(z.string(), JsonValueSchema)
 
 export const QueryConfigSchema = z.object({
   resource: z.string(),
   select: z.array(QuerySelectItemSchema).optional(),
   filters: FilterExpressionSchema.optional(),
-  groupBy: z.array(QueryGroupByItemSchema).optional(),
-  orderBy: z.array(QueryOrderByItemSchema).optional(),
+  group_by: z.array(QueryGroupByItemSchema).optional(),
+  order_by: z.array(QueryOrderByItemSchema).optional(),
   limit: z.number().int().positive().optional(),
   offset: z.number().int().nonnegative().optional(),
-  timeSeries: TimeSeriesConfigSchema.optional(),
+  time_series: TimeSeriesConfigSchema.optional(),
   period: PeriodConfigSchema.optional(),
   bucket: BucketConfigSchema.optional(),
   calcs: z.array(QueryCalcItemSchema).optional(),
@@ -176,9 +184,9 @@ const EditableWidgetBaseSchema = z.object({
   size: DashboardWidgetSizeSchema.optional(),
   width: z.number().positive('Width must be greater than 0').optional(),
   height: z.number().positive('Height must be greater than 0').optional(),
-  minWidth: z.number().nonnegative('Min width must be a non-negative number').optional(),
-  maxWidth: z.number().nonnegative('Max width must be a non-negative number').nullable().optional(),
-})
+  min_width: z.number().nonnegative('Min width must be a non-negative number').optional(),
+  max_width: z.number().nonnegative('Max width must be a non-negative number').nullable().optional(),
+}).strict()
 
 const StoredWidgetBaseSchema = EditableWidgetBaseSchema.extend({
   id: z.string(),
@@ -189,12 +197,12 @@ const StoredWidgetBaseSchema = EditableWidgetBaseSchema.extend({
 const TableViewConfigSchema = z.object({
   columns: z.array(FieldRefSchema).optional(),
   pagination: z.boolean().optional(),
-  pageSize: z.number().int().positive().optional(),
+  page_size: z.number().int().positive().optional(),
 }).strict()
 
 const ChartBaseSchema = z.object({
   title: z.string().optional(),
-})
+}).strict()
 
 const ChartBucketSchema = z.object({
   label: z.string().min(1, 'Bucket label is required'),
@@ -274,8 +282,8 @@ const KpiCardViewConfigSchema = z.object({
     text: z.string().optional(),
     field: z.string().optional(),
   }).strict().optional(),
-  comparison: z.unknown().optional(),
-  sparkline: z.unknown().optional(),
+  comparison: JsonValueSchema.optional(),
+  sparkline: JsonValueSchema.optional(),
 }).strict()
 
 const GaugeCardViewConfigSchema = z.object({
@@ -292,9 +300,9 @@ const GaugeCardViewConfigSchema = z.object({
     label: z.string().optional(),
   }).strict().optional(),
   progress: z.object({
-    valueField: z.string(),
-    targetValue: z.number().optional(),
-    targetField: z.string().optional(),
+    value_field: z.string(),
+    target_value: z.number().optional(),
+    target_field: z.string().optional(),
     format: ValueFormatSchema,
   }).strict().optional(),
   color: z.string().optional(),

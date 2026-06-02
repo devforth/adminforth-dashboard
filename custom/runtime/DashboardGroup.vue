@@ -112,8 +112,8 @@
         :layout="{
           size: widget.size,
           width: widget.width,
-          minWidth: widget.minWidth,
-          maxWidth: widget.maxWidth,
+          min_width: widget.min_width,
+          max_width: widget.max_width,
           height: widget.height,
         }"
         @edit="emit('edit-widget', widget)"
