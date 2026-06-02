@@ -1,3 +1,4 @@
+import { toSnakeDashboardConfigShape } from './dashboardConfigFormat.js'
 import type { ChartWidgetConfig } from '../widgets/chart/chart.types.js'
 
 export type DashboardConfig = {
@@ -286,7 +287,7 @@ export type DashboardWidgetData = DashboardWidgetTableData | DashboardWidgetAggr
 
 export function serializeDashboardWidgetConfigForEditor(
   widget: DashboardWidgetConfig,
-): EditableDashboardWidgetConfig {
+): unknown {
   const {
     id: _id,
     group_id: _groupId,
@@ -294,7 +295,7 @@ export function serializeDashboardWidgetConfigForEditor(
     ...editableWidget
   } = widget
 
-  return editableWidget
+  return toSnakeDashboardConfigShape(editableWidget)
 }
 
 export function getFieldRefField(value: FieldRef | undefined) {

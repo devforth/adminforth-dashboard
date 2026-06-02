@@ -89,8 +89,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useElementSize } from '../../../composables/useElementSize.js'
-import { CHART_COLORS, formatChartLabel, formatChartValue, toFiniteNumber } from '../chart.utils.js'
+import { useElementSize } from '../../composables/useElementSize.js'
+import { CHART_COLORS, formatChartLabel, formatChartValue, toFiniteNumber } from './chart.utils.js'
 
 const props = withDefaults(defineProps<{
   rows: Record<string, unknown>[]

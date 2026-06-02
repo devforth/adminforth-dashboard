@@ -1,8 +1,66 @@
+<template>
+  <div class="mt-3 rounded-lg border border-lightListBorder bg-lightTableBackground p-4 dark:border-darkListBorder dark:bg-darkTableBackground">
+    <div
+      v-if="isLoading"
+      class="text-sm text-lightListTableText dark:text-darkListTableText"
+    >
+      Loading...
+    </div>
+
+    <div
+      v-else-if="error"
+      class="text-sm text-lightInputErrorColor"
+    >
+      Failed to load gauge data
+    </div>
+
+    <div
+      v-else
+      class="flex flex-col items-center gap-2"
+    >
+      <svg
+        width="180"
+        height="104"
+        viewBox="0 0 180 104"
+        role="img"
+        :aria-label="valueField"
+      >
+        <path
+          d="M18 90a72 72 0 0 1 144 0"
+          class="text-lightListBorder dark:text-darkListBorder"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-width="18"
+        />
+        <path
+          d="M18 90a72 72 0 0 1 144 0"
+          fill="none"
+          :stroke="gaugeColor"
+          stroke-linecap="round"
+          stroke-width="18"
+          :stroke-dasharray="circumference"
+          :stroke-dashoffset="strokeDashoffset"
+        />
+      </svg>
+
+      <div class="text-3xl font-bold text-lightNavbarText dark:text-darkNavbarText">
+        {{ gaugeConfig?.value.prefix ?? '' }}{{ formattedValue }}{{ gaugeConfig?.value.suffix ?? '' }}
+      </div>
+      <div class="text-sm text-lightListTableText dark:text-darkListTableText">
+        {{ formattedMinValue }} - {{ formattedMaxValue }}
+      </div>
+    </div>
+  </div>
+</template>
+
+
+
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { useWidgetData } from '../../queries/useWidgetData.js'
-import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
-import { CHART_COLORS, formatChartValue, toFiniteNumber } from '../chart/chart.utils.js'
+import { useWidgetData } from '../queries/useWidgetData.js'
+import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../model/dashboard.types.js'
+import { CHART_COLORS, formatChartValue, toFiniteNumber } from './chart/chart.utils.js'
 
 const props = defineProps<{
   dashboardSlug: string
@@ -95,59 +153,3 @@ const circumference = Math.PI * radius
 const strokeDashoffset = computed(() => circumference * (1 - progress.value))
 const gaugeColor = computed(() => gaugeConfig.value?.color || CHART_COLORS[0])
 </script>
-
-<template>
-  <div class="mt-3 rounded-lg border border-lightListBorder bg-lightTableBackground p-4 dark:border-darkListBorder dark:bg-darkTableBackground">
-    <div
-      v-if="isLoading"
-      class="text-sm text-lightListTableText dark:text-darkListTableText"
-    >
-      Loading...
-    </div>
-
-    <div
-      v-else-if="error"
-      class="text-sm text-lightInputErrorColor"
-    >
-      Failed to load gauge data
-    </div>
-
-    <div
-      v-else
-      class="flex flex-col items-center gap-2"
-    >
-      <svg
-        width="180"
-        height="104"
-        viewBox="0 0 180 104"
-        role="img"
-        :aria-label="valueField"
-      >
-        <path
-          d="M18 90a72 72 0 0 1 144 0"
-          class="text-lightListBorder dark:text-darkListBorder"
-          fill="none"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-width="18"
-        />
-        <path
-          d="M18 90a72 72 0 0 1 144 0"
-          fill="none"
-          :stroke="gaugeColor"
-          stroke-linecap="round"
-          stroke-width="18"
-          :stroke-dasharray="circumference"
-          :stroke-dashoffset="strokeDashoffset"
-        />
-      </svg>
-
-      <div class="text-3xl font-bold text-lightNavbarText dark:text-darkNavbarText">
-        {{ gaugeConfig?.value.prefix ?? '' }}{{ formattedValue }}{{ gaugeConfig?.value.suffix ?? '' }}
-      </div>
-      <div class="text-sm text-lightListTableText dark:text-darkListTableText">
-        {{ formattedMinValue }} - {{ formattedMaxValue }}
-      </div>
-    </div>
-  </div>
-</template>

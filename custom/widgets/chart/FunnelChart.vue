@@ -1,13 +1,91 @@
+<template>
+  <div
+    ref="rootEl"
+    class="grid h-full min-h-0 w-full gap-4 overflow-hidden"
+    :class="isCompact ? 'grid-rows-[minmax(0,1fr)_auto]' : 'grid-cols-[minmax(0,1fr)_200px]'"
+  >
+    <div
+      ref="svgEl"
+      class="min-h-0 w-full overflow-hidden"
+    >
+      <svg
+        v-if="chartWidth > 0 && chartHeight > 0"
+        class="block h-full w-full"
+        :viewBox="`0 0 ${chartWidth} ${chartHeight}`"
+        role="img"
+        :aria-label="valueField"
+      >
+        <path
+          v-for="segment in segments"
+          :key="segment.id"
+          :d="segment.path"
+          :fill="segment.color"
+          fill-opacity="0.9"
+        >
+          <title>
+            {{ segment.label }}: {{ formatChartValue(segment.value) }} ({{ segment.percentLabel }})
+          </title>
+        </path>
+
+        <text
+          v-for="segment in segments"
+          v-show="segment.labelVisible"
+          :key="`value-${segment.id}`"
+          :x="chartWidth / 2"
+          :y="segment.centerY + 4"
+          fill="#ffffff"
+          font-size="12"
+          font-weight="600"
+          text-anchor="middle"
+        >
+          {{ formatChartValue(segment.value) }}
+        </text>
+      </svg>
+    </div>
+
+    <div class="grid min-w-0 gap-2 text-sm">
+      <div
+        v-for="segment in segments"
+        :key="`legend-${segment.id}`"
+        class="grid min-h-[34px] min-w-0 grid-cols-[1fr_auto] items-center gap-3"
+      >
+        <div class="flex min-w-0 items-center gap-2">
+          <span
+            class="h-2.5 w-2.5 shrink-0 rounded-full"
+            :style="{ backgroundColor: segment.color }"
+          />
+
+          <span class="truncate text-lightNavbarText dark:text-darkNavbarText">
+            {{ segment.shortLabel }}
+          </span>
+        </div>
+
+        <div class="text-right">
+          <div class="font-semibold text-lightNavbarText dark:text-darkNavbarText">
+            {{ formatChartValue(segment.value) }}
+          </div>
+
+          <div class="text-xs text-lightListTableText dark:text-darkListTableText">
+            {{ segment.percentLabel }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+
+
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useElementSize } from '../../../composables/useElementSize.js'
+import { useElementSize } from '../../composables/useElementSize.js'
 import {
   CHART_COLORS,
   formatChartAxisLabel,
   formatChartLabel,
   formatChartValue,
   toFiniteNumber,
-} from '../chart.utils.js'
+} from './chart.utils.js'
 
 const props = withDefaults(defineProps<{
   rows: Record<string, unknown>[]
@@ -121,79 +199,3 @@ const segments = computed(() => funnelRows.value.map((row, index) => {
   }
 }))
 </script>
-
-<template>
-  <div
-    ref="rootEl"
-    class="grid h-full min-h-0 w-full gap-4 overflow-hidden"
-    :class="isCompact ? 'grid-rows-[minmax(0,1fr)_auto]' : 'grid-cols-[minmax(0,1fr)_200px]'"
-  >
-    <div
-      ref="svgEl"
-      class="min-h-0 w-full overflow-hidden"
-    >
-      <svg
-        v-if="chartWidth > 0 && chartHeight > 0"
-        class="block h-full w-full"
-        :viewBox="`0 0 ${chartWidth} ${chartHeight}`"
-        role="img"
-        :aria-label="valueField"
-      >
-        <path
-          v-for="segment in segments"
-          :key="segment.id"
-          :d="segment.path"
-          :fill="segment.color"
-          fill-opacity="0.9"
-        >
-          <title>
-            {{ segment.label }}: {{ formatChartValue(segment.value) }} ({{ segment.percentLabel }})
-          </title>
-        </path>
-
-        <text
-          v-for="segment in segments"
-          v-show="segment.labelVisible"
-          :key="`value-${segment.id}`"
-          :x="chartWidth / 2"
-          :y="segment.centerY + 4"
-          fill="#ffffff"
-          font-size="12"
-          font-weight="600"
-          text-anchor="middle"
-        >
-          {{ formatChartValue(segment.value) }}
-        </text>
-      </svg>
-    </div>
-
-    <div class="grid min-w-0 gap-2 text-sm">
-      <div
-        v-for="segment in segments"
-        :key="`legend-${segment.id}`"
-        class="grid min-h-[34px] min-w-0 grid-cols-[1fr_auto] items-center gap-3"
-      >
-        <div class="flex min-w-0 items-center gap-2">
-          <span
-            class="h-2.5 w-2.5 shrink-0 rounded-full"
-            :style="{ backgroundColor: segment.color }"
-          />
-
-          <span class="truncate text-lightNavbarText dark:text-darkNavbarText">
-            {{ segment.shortLabel }}
-          </span>
-        </div>
-
-        <div class="text-right">
-          <div class="font-semibold text-lightNavbarText dark:text-darkNavbarText">
-            {{ formatChartValue(segment.value) }}
-          </div>
-
-          <div class="text-xs text-lightListTableText dark:text-darkListTableText">
-            {{ segment.percentLabel }}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>

@@ -1,7 +1,10 @@
 import type { AdminUser, IHttpServer } from 'adminforth';
+import { ZodError } from 'zod';
 import type { DashboardConfig, DashboardWidgetConfig } from '../custom/model/dashboard.types.js';
+import { toInternalDashboardConfigShape } from '../custom/model/dashboardConfigFormat.js';
 import {
   DashboardApiResponseSchema,
+  DashboardConfigZodSchema,
   SetDashboardConfigRequestSchema,
   SlugRequestSchema,
 } from '../schema/api.js';
@@ -20,6 +23,13 @@ type DashboardEndpointsContext = {
     widget: DashboardWidgetConfig,
   ) => DashboardWidgetConfigValidationError[];
 };
+
+function normalizeZodValidationErrors(error: ZodError, fieldPrefix = 'config') {
+  return error.issues.map((issue) => ({
+    field: issue.path.length ? `${fieldPrefix}.${issue.path.join('.')}` : fieldPrefix,
+    message: issue.message,
+  }));
+}
 
 export function registerDashboardEndpoints(
   server: IHttpServer,
@@ -68,7 +78,24 @@ export function registerDashboardEndpoints(
         return { error: 'Dashboard not found' };
       }
 
-      const config = body.config as DashboardConfig;
+      let config: DashboardConfig;
+
+      try {
+        config = DashboardConfigZodSchema.parse(
+          toInternalDashboardConfigShape(body.config),
+        ) as DashboardConfig;
+      } catch (error) {
+        if (error instanceof ZodError) {
+          response.setStatus(422);
+          return {
+            error: 'Invalid dashboard config',
+            validationErrors: normalizeZodValidationErrors(error),
+          };
+        }
+
+        throw error;
+      }
+
       const widgetValidationErrors = config.widgets.flatMap((widget, index) => (
         ctx.validateDashboardWidgetApiConfig(widget as DashboardWidgetConfig).map((error) => ({
           ...error,

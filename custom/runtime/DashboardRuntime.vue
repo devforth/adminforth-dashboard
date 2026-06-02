@@ -204,6 +204,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { Button } from '@/afcl'
 import DashboardGroup from './DashboardGroup.vue'
 import { DashboardApiError, dashboardApi, type DashboardResponse } from '../api/dashboardApi.js'
+import { toSnakeDashboardConfigShape } from '../model/dashboardConfigFormat.js'
 import type {
   DashboardConfig,
   DashboardGroupConfig,
@@ -342,7 +343,7 @@ function editGroup(group: DashboardGroupConfig) {
   }
 
   editingGroupId.value = group.id
-  groupConfigCode.value = stringifyYaml(editableGroupConfig)
+  groupConfigCode.value = stringifyYaml(toSnakeDashboardConfigShape(editableGroupConfig))
   groupConfigError.value = ''
 }
 

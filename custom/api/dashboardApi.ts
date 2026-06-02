@@ -140,7 +140,7 @@ export const dashboardApi = {
     return callDashboardApi('/adminapi/v1/dashboard/get-config', { slug })
   },
 
-  async setDashboardConfig(slug: string, config: DashboardConfig): Promise<DashboardResponse> {
+  async setDashboardConfig(slug: string, config: unknown): Promise<DashboardResponse> {
     return callDashboardApi('/adminapi/v1/dashboard/set_dashboard_config', { slug, config })
   },
 
@@ -201,7 +201,7 @@ export const dashboardApi = {
     })
   },
 
-  async setWidgetConfig(slug: string, widgetId: string, config: EditableDashboardWidgetConfig): Promise<DashboardResponse> {
+  async setWidgetConfig(slug: string, widgetId: string, config: unknown): Promise<DashboardResponse> {
     return callDashboardApi('/adminapi/v1/dashboard/set_widget_config', {
       slug,
       widgetId,

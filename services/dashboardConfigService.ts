@@ -1,6 +1,7 @@
 import { Filters } from 'adminforth';
 import type { IAdminForth } from 'adminforth';
 import type { DashboardConfig, DashboardWidgetConfig } from '../custom/model/dashboard.types.js';
+import { toInternalDashboardConfigShape, toSnakeDashboardConfigShape } from '../custom/model/dashboardConfigFormat.js';
 import { getDashboardConfigUpdatedTopic } from '../custom/model/dashboardTopics.js';
 import { DashboardConfigZodSchema } from '../schema/api.js';
 
@@ -14,8 +15,9 @@ export type DashboardRecord = {
 
 export function parseStoredDashboardConfig(config: unknown): DashboardConfig {
   const parsedConfig = typeof config === 'string' ? JSON.parse(config) : config;
+  const normalizedConfig = toInternalDashboardConfigShape(parsedConfig);
 
-  return DashboardConfigZodSchema.parse(parsedConfig) as DashboardConfig;
+  return DashboardConfigZodSchema.parse(normalizedConfig) as DashboardConfig;
 }
 
 export type PersistedDashboardResponse = {
@@ -72,7 +74,7 @@ export async function persistDashboardConfig(
   const normalizedConfig = normalizeDashboardOrder(config);
 
   await adminforth.resource(dashboardConfigsResourceId).update(dashboard.id, {
-    config: normalizedConfig,
+    config: toSnakeDashboardConfigShape(normalizedConfig),
     revision: dashboard.revision + 1,
   });
 

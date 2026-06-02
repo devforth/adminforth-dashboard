@@ -1,6 +1,101 @@
+<template>
+  <div
+    ref="rootEl"
+    class="grid h-full min-h-0 w-full grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden"
+  >
+    <div
+      v-if="showLegend"
+      class="flex flex-wrap items-center gap-3 text-xs text-lightListTableText dark:text-darkListTableText"
+      :class="isCompact ? 'justify-start' : 'justify-end'"
+    >
+      <div
+        v-for="series in normalizedSeries"
+        :key="series.name"
+        class="flex items-center gap-1.5"
+      >
+        <span
+          class="h-2.5 w-2.5 rounded-full"
+          :style="{ backgroundColor: series.color }"
+        />
+        <span>{{ series.name }}</span>
+      </div>
+    </div>
+
+    <div
+      ref="svgEl"
+      class="min-h-0 overflow-hidden"
+    >
+      <svg
+        v-if="chartWidth > 0 && chartHeight > 0"
+        class="block h-full w-full"
+        :viewBox="`0 0 ${chartWidth} ${chartHeight}`"
+        role="img"
+        :aria-label="xField"
+      >
+        <g class="text-lightListTableText dark:text-darkListTableText">
+          <line
+            v-for="tick in yTicks"
+            :key="tick.y"
+            :x1="padding.left"
+            :x2="chartWidth - padding.right"
+            :y1="tick.y"
+            :y2="tick.y"
+            stroke="currentColor"
+            stroke-opacity="0.14"
+          />
+          <text
+            v-for="tick in yTicks"
+            :key="`label-${tick.y}`"
+            :x="padding.left - 8"
+            :y="tick.y + 4"
+            fill="currentColor"
+            font-size="11"
+            text-anchor="end"
+          >
+            {{ formatChartValue(tick.value) }}
+          </text>
+        </g>
+
+        <g
+          v-for="(bar, barIndex) in bars"
+          :key="bar.label"
+        >
+          <rect
+            v-for="segment in bar.segments"
+            :key="segment.id"
+            v-show="segment.height > 0"
+            :x="bar.x"
+            :y="segment.y"
+            :width="barWidth"
+            :height="segment.height"
+            :fill="segment.color"
+            rx="3"
+          >
+            <title>{{ getBarTooltip(bar) }}</title>
+          </rect>
+
+          <text
+            v-if="visibleLabelIndexes.has(barIndex)"
+            :x="bar.x + barWidth / 2"
+            :y="padding.top + innerHeight + 24"
+            fill="currentColor"
+            font-size="11"
+            text-anchor="middle"
+            class="text-lightListTableText dark:text-darkListTableText"
+          >
+            {{ bar.axisLabel }}
+          </text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</template>
+
+
+
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useElementSize } from '../../../composables/useElementSize.js'
+import { useElementSize } from '../../composables/useElementSize.js'
 import {
   CHART_COLORS,
   formatChartAxisLabel,
@@ -8,7 +103,7 @@ import {
   formatChartValue,
   getChartYAxisWidth,
   toFiniteNumber,
-} from '../chart.utils.js'
+} from './chart.utils.js'
 
 const props = withDefaults(defineProps<{
   rows: Record<string, unknown>[]
@@ -146,96 +241,3 @@ function getBarTooltip(bar: { label: string, total: number, segments: Array<{ na
   ].join('\n')
 }
 </script>
-
-<template>
-  <div
-    ref="rootEl"
-    class="grid h-full min-h-0 w-full grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden"
-  >
-    <div
-      v-if="showLegend"
-      class="flex flex-wrap items-center gap-3 text-xs text-lightListTableText dark:text-darkListTableText"
-      :class="isCompact ? 'justify-start' : 'justify-end'"
-    >
-      <div
-        v-for="series in normalizedSeries"
-        :key="series.name"
-        class="flex items-center gap-1.5"
-      >
-        <span
-          class="h-2.5 w-2.5 rounded-full"
-          :style="{ backgroundColor: series.color }"
-        />
-        <span>{{ series.name }}</span>
-      </div>
-    </div>
-
-    <div
-      ref="svgEl"
-      class="min-h-0 overflow-hidden"
-    >
-      <svg
-        v-if="chartWidth > 0 && chartHeight > 0"
-        class="block h-full w-full"
-        :viewBox="`0 0 ${chartWidth} ${chartHeight}`"
-        role="img"
-        :aria-label="xField"
-      >
-        <g class="text-lightListTableText dark:text-darkListTableText">
-          <line
-            v-for="tick in yTicks"
-            :key="tick.y"
-            :x1="padding.left"
-            :x2="chartWidth - padding.right"
-            :y1="tick.y"
-            :y2="tick.y"
-            stroke="currentColor"
-            stroke-opacity="0.14"
-          />
-          <text
-            v-for="tick in yTicks"
-            :key="`label-${tick.y}`"
-            :x="padding.left - 8"
-            :y="tick.y + 4"
-            fill="currentColor"
-            font-size="11"
-            text-anchor="end"
-          >
-            {{ formatChartValue(tick.value) }}
-          </text>
-        </g>
-
-        <g
-          v-for="(bar, barIndex) in bars"
-          :key="bar.label"
-        >
-          <rect
-            v-for="segment in bar.segments"
-            :key="segment.id"
-            v-show="segment.height > 0"
-            :x="bar.x"
-            :y="segment.y"
-            :width="barWidth"
-            :height="segment.height"
-            :fill="segment.color"
-            rx="3"
-          >
-            <title>{{ getBarTooltip(bar) }}</title>
-          </rect>
-
-          <text
-            v-if="visibleLabelIndexes.has(barIndex)"
-            :x="bar.x + barWidth / 2"
-            :y="padding.top + innerHeight + 24"
-            fill="currentColor"
-            font-size="11"
-            text-anchor="middle"
-            class="text-lightListTableText dark:text-darkListTableText"
-          >
-            {{ bar.axisLabel }}
-          </text>
-        </g>
-      </svg>
-    </div>
-  </div>
-</template>

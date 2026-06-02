@@ -112,9 +112,9 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useWidgetData } from '../../queries/useWidgetData.js'
-import { getFieldRefField } from '../../model/dashboard.types.js'
-import type { DashboardWidgetConfig, DashboardWidgetTableData, FieldRef } from '../../model/dashboard.types.js'
+import { useWidgetData } from '../queries/useWidgetData.js'
+import { getFieldRefField } from '../model/dashboard.types.js'
+import type { DashboardWidgetConfig, DashboardWidgetTableData, FieldRef } from '../model/dashboard.types.js'
 
 type TableWidgetConfig = {
   columns?: FieldRef[]

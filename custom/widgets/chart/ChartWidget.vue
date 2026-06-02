@@ -41,16 +41,7 @@
     />
 
     <BarChart
-      v-else-if="chartConfig?.type === 'bar'"
-      :rows="barRows"
-      :label-field="barLabelField"
-      :value-field="barValueField"
-      :color="chartConfig.color"
-      :height="chartHeight"
-    />
-
-    <HistogramChart
-      v-else-if="chartConfig?.type === 'histogram'"
+      v-else-if="chartConfig?.type === 'bar' || chartConfig?.type === 'histogram'"
       :rows="barRows"
       :label-field="barLabelField"
       :value-field="barValueField"
@@ -94,7 +85,6 @@ import { useWidgetData } from '../../queries/useWidgetData.js'
 import type { ChartDashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
 import BarChart from './bar/BarChart.vue'
 import FunnelChart from './funnel/FunnelChart.vue'
-import HistogramChart from './histogram/HistogramChart.vue'
 import LineChart from './line/LineChart.vue'
 import PieChart from './pie/PieChart.vue'
 import StackedBarChart from './stacked-bar/StackedBarChart.vue'

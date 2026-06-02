@@ -52,7 +52,7 @@ export const SlugRequestZodSchema = z.object({
 
 export const SetDashboardConfigRequestZodSchema = z.object({
   slug: z.string(),
-  config: DashboardConfigZodSchema,
+  config: z.unknown(),
 }).strict()
 
 export const GroupIdRequestZodSchema = z.object({
@@ -99,7 +99,7 @@ export const MoveWidgetRequestZodSchema = z.object({
 export const SetWidgetConfigRequestZodSchema = z.object({
   slug: z.string(),
   widgetId: z.string(),
-  config: EditableDashboardWidgetConfigSchema,
+  config: z.unknown(),
 }).strict()
 
 export const DashboardErrorResponseSchema = toAdminForthJsonSchema(DashboardErrorResponseZodSchema)
