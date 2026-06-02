@@ -25,6 +25,10 @@ type WidgetEndpointsContext = {
     dashboard: DashboardRecord,
     config: DashboardConfig,
   ) => Promise<PersistedDashboardResponse>;
+  updateDashboardConfig: (
+    slug: string,
+    mutateConfig: (config: DashboardConfig, dashboard: DashboardRecord) => DashboardConfig | null | Promise<DashboardConfig | null>,
+  ) => Promise<PersistedDashboardResponse | null>;
   getWidgetData: (
     widget: DashboardWidgetConfig,
     options?: {
@@ -50,35 +54,42 @@ export function registerWidgetEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const dashboard = await ctx.getDashboardRecord(body.slug);
+      let mutationError: string | null = null;
+      const updatedDashboard = await ctx.updateDashboardConfig(body.slug, (config) => {
+        const group = config.groups.find((item) => item.id === body.groupId);
 
-      if (!dashboard) {
+        if (!group) {
+          mutationError = 'Dashboard group not found';
+          return null;
+        }
+
+        const nextOrder = config.widgets.filter((item) => item.group_id === body.groupId).length + 1;
+        const widget: DashboardWidgetConfig = {
+          id: `widget_${randomUUID()}`,
+          group_id: body.groupId,
+          label: 'New widget',
+          size: 'small',
+          order: nextOrder,
+          target: 'empty',
+        };
+
+        return {
+          ...config,
+          widgets: [...config.widgets, widget],
+        };
+      });
+
+      if (!updatedDashboard) {
         response.setStatus(404);
         return { error: 'Dashboard not found' };
       }
 
-      const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const group = config.groups.find((item) => item.id === body.groupId);
-
-      if (!group) {
+      if (mutationError) {
         response.setStatus(404);
-        return { error: 'Dashboard group not found' };
+        return { error: mutationError };
       }
 
-      const nextOrder = config.widgets.filter((item) => item.group_id === body.groupId).length + 1;
-      const widget: DashboardWidgetConfig = {
-        id: `widget_${randomUUID()}`,
-        group_id: body.groupId,
-        label: 'New widget',
-        size: 'small',
-        order: nextOrder,
-        target: 'empty',
-      };
-
-      return ctx.persistDashboardConfig(dashboard, {
-        ...config,
-        widgets: [...config.widgets, widget],
-      });
+      return updatedDashboard;
     },
   });
 
@@ -94,49 +105,50 @@ export function registerWidgetEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const dashboard = await ctx.getDashboardRecord(body.slug);
+      let mutationError: string | null = null;
+      const updatedDashboard = await ctx.updateDashboardConfig(body.slug, (config) => {
+        const widget = config.widgets.find((item) => item.id === body.widgetId);
 
-      if (!dashboard) {
+        if (!widget) {
+          mutationError = 'Dashboard widget not found';
+          return null;
+        }
+
+        const sortedWidgets = config.widgets
+          .filter((item) => item.group_id === widget.group_id)
+          .sort((a, b) => a.order - b.order);
+        const currentIndex = sortedWidgets.findIndex((item) => item.id === body.widgetId);
+        const targetIndex = body.direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+        if (targetIndex < 0 || targetIndex >= sortedWidgets.length) {
+          return null;
+        }
+
+        const reorderedWidgets = [...sortedWidgets];
+        const [movedWidget] = reorderedWidgets.splice(currentIndex, 1);
+        reorderedWidgets.splice(targetIndex, 0, movedWidget);
+        const reorderedWidgetIds = new Map(reorderedWidgets.map((item, index) => [item.id, index + 1]));
+
+        return {
+          ...config,
+          widgets: config.widgets.map((item) => ({
+            ...item,
+            order: reorderedWidgetIds.get(item.id) ?? item.order,
+          })),
+        };
+      });
+
+      if (!updatedDashboard) {
         response.setStatus(404);
         return { error: 'Dashboard not found' };
       }
 
-      const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const widget = config.widgets.find((item) => item.id === body.widgetId);
-
-      if (!widget) {
+      if (mutationError) {
         response.setStatus(404);
-        return { error: 'Dashboard widget not found' };
+        return { error: mutationError };
       }
 
-      const sortedWidgets = config.widgets
-        .filter((item) => item.group_id === widget.group_id)
-        .sort((a, b) => a.order - b.order);
-      const currentIndex = sortedWidgets.findIndex((item) => item.id === body.widgetId);
-      const targetIndex = body.direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-
-      if (targetIndex < 0 || targetIndex >= sortedWidgets.length) {
-        return {
-          id: dashboard.id,
-          slug: dashboard.slug,
-          label: dashboard.label,
-          revision: dashboard.revision,
-          config: ctx.parseStoredDashboardConfig(dashboard.config),
-        };
-      }
-
-      const reorderedWidgets = [...sortedWidgets];
-      const [movedWidget] = reorderedWidgets.splice(currentIndex, 1);
-      reorderedWidgets.splice(targetIndex, 0, movedWidget);
-      const reorderedWidgetIds = new Map(reorderedWidgets.map((item, index) => [item.id, index + 1]));
-
-      return ctx.persistDashboardConfig(dashboard, {
-        ...config,
-        widgets: config.widgets.map((item) => ({
-          ...item,
-          order: reorderedWidgetIds.get(item.id) ?? item.order,
-        })),
-      });
+      return updatedDashboard;
     },
   });
 
@@ -152,25 +164,32 @@ export function registerWidgetEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const dashboard = await ctx.getDashboardRecord(body.slug);
+      let mutationError: string | null = null;
+      const updatedDashboard = await ctx.updateDashboardConfig(body.slug, (config) => {
+        const nextWidgets = config.widgets.filter((item) => item.id !== body.widgetId);
 
-      if (!dashboard) {
+        if (nextWidgets.length === config.widgets.length) {
+          mutationError = 'Dashboard widget not found';
+          return null;
+        }
+
+        return {
+          ...config,
+          widgets: nextWidgets,
+        };
+      });
+
+      if (!updatedDashboard) {
         response.setStatus(404);
         return { error: 'Dashboard not found' };
       }
 
-      const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const nextWidgets = config.widgets.filter((item) => item.id !== body.widgetId);
-
-      if (nextWidgets.length === config.widgets.length) {
+      if (mutationError) {
         response.setStatus(404);
-        return { error: 'Dashboard widget not found' };
+        return { error: mutationError };
       }
 
-      return ctx.persistDashboardConfig(dashboard, {
-        ...config,
-        widgets: nextWidgets,
-      });
+      return updatedDashboard;
     },
   });
 
@@ -186,36 +205,43 @@ export function registerWidgetEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const dashboard = await ctx.getDashboardRecord(body.slug);
+      let mutationError: string | null = null;
+      const updatedDashboard = await ctx.updateDashboardConfig(body.slug, (config) => {
+        const widget = config.widgets.find((item) => item.id === body.widgetId);
 
-      if (!dashboard) {
+        if (!widget) {
+          mutationError = 'Dashboard widget not found';
+          return null;
+        }
+
+        const typedWidgetConfig = body.config as EditableDashboardWidgetConfig;
+
+        const nextWidget: DashboardWidgetConfig = {
+          ...typedWidgetConfig,
+          id: widget.id,
+          group_id: widget.group_id,
+          order: widget.order,
+        };
+
+        return {
+          ...config,
+          widgets: config.widgets.map((item) => item.id === body.widgetId
+            ? nextWidget
+            : item),
+        };
+      });
+
+      if (!updatedDashboard) {
         response.setStatus(404);
         return { error: 'Dashboard not found' };
       }
 
-      const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const widget = config.widgets.find((item) => item.id === body.widgetId);
-
-      if (!widget) {
+      if (mutationError) {
         response.setStatus(404);
-        return { error: 'Dashboard widget not found' };
+        return { error: mutationError };
       }
 
-      const typedWidgetConfig = body.config as EditableDashboardWidgetConfig;
-
-      const nextWidget: DashboardWidgetConfig = {
-        ...typedWidgetConfig,
-        id: widget.id,
-        group_id: widget.group_id,
-        order: widget.order,
-      };
-
-      return ctx.persistDashboardConfig(dashboard, {
-        ...config,
-        widgets: config.widgets.map((item) => item.id === body.widgetId
-          ? nextWidget
-          : item),
-      });
+      return updatedDashboard;
     },
   });
 

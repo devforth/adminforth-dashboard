@@ -22,6 +22,10 @@ type GroupEndpointsContext = {
     dashboard: DashboardRecord,
     config: DashboardConfig,
   ) => Promise<PersistedDashboardResponse>;
+  updateDashboardConfig: (
+    slug: string,
+    mutateConfig: (config: DashboardConfig, dashboard: DashboardRecord) => DashboardConfig | null | Promise<DashboardConfig | null>,
+  ) => Promise<PersistedDashboardResponse | null>;
 };
 
 export function registerGroupEndpoints(
@@ -40,26 +44,26 @@ export function registerGroupEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const dashboard = await ctx.getDashboardRecord(body.slug);
+      const updatedDashboard = await ctx.updateDashboardConfig(body.slug, (config) => {
+        const nextOrder = config.groups.length + 1;
+        const group: DashboardGroupConfig = {
+          id: `group_${randomUUID()}`,
+          label: 'New group',
+          order: nextOrder,
+        };
 
-      if (!dashboard) {
+        return {
+          ...config,
+          groups: [...config.groups, group],
+        };
+      });
+
+      if (!updatedDashboard) {
         response.setStatus(404);
         return { error: 'Dashboard not found' };
       }
 
-      const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const nextOrder = config.groups.length + 1;
-
-      const group: DashboardGroupConfig = {
-        id: `group_${randomUUID()}`,
-        label: 'New group',
-        order: nextOrder,
-      };
-
-      return ctx.persistDashboardConfig(dashboard, {
-        ...config,
-        groups: [...config.groups, group],
-      });
+      return updatedDashboard;
     },
   });
 
@@ -76,33 +80,40 @@ export function registerGroupEndpoints(
       }
 
       const groupId = body.groupId;
-      const dashboard = await ctx.getDashboardRecord(body.slug);
+      let mutationError: string | null = null;
+      const updatedDashboard = await ctx.updateDashboardConfig(body.slug, (config) => {
+        const group = config.groups.find((item) => item.id === groupId);
 
-      if (!dashboard) {
+        if (!group) {
+          mutationError = 'Dashboard group not found';
+          return null;
+        }
+
+        const nextGroup: DashboardGroupConfig = {
+          ...(body.config as EditableDashboardGroupConfig),
+          id: group.id,
+          order: group.order,
+        };
+
+        return {
+          ...config,
+          groups: config.groups.map((item) => item.id === groupId
+            ? nextGroup
+            : item),
+        };
+      });
+
+      if (!updatedDashboard) {
         response.setStatus(404);
         return { error: 'Dashboard not found' };
       }
 
-      const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const group = config.groups.find((item) => item.id === groupId);
-
-      if (!group) {
+      if (mutationError) {
         response.setStatus(404);
-        return { error: 'Dashboard group not found' };
+        return { error: mutationError };
       }
 
-      const nextGroup: DashboardGroupConfig = {
-        ...(body.config as EditableDashboardGroupConfig),
-        id: group.id,
-        order: group.order,
-      };
-
-      return ctx.persistDashboardConfig(dashboard, {
-        ...config,
-        groups: config.groups.map((item) => item.id === groupId
-          ? nextGroup
-          : item),
-      });
+      return updatedDashboard;
     },
   });
   
@@ -118,42 +129,43 @@ export function registerGroupEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      const dashboard = await ctx.getDashboardRecord(body.slug);
+      let mutationError: string | null = null;
+      const updatedDashboard = await ctx.updateDashboardConfig(body.slug, (config) => {
+        const sortedGroups = [...config.groups].sort((a, b) => a.order - b.order);
+        const currentIndex = sortedGroups.findIndex((group) => group.id === body.groupId);
 
-      if (!dashboard) {
+        if (currentIndex === -1) {
+          mutationError = 'Dashboard group not found';
+          return null;
+        }
+
+        const targetIndex = body.direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+        if (targetIndex < 0 || targetIndex >= sortedGroups.length) {
+          return null;
+        }
+
+        const reorderedGroups = [...sortedGroups];
+        const [group] = reorderedGroups.splice(currentIndex, 1);
+        reorderedGroups.splice(targetIndex, 0, group);
+
+        return {
+          ...config,
+          groups: reorderedGroups,
+        };
+      });
+
+      if (!updatedDashboard) {
         response.setStatus(404);
         return { error: 'Dashboard not found' };
       }
 
-      const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const sortedGroups = [...config.groups].sort((a, b) => a.order - b.order);
-      const currentIndex = sortedGroups.findIndex((group) => group.id === body.groupId);
-
-      if (currentIndex === -1) {
+      if (mutationError) {
         response.setStatus(404);
-        return { error: 'Dashboard group not found' };
+        return { error: mutationError };
       }
 
-      const targetIndex = body.direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-
-      if (targetIndex < 0 || targetIndex >= sortedGroups.length) {
-        return {
-          id: dashboard.id,
-          slug: dashboard.slug,
-          label: dashboard.label,
-          revision: dashboard.revision,
-          config: ctx.parseStoredDashboardConfig(dashboard.config),
-        };
-      }
-
-      const reorderedGroups = [...sortedGroups];
-      const [group] = reorderedGroups.splice(currentIndex, 1);
-      reorderedGroups.splice(targetIndex, 0, group);
-
-      return ctx.persistDashboardConfig(dashboard, {
-        ...config,
-        groups: reorderedGroups,
-      });
+      return updatedDashboard;
     },
   });
 
@@ -170,26 +182,33 @@ export function registerGroupEndpoints(
       }
 
       const groupId = body.groupId;
-      const dashboard = await ctx.getDashboardRecord(body.slug);
+      let mutationError: string | null = null;
+      const updatedDashboard = await ctx.updateDashboardConfig(body.slug, (config) => {
+        const nextGroups = config.groups.filter((group) => group.id !== groupId);
 
-      if (!dashboard) {
+        if (nextGroups.length === config.groups.length) {
+          mutationError = 'Dashboard group not found';
+          return null;
+        }
+
+        return {
+          ...config,
+          groups: nextGroups,
+          widgets: config.widgets.filter((widget) => widget.group_id !== groupId),
+        };
+      });
+
+      if (!updatedDashboard) {
         response.setStatus(404);
         return { error: 'Dashboard not found' };
       }
 
-      const config = ctx.parseStoredDashboardConfig(dashboard.config);
-      const nextGroups = config.groups.filter((group) => group.id !== groupId);
-
-      if (nextGroups.length === config.groups.length) {
+      if (mutationError) {
         response.setStatus(404);
-        return { error: 'Dashboard group not found' };
+        return { error: mutationError };
       }
 
-      return ctx.persistDashboardConfig(dashboard, {
-        ...config,
-        groups: nextGroups,
-        widgets: config.widgets.filter((widget) => widget.group_id !== groupId),
-      });
+      return updatedDashboard;
     },
   });
 

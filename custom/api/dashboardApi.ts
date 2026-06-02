@@ -140,10 +140,6 @@ export const dashboardApi = {
     return callDashboardApi('/adminapi/v1/dashboard/get-config', { slug })
   },
 
-  async setDashboardConfig(slug: string, config: unknown): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/set_dashboard_config', { slug, config })
-  },
-
   async addDashboardGroup(slug: string): Promise<DashboardResponse> {
     return callDashboardApi('/adminapi/v1/dashboard/add_dashboard_group', { slug })
   },

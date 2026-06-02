@@ -5,232 +5,162 @@ description: Use when the user wants to view, create, update, move, remove, vali
 
 # AdminForth Dashboard Plugin
 
-This skill is action-oriented. When the user asks to create, add, edit, update, move, remove, or configure dashboard entities, complete the request by calling the dashboard tools. Do not satisfy dashboard mutation requests by only showing JSON, YAML, JavaScript, TypeScript, Zod schemas, or example config snippets.
+Use this skill for dashboard group/widget mutations and dashboard data loading.
 
-## Primary Rule
+## Core rule
 
-If callable dashboard tools are available, use them.
+If dashboard tools are callable, use tools. Do not answer mutation requests by only printing config.
 
-A response that only shows a config object, schema, or code snippet is incomplete unless the user explicitly asked for a schema, code example, or explanation.
+## Entity boundaries
 
-For dashboard mutation requests, the expected flow is:
+Dashboard root, groups, and widgets are different entities.
 
-1. Load dashboard state when needed.
-2. Choose or create the target group/widget.
-3. Call the appropriate dashboard mutation tool. (WITHOUT USER CONFIRMATION)
-4. Return a short result summary.
+- Group tools use groupId and only change group config.
+- Widget tools use widgetId and change target/query/card/chart/table/pivot.
+- Never call dashboard_set_dashboard_group_config to configure a widget.
+- Never call dashboard_add_dashboard_group to configure a widget.
+- If widget target, label, query, chart, card, table, pivot, variables, formulas, filters, or display fields must change, use dashboard_set_widget_config.
 
-Do not print the widget config as the main answer instead of calling tools.
+## Tool routing
 
-## User Intent Mapping
+- Read dashboard: dashboard_get_config
+- Add group: dashboard_add_dashboard_group
+- Rename group: dashboard_set_dashboard_group_config
+- Add widget slot: dashboard_add_dashboard_widget
+- Configure widget: dashboard_set_widget_config
+- Move/remove widget/group: matching move/remove tool
+- Load widget data: dashboard_get_dashboard_widget_data
 
-Use dashboard tools for these intents:
+If a known dashboard tool schema is missing, call fetch_tool_schema for that exact tool.
+If fetch_tool_schema returns but the intended tool is still not callable, stop and report a tool-routing error. Do not substitute another mutation tool.
 
-- "add/create/write/make a widget" → create and configure a widget.
-- "change/update/edit this widget" → update widget config.
-- "move this widget/group" → call the move tool.
-- "remove/delete this widget/group" → call the remove tool.
-- "show/load dashboard" → call the dashboard config tool.
-- "load/check widget data" → call the widget data tool.
-- "validate this widget config" → call validation logic/tool if available.
+## Group creation guard
 
-If the user asks how the schema works, how to implement the API, or how to change backend code, then answer as a developer/code task instead of mutating the dashboard.
+Before creating a group, call dashboard_get_config and check existing groups.
 
-## Callable Dashboard Tools
+- If a requested group label already exists, reuse that groupId.
+- If no matching group exists, call dashboard_add_dashboard_group at most once for that requested group.
+- After dashboard_add_dashboard_group succeeds, extract the new groupId from the returned dashboard response.
+- If the group needs a label, call dashboard_set_dashboard_group_config once with that groupId.
+- After that, the next mutation must be dashboard_add_dashboard_widget or dashboard_set_widget_config, not another dashboard_add_dashboard_group.
 
-Use these tools whenever available:
+Never call dashboard_add_dashboard_group repeatedly for the same user request. If you are about to create a second group for the same label/section, stop and report:
 
-- `dashboard_get_config`
-- `dashboard_set_dashboard_config`
-- `dashboard_add_dashboard_group`
-- `dashboard_set_dashboard_group_config`
-- `dashboard_move_dashboard_group`
-- `dashboard_remove_dashboard_group`
-- `dashboard_add_dashboard_widget`
-- `dashboard_move_dashboard_widget`
-- `dashboard_remove_dashboard_widget`
-- `dashboard_set_widget_config`
-- `dashboard_get_dashboard_widget_data`
+Repeated dashboard_add_dashboard_group; expected using the existing/new groupId.
 
-If a dashboard tool is known by name but its argument schema is not loaded, call `fetch_tool_schema` for that tool first. After the schema is loaded, call the dashboard tool. Do not guess arguments if `fetch_tool_schema` is available.
+## Create-and-configure workflow
 
-## Tool Argument Rules
+For any request to create KPI/chart/table/pivot/gauge widgets:
 
-Do not pass fields between dashboard tools by analogy. Use each tool's schema.
+1. dashboard_get_config
+2. select existing group by label, or create one group once
+3. if needed, rename group once
+4. for each widget:
+   - dashboard_add_dashboard_widget
+   - immediately dashboard_set_widget_config for the returned widgetId
+   - confirm target is not empty
+5. dashboard_get_config
+6. validate all requested widgets are configured
+7. return short summary
 
-- `dashboard_add_dashboard_group` creates a new group. It accepts the dashboard slug only. Never pass `groupId` to this tool.
-- `dashboard_set_dashboard_config` replaces the full dashboard config. Use it when the user explicitly asks to edit the whole dashboard config.
-- `dashboard_add_dashboard_widget` creates a widget inside an existing group. Use it when you already have a `groupId`.
-- `dashboard_set_dashboard_group_config`, `dashboard_move_dashboard_group`, and `dashboard_remove_dashboard_group` operate on an existing group and need `groupId`.
-- `dashboard_set_widget_config`, `dashboard_move_dashboard_widget`, `dashboard_remove_dashboard_widget`, and `dashboard_get_dashboard_widget_data` operate on an existing widget and need `widgetId`.
-- If a tool call fails with "input did not match expected schema", call `fetch_tool_schema` for that exact tool, remove unsupported arguments, and retry the correct tool.
+Do not batch-create empty widgets and postpone configuration.
+Do not build a full dashboard JSON object for this workflow.
 
-## Widget Creation Workflow
+## Empty widget rule
 
-For requests like:
+dashboard_add_dashboard_widget creates only:
 
-- "add a table widget"
-- "create a chart"
-- "write a widget showing top 5 orders"
-- "make a widget for revenue by product"
+label: New widget
+target: empty
 
-do this:
+This is incomplete for KPI/chart/table/pivot/gauge/spend/revenue/usage widgets.
 
-1. Call `dashboard_get_config` with the requested slug, or `default` if slug is not specified.
-2. Select the requested group. If the group is not specified, use the first existing group.
-3. If there are no groups, call `dashboard_add_dashboard_group`.
-4. Call `dashboard_add_dashboard_widget` with the selected group id.
-5. Call `dashboard_set_widget_config` with the returned widget id and schema-valid config.
-6. Return a short summary with dashboard slug, group id, widget id, target, label, resource, selected fields, order, and limit.
+## No-op loop guard
 
-Do not stop after generating config text.
+If the same mutation tool is about to be called with the same payload twice, stop and reassess.
+If dashboard_add_dashboard_group repeats for the same requested group, stop and reuse the groupId from dashboard_get_config.
+If dashboard_set_dashboard_group_config repeats while new widgets are target: empty, use dashboard_set_widget_config instead.
+After 2 repeated no-op mutations, stop with an explicit error.
 
-## Widget Update Workflow
+## State machine
 
-For requests like:
+For create group + widgets tasks, follow this exact state order:
 
-- "change this widget"
-- "make the chart use another field"
-- "update the widget config"
-- "turn this widget into a table"
+dashboard_get_config
+-> maybe dashboard_add_dashboard_group
+-> maybe dashboard_set_dashboard_group_config
+-> dashboard_add_dashboard_widget
+-> dashboard_set_widget_config
+-> repeat only the two widget steps for more widgets
+-> dashboard_get_config
 
-do this:
+Allowed repeats:
+- dashboard_add_dashboard_widget may repeat once per requested widget.
+- dashboard_set_widget_config may repeat once per requested widget.
 
-1. Call `dashboard_get_config`.
-2. Find the widget by id, label, or clear context.
-3. Build the new config while preserving server-owned fields handled by the API.
-4. Call `dashboard_set_widget_config`.
-5. Return a short summary of what changed.
+Forbidden repeats:
+- dashboard_add_dashboard_group for the same requested group.
+- dashboard_set_dashboard_group_config with the same label/groupId.
 
-If the widget cannot be identified, ask only for the missing widget id or label.
+Forbidden substitutions:
+- dashboard_set_dashboard_group_config instead of set widget config.
+- dashboard_add_dashboard_group instead of add widget.
 
-## Group Workflow
+## Widget config keys
 
-For group requests:
+Use current keys:
+target, label, query, resource, group_by, order_by, page_size, variables.
+Use card for kpi_card/gauge_card.
+Use chart for chart.
+Use table for table.
+Use pivot for pivot_table.
 
-- Add group → `dashboard_add_dashboard_group`
-- Rename/change group config → `dashboard_set_dashboard_group_config`
-- Move group → `dashboard_move_dashboard_group`
-- Remove group → `dashboard_remove_dashboard_group`
+Use target, not type.
+Use query, not dataSource.
+Use resource, not resourceId.
 
-If slug is missing, use `default`.
+## Query shape rules
 
-## Dashboard Config Workflow
+Use query.steps only for funnel charts. Do not use query.steps for kpi_card, gauge_card, table, pivot_table, or normal bar/line/stacked/pie charts.
 
-Use `dashboard_set_dashboard_config` only when the user explicitly asks to edit the whole dashboard root config.
+For kpi_card and normal charts, use:
+- query.resource
+- query.select
+- optional query.filters
+- optional query.group_by
+- optional query.period
+- optional query.order_by
+- optional query.calcs
 
-For requests like:
+Calculations run after selected fields and aggregates are loaded into a row. Therefore:
+- aggregate real resource fields first
+- then calculate derived fields from those aggregate aliases
+- do not aggregate a calc alias such as cost unless cost is an actual resource field
 
-- "update root dashboard config"
-- "replace the whole dashboard config"
+For spend/cost widgets, prefer this pattern:
 
-do this:
+select raw token totals:
+- sum uncached_input_tokens as uncached_input_tokens
+- sum cached_input_tokens as cached_input_tokens
+- sum output_tokens as output_tokens
 
-1. Call `dashboard_get_config`.
-2. Modify the returned root config, preserving existing `version`, `groups`, and `widgets` unless the user asked to change them.
-3. Call `dashboard_set_dashboard_config` with the full updated config.
-4. Return a short summary of the root-level fields changed.
+then query.calcs:
+- calculate total_spend from those aliases and lookup variables
 
-Do not use `dashboard_set_dashboard_config` to store reusable widget variables.
+For today vs yesterday KPI, use multiple aggregate select items with filters and distinct aliases, then calcs. Do not use query.steps.
 
-## Widget Config Rules
+## Calc variables
 
-Use the current schema keys exactly:
+Use variables for static maps/rates.
+Use lookup($variables.some.map, row_field, default_number) in query.calcs.
 
-- Use `target`, not `type`.
-- Use `label`, not `title`.
-- Use `query`, not `dataSource`.
-- Use `resource`, not `resourceId`.
-- Use `group_by`, not `groupBy`.
-- Use `order_by`, not `orderBy`.
-- Use `page_size`, not `pageSize`.
-- For step-based chart queries, use `query.steps` as an ordered array of `{ name, resource, metric, filters }` steps and add `query.calcs` when derived fields are needed.
-- Use `card` for KPI and gauge widget view config.
-- Use `pivot` for pivot table view config.
-- Use `variables` for reusable static maps or constants at widget level.
-- In `query.calcs`, use `lookup($variables.some.map, row_field, default_number)` to read a numeric value from a variable map by the current row/group field.
+Minimal example:
 
-## Variables And Lookup Calcs
-
-Widget config can define variables:
-
-```yaml
 variables:
-  token_prices_per_1m:
-    input:
-      gpt-4.1: 2.00
-      gpt-4.1-mini: 0.40
-      gpt-4o-mini: 0.15
-    output:
-      gpt-4.1: 8.00
-      gpt-4.1-mini: 1.60
-      gpt-4o-mini: 0.60
-    cached:
-      gpt-4.1: 0.50
-      gpt-4.1-mini: 0.10
-      gpt-4o-mini: 0.075
-```
-
-Use variables when a calculation needs a static rate table, threshold table, coefficient map, or other reusable constants. In calcs, `lookup($variables.path.to.map, field_name, 0)` returns the value from the map using `field_name` from the current row/group. The third argument is the numeric fallback when the key is missing.
-
-Example widget:
-
-```yaml
-target: chart
-label: Model costs
-size: large
-variables:
-  token_prices_per_1m:
-    input:
-      gpt-4.1: 2.00
-      gpt-4.1-mini: 0.40
-      gpt-4o-mini: 0.15
-    output:
-      gpt-4.1: 8.00
-      gpt-4.1-mini: 1.60
-      gpt-4o-mini: 0.60
-    cached:
-      gpt-4.1: 0.50
-      gpt-4.1-mini: 0.10
-      gpt-4o-mini: 0.075
-
-chart:
-  type: stacked_bar
-  title: LLM costs by model
-  x:
-    field: model
-    label: Model
-  y:
-    - field: input_cost
-      label: Input
-      format: currency
-    - field: output_cost
-      label: Output
-      format: currency
-    - field: cached_cost
-      label: Cached
-      format: currency
+  prices:
+    gpt-5.4: 2.5
 
 query:
-  resource: model_usage
-  select:
-    - field: model
-    - agg: sum
-      field: input_tokens
-      as: input_tokens
-    - agg: sum
-      field: output_tokens
-      as: output_tokens
-    - agg: sum
-      field: cached_tokens
-      as: cached_tokens
-  group_by:
-    - model
   calcs:
-    - calc: input_tokens / 1000000 * lookup($variables.token_prices_per_1m.input, model, 0)
-      as: input_cost
-    - calc: output_tokens / 1000000 * lookup($variables.token_prices_per_1m.output, model, 0)
-      as: output_cost
-    - calc: cached_tokens / 1000000 * lookup($variables.token_prices_per_1m.cached, model, 0)
-      as: cached_cost
-```
+    - calc: tokens / 1000000 * lookup($variables.prices, model, 0)
+      as: cost

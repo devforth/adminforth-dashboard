@@ -50,11 +50,6 @@ export const SlugRequestZodSchema = z.object({
   slug: z.string(),
 }).strict()
 
-export const SetDashboardConfigRequestZodSchema = z.object({
-  slug: z.string(),
-  config: DashboardConfigZodSchema,
-}).strict()
-
 export const GroupIdRequestZodSchema = z.object({
   slug: z.string(),
   groupId: z.string(),
@@ -109,7 +104,6 @@ export const DashboardResponseSchema = toAdminForthJsonSchema(DashboardResponseZ
 export const DashboardApiResponseSchema = toAdminForthJsonSchema(DashboardApiResponseZodSchema)
 export const DashboardWidgetDataResponseSchema = toAdminForthJsonSchema(DashboardWidgetDataResponseZodSchema)
 export const SlugRequestSchema = toAdminForthJsonSchema(SlugRequestZodSchema)
-export const SetDashboardConfigRequestSchema = toAdminForthJsonSchema(SetDashboardConfigRequestZodSchema)
 export const GroupIdRequestSchema = toAdminForthJsonSchema(GroupIdRequestZodSchema)
 export const MoveGroupRequestSchema = toAdminForthJsonSchema(MoveGroupRequestZodSchema)
 export const SetGroupConfigRequestSchema = toAdminForthJsonSchema(SetGroupConfigRequestZodSchema)

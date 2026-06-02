@@ -26,6 +26,39 @@ export type PersistedDashboardResponse = {
   config: DashboardConfig;
 };
 
+type DashboardConfigMutator = (
+  config: DashboardConfig,
+  dashboard: DashboardRecord,
+) => DashboardConfig | null | Promise<DashboardConfig | null>;
+
+const dashboardConfigUpdateQueues = new Map<string, Promise<void>>();
+
+async function runDashboardConfigUpdateQueued<T>(
+  dashboardSlug: string,
+  callback: () => Promise<T>,
+): Promise<T> {
+  const previousUpdate = dashboardConfigUpdateQueues.get(dashboardSlug) ?? Promise.resolve();
+  let releaseCurrentUpdate!: () => void;
+  const currentUpdate = new Promise<void>((resolve) => {
+    releaseCurrentUpdate = resolve;
+  });
+  const queuedUpdate = previousUpdate.then(() => currentUpdate, () => currentUpdate);
+
+  dashboardConfigUpdateQueues.set(dashboardSlug, queuedUpdate);
+
+  await previousUpdate.catch(() => undefined);
+
+  try {
+    return await callback();
+  } finally {
+    releaseCurrentUpdate();
+
+    if (dashboardConfigUpdateQueues.get(dashboardSlug) === queuedUpdate) {
+      dashboardConfigUpdateQueues.delete(dashboardSlug);
+    }
+  }
+}
+
 function normalizeDashboardOrder(config: DashboardConfig): DashboardConfig {
   const widgetsByGroupId = new Map<string, DashboardWidgetConfig[]>();
 
@@ -91,6 +124,36 @@ export async function persistDashboardConfig(
   };
 }
 
+export async function updateDashboardConfig(
+  adminforth: IAdminForth,
+  dashboardConfigsResourceId: string,
+  slug: string,
+  mutateConfig: DashboardConfigMutator,
+): Promise<PersistedDashboardResponse | null> {
+  return runDashboardConfigUpdateQueued(slug, async () => {
+    const dashboard = await getDashboardRecord(adminforth, dashboardConfigsResourceId, slug);
+
+    if (!dashboard) {
+      return null;
+    }
+
+    const config = parseStoredDashboardConfig(dashboard.config);
+    const nextConfig = await mutateConfig(config, dashboard);
+
+    if (nextConfig === null) {
+      return {
+        id: dashboard.id,
+        slug: dashboard.slug,
+        label: dashboard.label,
+        revision: dashboard.revision,
+        config,
+      };
+    }
+
+    return persistDashboardConfig(adminforth, dashboardConfigsResourceId, dashboard, nextConfig);
+  });
+}
+
 export type DashboardConfigService = {
   getDashboardRecord: (slug: string) => Promise<DashboardRecord | null>;
   parseStoredDashboardConfig: typeof parseStoredDashboardConfig;
@@ -98,6 +161,10 @@ export type DashboardConfigService = {
     dashboard: DashboardRecord,
     config: DashboardConfig,
   ) => Promise<PersistedDashboardResponse>;
+  updateDashboardConfig: (
+    slug: string,
+    mutateConfig: DashboardConfigMutator,
+  ) => Promise<PersistedDashboardResponse | null>;
 };
 
 export function createDashboardConfigService(
@@ -112,6 +179,12 @@ export function createDashboardConfigService(
       dashboardConfigsResourceId,
       dashboard,
       config,
+    ),
+    updateDashboardConfig: (slug, mutateConfig) => updateDashboardConfig(
+      adminforth,
+      dashboardConfigsResourceId,
+      slug,
+      mutateConfig,
     ),
   };
 }
