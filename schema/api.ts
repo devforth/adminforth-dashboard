@@ -203,19 +203,14 @@ export const ConfigureHistogramChartWidgetRequestZodSchema = configureWidgetRequ
 export const ConfigureFunnelChartWidgetRequestZodSchema = configureWidgetRequestSchema(ConfigurableFunnelChartWidgetConfigSchema)
 export const ConfigurePivotTableWidgetRequestZodSchema = configureWidgetRequestSchema(ConfigurablePivotTableWidgetConfigSchema)
 
-export const DashboardMutationResponseZodSchema = z.union([
-  z.object({
-    ok: z.literal(true),
-    slug: z.string(),
-    widgetId: z.string().optional(),
-    groupId: z.string().optional(),
-    target: z.string().optional(),
-    revision: z.number().optional(),
-  }).strict(),
-  DashboardErrorResponseZodSchema,
-])
+export const DashboardMutationResponseZodSchema = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+  groupId: z.string().optional(),
+  widgetId: z.string().optional(),
+}).strict()
 
-export const DashboardApiResponseSchema = toJSONSchema(DashboardApiResponseZodSchema, { target: 'draft-07' })
+export const DashboardApiResponseSchema = toJSONSchema(z.unknown(), { target: 'draft-07' })
 export const DashboardWidgetDataResponseSchema = toJSONSchema(DashboardWidgetDataResponseZodSchema, { target: 'draft-07' })
 export const SlugRequestSchema = toJSONSchema(SlugRequestZodSchema, { target: 'draft-07' })
 export const GroupIdRequestSchema = toJSONSchema(GroupIdRequestZodSchema, { target: 'draft-07' })

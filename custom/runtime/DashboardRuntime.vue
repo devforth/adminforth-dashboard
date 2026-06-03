@@ -286,7 +286,8 @@ async function addGroup() {
   }
 
   try {
-    applyDashboardResponse(await dashboardApi.addDashboardGroup(props.dashboardSlug))
+    await dashboardApi.addDashboardGroup(props.dashboardSlug)
+    await refreshDashboardConfig()
   } catch (error) {
     console.error('Failed to add dashboard group', error)
   }
@@ -298,7 +299,8 @@ async function addWidget(groupId: string) {
   }
 
   try {
-    applyDashboardResponse(await dashboardApi.addDashboardWidget(props.dashboardSlug, groupId))
+    await dashboardApi.addDashboardWidget(props.dashboardSlug, groupId)
+    await refreshDashboardConfig()
   } catch (error) {
     console.error('Failed to add dashboard widget', error)
   }
@@ -310,9 +312,8 @@ async function moveGroup(groupId: string, direction: DashboardGroupMoveDirection
   }
 
   try {
-    applyDashboardResponse(
-      await dashboardApi.moveDashboardGroup(props.dashboardSlug, groupId, direction),
-    )
+    await dashboardApi.moveDashboardGroup(props.dashboardSlug, groupId, direction)
+    await refreshDashboardConfig()
   } catch (error) {
     console.error('Failed to move dashboard group', error)
   }
@@ -324,7 +325,8 @@ async function removeGroup(groupId: string) {
   }
 
   try {
-    applyDashboardResponse(await dashboardApi.removeDashboardGroup(props.dashboardSlug, groupId))
+    await dashboardApi.removeDashboardGroup(props.dashboardSlug, groupId)
+    await refreshDashboardConfig()
   } catch (error) {
     console.error('Failed to remove dashboard group', error)
   }
@@ -348,13 +350,12 @@ async function saveGroupConfig() {
   try {
     const groupConfig = parseYaml(groupConfigCode.value) as EditableDashboardGroupConfig
 
-    applyDashboardResponse(
-      await dashboardApi.setDashboardGroupConfig(
-        props.dashboardSlug,
-        editingGroupId.value,
-        groupConfig,
-      ),
+    await dashboardApi.setDashboardGroupConfig(
+      props.dashboardSlug,
+      editingGroupId.value,
+      groupConfig,
     )
+    await refreshDashboardConfig()
     closeGroupConfigEditor()
   } catch (error) {
     groupConfigError.value = error instanceof Error ? error.message : 'Invalid group config'
@@ -373,9 +374,8 @@ async function moveWidget(widgetId: string, direction: DashboardWidgetMoveDirect
   }
 
   try {
-    applyDashboardResponse(
-      await dashboardApi.moveDashboardWidget(props.dashboardSlug, widgetId, direction),
-    )
+    await dashboardApi.moveDashboardWidget(props.dashboardSlug, widgetId, direction)
+    await refreshDashboardConfig()
   } catch (error) {
     console.error('Failed to move dashboard widget', error)
   }
@@ -387,7 +387,8 @@ async function removeWidget(widgetId: string) {
   }
 
   try {
-    applyDashboardResponse(await dashboardApi.removeDashboardWidget(props.dashboardSlug, widgetId))
+    await dashboardApi.removeDashboardWidget(props.dashboardSlug, widgetId)
+    await refreshDashboardConfig()
   } catch (error) {
     console.error('Failed to remove dashboard widget', error)
   }
@@ -410,13 +411,12 @@ async function saveWidgetConfig() {
     widgetConfigFieldErrors.value = []
     const widgetConfig = parseYaml(widgetConfigCode.value) as DashboardWidgetConfig
 
-    applyDashboardResponse(
-      await dashboardApi.setWidgetConfig(
-        props.dashboardSlug,
-        editingWidgetId.value,
-        serializeDashboardWidgetConfigForEditor(widgetConfig),
-      ),
+    await dashboardApi.setWidgetConfig(
+      props.dashboardSlug,
+      editingWidgetId.value,
+      serializeDashboardWidgetConfigForEditor(widgetConfig),
     )
+    await refreshDashboardConfig()
     closeWidgetConfigEditor()
   } catch (error) {
     widgetConfigError.value = error instanceof Error ? error.message : 'Invalid widget config'
@@ -429,6 +429,10 @@ function closeWidgetConfigEditor() {
   widgetConfigCode.value = ''
   widgetConfigError.value = ''
   widgetConfigFieldErrors.value = []
+}
+
+async function refreshDashboardConfig() {
+  applyDashboardResponse(await dashboardApi.getDashboardConfig(props.dashboardSlug))
 }
 
 function applyDashboardResponse(response: DashboardResponse) {

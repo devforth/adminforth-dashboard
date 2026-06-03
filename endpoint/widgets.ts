@@ -21,7 +21,7 @@ import {
   ConfigurePivotTableWidgetRequestSchema,
   ConfigureStackedBarChartWidgetRequestSchema,
   ConfigureTableWidgetRequestSchema,
-  DashboardApiResponseSchema,
+  DashboardMutationResponseSchema,
   DashboardWidgetDataResponseSchema,
   GroupIdRequestSchema,
   MoveWidgetRequestSchema,
@@ -117,11 +117,11 @@ function registerConfigureWidgetEndpoint(
     path: options.path,
     description: options.description,
     request_schema: options.requestSchema,
-    response_schema: DashboardApiResponseSchema,
+    response_schema: DashboardMutationResponseSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
-        return { error: 'Dashboard edit is not allowed' };
+        return { ok: false, error: 'Dashboard edit is not allowed' };
       }
 
       const request = body as ConfigureWidgetRequest;
@@ -134,15 +134,15 @@ function registerConfigureWidgetEndpoint(
 
       if (!updatedDashboard) {
         response.setStatus(404);
-        return { error: 'Dashboard not found' };
+        return { ok: false, error: 'Dashboard not found' };
       }
 
       if (mutationError) {
         response.setStatus(404);
-        return { error: mutationError };
+        return { ok: false, error: mutationError };
       }
 
-      return updatedDashboard;
+      return { ok: true };
     },
   });
 }
@@ -156,14 +156,15 @@ export function registerWidgetEndpoints(
     path: '/dashboard/add_dashboard_widget',
     description: 'Adds a new empty widget to a dashboard group. Superadmin only.',
     request_schema: GroupIdRequestSchema,
-    response_schema: DashboardApiResponseSchema,
+    response_schema: DashboardMutationResponseSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
-        return { error: 'Dashboard edit is not allowed' };
+        return { ok: false, error: 'Dashboard edit is not allowed' };
       }
 
       let mutationError: string | null = null;
+      let widgetId: string | null = null;
       const updatedDashboard = await ctx.updateDashboardConfig(body.slug, (config) => {
         const group = config.groups.find((item) => item.id === body.groupId);
 
@@ -181,6 +182,7 @@ export function registerWidgetEndpoints(
           order: nextOrder,
           target: 'empty',
         };
+        widgetId = widget.id;
 
         return {
           ...config,
@@ -190,15 +192,15 @@ export function registerWidgetEndpoints(
 
       if (!updatedDashboard) {
         response.setStatus(404);
-        return { error: 'Dashboard not found' };
+        return { ok: false, error: 'Dashboard not found' };
       }
 
       if (mutationError) {
         response.setStatus(404);
-        return { error: mutationError };
+        return { ok: false, error: mutationError };
       }
 
-      return updatedDashboard;
+      return { ok: true, widgetId };
     },
   });
 
@@ -207,11 +209,11 @@ export function registerWidgetEndpoints(
     path: '/dashboard/move_dashboard_widget',
     description: 'Moves a dashboard widget up or down inside its group. Superadmin only.',
     request_schema: MoveWidgetRequestSchema,
-    response_schema: DashboardApiResponseSchema,
+    response_schema: DashboardMutationResponseSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
-        return { error: 'Dashboard edit is not allowed' };
+        return { ok: false, error: 'Dashboard edit is not allowed' };
       }
 
       let mutationError: string | null = null;
@@ -249,15 +251,15 @@ export function registerWidgetEndpoints(
 
       if (!updatedDashboard) {
         response.setStatus(404);
-        return { error: 'Dashboard not found' };
+        return { ok: false, error: 'Dashboard not found' };
       }
 
       if (mutationError) {
         response.setStatus(404);
-        return { error: mutationError };
+        return { ok: false, error: mutationError };
       }
 
-      return updatedDashboard;
+      return { ok: true };
     },
   });
 
@@ -266,11 +268,11 @@ export function registerWidgetEndpoints(
     path: '/dashboard/remove_dashboard_widget',
     description: 'Removes one dashboard widget by id. Superadmin only.',
     request_schema: WidgetIdRequestSchema,
-    response_schema: DashboardApiResponseSchema,
+    response_schema: DashboardMutationResponseSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
-        return { error: 'Dashboard edit is not allowed' };
+        return { ok: false, error: 'Dashboard edit is not allowed' };
       }
 
       let mutationError: string | null = null;
@@ -290,15 +292,15 @@ export function registerWidgetEndpoints(
 
       if (!updatedDashboard) {
         response.setStatus(404);
-        return { error: 'Dashboard not found' };
+        return { ok: false, error: 'Dashboard not found' };
       }
 
       if (mutationError) {
         response.setStatus(404);
-        return { error: mutationError };
+        return { ok: false, error: mutationError };
       }
 
-      return updatedDashboard;
+      return { ok: true };
     },
   });
 
@@ -308,11 +310,11 @@ export function registerWidgetEndpoints(
     path: '/dashboard/set_widget_config',
     description: 'Replaces editable JSON configuration for a dashboard widget while preserving widget id, group id, and order. Superadmin only.',
     request_schema: SetWidgetConfigRequestSchema,
-    response_schema: DashboardApiResponseSchema,
+    response_schema: DashboardMutationResponseSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
-        return { error: 'Dashboard edit is not allowed' };
+        return { ok: false, error: 'Dashboard edit is not allowed' };
       }
 
       const request = body as ConfigureWidgetRequest;
@@ -320,15 +322,15 @@ export function registerWidgetEndpoints(
 
       if (!updatedDashboard) {
         response.setStatus(404);
-        return { error: 'Dashboard not found' };
+        return { ok: false, error: 'Dashboard not found' };
       }
 
       if (mutationError) {
         response.setStatus(404);
-        return { error: mutationError };
+        return { ok: false, error: mutationError };
       }
 
-      return updatedDashboard;
+      return { ok: true };
     },
   });
 

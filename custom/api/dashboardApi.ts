@@ -25,6 +25,13 @@ export type DashboardWidgetDataResponse = {
   data: unknown
 }
 
+export type DashboardMutationResponse = {
+  ok: boolean
+  error?: string
+  groupId?: string
+  widgetId?: string
+}
+
 export type DashboardWidgetDataRequest = {
   pagination?: {
     page: number
@@ -119,6 +126,36 @@ async function callDashboardApi(path: string, body: Record<string, unknown>): Pr
   }
 }
 
+async function callDashboardMutationApi(path: string, body: Record<string, unknown>): Promise<DashboardMutationResponse> {
+  const rawResponse = await fetch(path, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'accept-language': localStorage.getItem('af_lang') || 'en',
+    },
+    body: JSON.stringify(body),
+  })
+
+  const response = await parseDashboardResponse(rawResponse)
+
+  if (!rawResponse.ok) {
+    throw new DashboardApiError(
+      response?.error || rawResponse.statusText || `Dashboard request failed (${rawResponse.status})`,
+      normalizeValidationErrors(response),
+    )
+  }
+
+  if (!response || response.error || response.ok === false) {
+    throw new DashboardApiError(response?.error || 'Dashboard request failed', normalizeValidationErrors(response))
+  }
+
+  return {
+    ok: true,
+    groupId: response.groupId,
+    widgetId: response.widgetId,
+  }
+}
+
 async function callDashboardWidgetDataApi(
   path: string,
   body: Record<string, unknown>,
@@ -156,39 +193,39 @@ export const dashboardApi = {
     return callDashboardApi('/adminapi/v1/dashboard/get-config', { slug })
   },
 
-  async addDashboardGroup(slug: string): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/add_dashboard_group', { slug })
+  async addDashboardGroup(slug: string): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/add_dashboard_group', { slug })
   },
 
   async moveDashboardGroup(
     slug: string,
     groupId: string,
     direction: DashboardGroupMoveDirection,
-  ): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/move_dashboard_group', {
+  ): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/move_dashboard_group', {
       slug,
       groupId,
       direction,
     })
   },
 
-  async removeDashboardGroup(slug: string, groupId: string): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/remove_dashboard_group', {
+  async removeDashboardGroup(slug: string, groupId: string): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/remove_dashboard_group', {
       slug,
       groupId,
     })
   },
 
-  async setDashboardGroupConfig(slug: string, groupId: string, config: EditableDashboardGroupConfig): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/set_dashboard_group_config', {
+  async setDashboardGroupConfig(slug: string, groupId: string, config: EditableDashboardGroupConfig): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/set_dashboard_group_config', {
       slug,
       groupId,
       config,
     })
   },
 
-  async addDashboardWidget(slug: string, groupId: string): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/add_dashboard_widget', {
+  async addDashboardWidget(slug: string, groupId: string): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/add_dashboard_widget', {
       slug,
       groupId,
     })
@@ -198,23 +235,23 @@ export const dashboardApi = {
     slug: string,
     widgetId: string,
     direction: DashboardWidgetMoveDirection,
-  ): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/move_dashboard_widget', {
+  ): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/move_dashboard_widget', {
       slug,
       widgetId,
       direction,
     })
   },
 
-  async removeDashboardWidget(slug: string, widgetId: string): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/remove_dashboard_widget', {
+  async removeDashboardWidget(slug: string, widgetId: string): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/remove_dashboard_widget', {
       slug,
       widgetId,
     })
   },
 
-  async setWidgetConfig(slug: string, widgetId: string, config: unknown): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/set_widget_config', {
+  async setWidgetConfig(slug: string, widgetId: string, config: unknown): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/set_widget_config', {
       slug,
       widgetId,
       config,
@@ -225,8 +262,8 @@ export const dashboardApi = {
     slug: string,
     widgetId: string,
     config: ConfigurableTableWidgetConfig,
-  ): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/configure_table_widget', {
+  ): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/configure_table_widget', {
       slug,
       widgetId,
       config,
@@ -237,8 +274,8 @@ export const dashboardApi = {
     slug: string,
     widgetId: string,
     config: ConfigurableKpiCardWidgetConfig,
-  ): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/configure_kpi_card_widget', {
+  ): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/configure_kpi_card_widget', {
       slug,
       widgetId,
       config,
@@ -249,8 +286,8 @@ export const dashboardApi = {
     slug: string,
     widgetId: string,
     config: ConfigurableGaugeCardWidgetConfig,
-  ): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/configure_gauge_card_widget', {
+  ): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/configure_gauge_card_widget', {
       slug,
       widgetId,
       config,
@@ -261,8 +298,8 @@ export const dashboardApi = {
     slug: string,
     widgetId: string,
     config: ConfigurableLineChartWidgetConfig,
-  ): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/configure_line_chart_widget', {
+  ): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/configure_line_chart_widget', {
       slug,
       widgetId,
       config,
@@ -273,8 +310,8 @@ export const dashboardApi = {
     slug: string,
     widgetId: string,
     config: ConfigurableBarChartWidgetConfig,
-  ): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/configure_bar_chart_widget', {
+  ): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/configure_bar_chart_widget', {
       slug,
       widgetId,
       config,
@@ -285,8 +322,8 @@ export const dashboardApi = {
     slug: string,
     widgetId: string,
     config: ConfigurableStackedBarChartWidgetConfig,
-  ): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/configure_stacked_bar_chart_widget', {
+  ): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/configure_stacked_bar_chart_widget', {
       slug,
       widgetId,
       config,
@@ -297,8 +334,8 @@ export const dashboardApi = {
     slug: string,
     widgetId: string,
     config: ConfigurablePieChartWidgetConfig,
-  ): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/configure_pie_chart_widget', {
+  ): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/configure_pie_chart_widget', {
       slug,
       widgetId,
       config,
@@ -309,8 +346,8 @@ export const dashboardApi = {
     slug: string,
     widgetId: string,
     config: ConfigurableHistogramChartWidgetConfig,
-  ): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/configure_histogram_chart_widget', {
+  ): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/configure_histogram_chart_widget', {
       slug,
       widgetId,
       config,
@@ -321,8 +358,8 @@ export const dashboardApi = {
     slug: string,
     widgetId: string,
     config: ConfigurableFunnelChartWidgetConfig,
-  ): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/configure_funnel_chart_widget', {
+  ): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/configure_funnel_chart_widget', {
       slug,
       widgetId,
       config,
@@ -333,8 +370,8 @@ export const dashboardApi = {
     slug: string,
     widgetId: string,
     config: ConfigurablePivotTableWidgetConfig,
-  ): Promise<DashboardResponse> {
-    return callDashboardApi('/adminapi/v1/dashboard/configure_pivot_table_widget', {
+  ): Promise<DashboardMutationResponse> {
+    return callDashboardMutationApi('/adminapi/v1/dashboard/configure_pivot_table_widget', {
       slug,
       widgetId,
       config,

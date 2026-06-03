@@ -6,7 +6,7 @@ import type {
   DashboardGroupConfig,
 } from '../custom/model/dashboard.types.js';
 import {
-  DashboardApiResponseSchema,
+  DashboardMutationResponseSchema,
   GroupIdRequestSchema,
   MoveGroupRequestSchema,
   SetGroupConfigRequestSchema,
@@ -37,13 +37,14 @@ export function registerGroupEndpoints(
     path: '/dashboard/add_dashboard_group',
     description: 'Adds a new group to a dashboard configuration. Superadmin only.',
     request_schema: SlugRequestSchema,
-    response_schema: DashboardApiResponseSchema,
+    response_schema: DashboardMutationResponseSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
-        return { error: 'Dashboard edit is not allowed' };
+        return { ok: false, error: 'Dashboard edit is not allowed' };
       }
 
+      let groupId: string | null = null;
       const updatedDashboard = await ctx.updateDashboardConfig(body.slug, (config) => {
         const nextOrder = config.groups.length + 1;
         const group: DashboardGroupConfig = {
@@ -51,6 +52,7 @@ export function registerGroupEndpoints(
           label: 'New group',
           order: nextOrder,
         };
+        groupId = group.id;
 
         return {
           ...config,
@@ -60,10 +62,10 @@ export function registerGroupEndpoints(
 
       if (!updatedDashboard) {
         response.setStatus(404);
-        return { error: 'Dashboard not found' };
+        return { ok: false, error: 'Dashboard not found' };
       }
 
-      return updatedDashboard;
+      return { ok: true, groupId };
     },
   });
 
@@ -72,11 +74,11 @@ export function registerGroupEndpoints(
     path: '/dashboard/set_dashboard_group_config',
     description: 'Replaces editable JSON configuration for a dashboard group while preserving group id and order. Superadmin only.',
     request_schema: SetGroupConfigRequestSchema,
-    response_schema: DashboardApiResponseSchema,
+    response_schema: DashboardMutationResponseSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
-        return { error: 'Dashboard edit is not allowed' };
+        return { ok: false, error: 'Dashboard edit is not allowed' };
       }
 
       const groupId = body.groupId;
@@ -105,15 +107,15 @@ export function registerGroupEndpoints(
 
       if (!updatedDashboard) {
         response.setStatus(404);
-        return { error: 'Dashboard not found' };
+        return { ok: false, error: 'Dashboard not found' };
       }
 
       if (mutationError) {
         response.setStatus(404);
-        return { error: mutationError };
+        return { ok: false, error: mutationError };
       }
 
-      return updatedDashboard;
+      return { ok: true };
     },
   });
   
@@ -122,11 +124,11 @@ export function registerGroupEndpoints(
     path: '/dashboard/move_dashboard_group',
     description: 'Moves a dashboard group up or down in its dashboard. Superadmin only.',
     request_schema: MoveGroupRequestSchema,
-    response_schema: DashboardApiResponseSchema,
+    response_schema: DashboardMutationResponseSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
-        return { error: 'Dashboard edit is not allowed' };
+        return { ok: false, error: 'Dashboard edit is not allowed' };
       }
 
       let mutationError: string | null = null;
@@ -157,15 +159,15 @@ export function registerGroupEndpoints(
 
       if (!updatedDashboard) {
         response.setStatus(404);
-        return { error: 'Dashboard not found' };
+        return { ok: false, error: 'Dashboard not found' };
       }
 
       if (mutationError) {
         response.setStatus(404);
-        return { error: mutationError };
+        return { ok: false, error: mutationError };
       }
 
-      return updatedDashboard;
+      return { ok: true };
     },
   });
 
@@ -174,11 +176,11 @@ export function registerGroupEndpoints(
     path: '/dashboard/remove_dashboard_group',
     description: 'Removes a dashboard group and all widgets inside it. Superadmin only.',
     request_schema: GroupIdRequestSchema,
-    response_schema: DashboardApiResponseSchema,
+    response_schema: DashboardMutationResponseSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
-        return { error: 'Dashboard edit is not allowed' };
+        return { ok: false, error: 'Dashboard edit is not allowed' };
       }
 
       const groupId = body.groupId;
@@ -200,15 +202,15 @@ export function registerGroupEndpoints(
 
       if (!updatedDashboard) {
         response.setStatus(404);
-        return { error: 'Dashboard not found' };
+        return { ok: false, error: 'Dashboard not found' };
       }
 
       if (mutationError) {
         response.setStatus(404);
-        return { error: mutationError };
+        return { ok: false, error: mutationError };
       }
 
-      return updatedDashboard;
+      return { ok: true };
     },
   });
 

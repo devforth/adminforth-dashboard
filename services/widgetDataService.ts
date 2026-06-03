@@ -341,7 +341,7 @@ function buildCalculatedRow(
   const values: Record<string, unknown> = { ...baseValues };
 
   for (const item of [...select.filter(isCalcSelectItem), ...calcs]) {
-    values[item.as] = evaluateCalc(item.calc, values);
+    values[item.as] = evaluateCalc(item.calc, values, variables);
   }
 
   return values;
@@ -364,7 +364,7 @@ function buildPlainRow(
   }
 
   for (const item of [...select.filter(isCalcSelectItem), ...calcs]) {
-    values[item.as] = evaluateCalc(item.calc, values);
+    values[item.as] = evaluateCalc(item.calc, values, variables);
   }
 
   return values;
