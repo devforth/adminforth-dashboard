@@ -83,11 +83,11 @@
 import { computed, watch } from 'vue'
 import { useWidgetData } from '../../queries/useWidgetData.js'
 import type { ChartDashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
-import BarChart from './bar/BarChart.vue'
-import FunnelChart from './funnel/FunnelChart.vue'
-import LineChart from './line/LineChart.vue'
-import PieChart from './pie/PieChart.vue'
-import StackedBarChart from './stacked-bar/StackedBarChart.vue'
+import BarChart from './BarChart.vue'
+import FunnelChart from './FunnelChart.vue'
+import LineChart from './LineChart.vue'
+import PieChart from './PieChart.vue'
+import StackedBarChart from './StackedBarChart.vue'
 import { toFiniteNumber } from './chart.utils.js'
 
 const DEFAULT_WIDGET_HEIGHT = 500

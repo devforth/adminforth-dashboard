@@ -36,6 +36,7 @@ export type QueryAggregateOperation = 'sum' | 'count' | 'count_distinct' | 'avg'
 export type TimeGrain = 'day' | 'week' | 'month' | 'year'
 export type ValueFormat =
   | 'number'
+  | 'integer'
   | 'compact_number'
   | 'currency'
   | 'percent'
@@ -119,21 +120,17 @@ export type QueryOrderByItem = {
 export type QueryConfig = {
   resource: string
   select?: QuerySelectItem[]
+  sparkline?: {
+    field: string
+    grain: TimeGrain
+    as: string
+    fill_missing?: Record<string, JsonValue>
+  }
   filters?: FilterExpression
   group_by?: QueryGroupByItem[]
   order_by?: QueryOrderByItem[]
   limit?: number
   offset?: number
-  time_series?: {
-    field: string
-    grain: TimeGrain
-    timezone?: string
-  }
-  period?: {
-    field: string
-    gte?: JsonValue
-    lt?: JsonValue
-  }
   bucket?: {
     field: string
     buckets: Array<{ label: string, min?: number, max?: number }>
@@ -178,8 +175,29 @@ export type KpiCardViewConfig = {
     text?: string
     field?: string
   }
-  comparison?: JsonValue
-  sparkline?: JsonValue
+  comparison?: {
+    field: string
+    format?: ValueFormat
+    positive_is_good?: boolean
+    compact?: {
+      show?: boolean
+      template?: string
+    }
+    tooltip?: {
+      label?: string
+      template?: string
+    }
+  }
+  sparkline?: {
+    type?: 'line'
+    field: string
+    x: string
+    show_axes?: boolean
+    show_labels?: boolean
+    fill?: {
+      type?: 'gradient' | 'solid'
+    }
+  }
 }
 
 export type GaugeCardViewConfig = {
@@ -257,14 +275,6 @@ export type DashboardWidgetConfig =
   | GaugeCardWidgetConfig
   | PivotTableWidgetConfig
 
-export type EditableDashboardWidgetConfig =
-  | Omit<EmptyWidgetConfig, 'id' | 'group_id' | 'order'>
-  | Omit<TableWidgetConfig, 'id' | 'group_id' | 'order'>
-  | Omit<ChartDashboardWidgetConfig, 'id' | 'group_id' | 'order'>
-  | Omit<KpiCardWidgetConfig, 'id' | 'group_id' | 'order'>
-  | Omit<GaugeCardWidgetConfig, 'id' | 'group_id' | 'order'>
-  | Omit<PivotTableWidgetConfig, 'id' | 'group_id' | 'order'>
-
 export type DashboardWidgetTableData = {
   kind?: 'table'
   columns: string[]
@@ -299,10 +309,10 @@ export function serializeDashboardWidgetConfigForEditor(
     id: _id,
     group_id: _groupId,
     order: _order,
-    ...editableWidget
+    ...editableWidgetConfig
   } = widget
 
-  return editableWidget
+  return editableWidgetConfig
 }
 
 export function getFieldRefField(value: FieldRef | undefined) {

@@ -1,12 +1,26 @@
 import type { AdminUser, IHttpServer } from 'adminforth';
 import { randomUUID } from 'crypto';
 import type {
+  ChartDashboardWidgetConfig,
   DashboardConfig,
   DashboardVariables,
   DashboardWidgetConfig,
-  EditableDashboardWidgetConfig,
+  GaugeCardWidgetConfig,
+  KpiCardWidgetConfig,
+  PivotTableWidgetConfig,
+  TableWidgetConfig,
 } from '../custom/model/dashboard.types.js';
 import {
+  ConfigureBarChartWidgetRequestSchema,
+  ConfigureFunnelChartWidgetRequestSchema,
+  ConfigureGaugeCardWidgetRequestSchema,
+  ConfigureHistogramChartWidgetRequestSchema,
+  ConfigureKpiCardWidgetRequestSchema,
+  ConfigureLineChartWidgetRequestSchema,
+  ConfigurePieChartWidgetRequestSchema,
+  ConfigurePivotTableWidgetRequestSchema,
+  ConfigureStackedBarChartWidgetRequestSchema,
+  ConfigureTableWidgetRequestSchema,
   DashboardApiResponseSchema,
   DashboardWidgetDataResponseSchema,
   GroupIdRequestSchema,
@@ -16,6 +30,21 @@ import {
   WidgetIdRequestSchema,
 } from '../schema/api.js';
 import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
+
+type ConfigurableWidgetConfig =
+  | Omit<TableWidgetConfig, 'id' | 'group_id' | 'order'>
+  | Omit<KpiCardWidgetConfig, 'id' | 'group_id' | 'order'>
+  | Omit<GaugeCardWidgetConfig, 'id' | 'group_id' | 'order'>
+  | Omit<ChartDashboardWidgetConfig, 'id' | 'group_id' | 'order'>
+  | Omit<PivotTableWidgetConfig, 'id' | 'group_id' | 'order'>;
+
+type ConfigureWidgetRequest = {
+  slug: string;
+  widgetId: string;
+  config: ConfigurableWidgetConfig;
+};
+
+type EndpointRequestSchema = Parameters<IHttpServer['endpoint']>[0]['request_schema'];
 
 type WidgetEndpointsContext = {
   canEditDashboard: (adminUser: AdminUser) => boolean;
@@ -37,6 +66,86 @@ type WidgetEndpointsContext = {
     },
   ) => Promise<unknown>;
 };
+
+async function replaceWidgetConfig(
+  ctx: WidgetEndpointsContext,
+  slug: string,
+  widgetId: string,
+  widgetConfig: ConfigurableWidgetConfig,
+) {
+  let mutationError: string | null = null;
+  const updatedDashboard = await ctx.updateDashboardConfig(slug, (config) => {
+    const widget = config.widgets.find((item) => item.id === widgetId);
+
+    if (!widget) {
+      mutationError = 'Dashboard widget not found';
+      return null;
+    }
+
+    const nextWidget: DashboardWidgetConfig = {
+      ...widgetConfig,
+      id: widget.id,
+      group_id: widget.group_id,
+      order: widget.order,
+    } as DashboardWidgetConfig;
+
+    return {
+      ...config,
+      widgets: config.widgets.map((item) => item.id === widgetId
+        ? nextWidget
+        : item),
+    };
+  });
+
+  return {
+    updatedDashboard,
+    mutationError,
+  };
+}
+
+function registerConfigureWidgetEndpoint(
+  server: IHttpServer,
+  ctx: WidgetEndpointsContext,
+  options: {
+    path: string;
+    description: string;
+    requestSchema: EndpointRequestSchema;
+  },
+) {
+  server.endpoint({
+    method: 'POST',
+    path: options.path,
+    description: options.description,
+    request_schema: options.requestSchema,
+    response_schema: DashboardApiResponseSchema,
+    handler: async ({ body, adminUser, response }) => {
+      if (!ctx.canEditDashboard(adminUser)) {
+        response.setStatus(403);
+        return { error: 'Dashboard edit is not allowed' };
+      }
+
+      const request = body as ConfigureWidgetRequest;
+      const { updatedDashboard, mutationError } = await replaceWidgetConfig(
+        ctx,
+        request.slug,
+        request.widgetId,
+        request.config,
+      );
+
+      if (!updatedDashboard) {
+        response.setStatus(404);
+        return { error: 'Dashboard not found' };
+      }
+
+      if (mutationError) {
+        response.setStatus(404);
+        return { error: mutationError };
+      }
+
+      return updatedDashboard;
+    },
+  });
+}
 
 export function registerWidgetEndpoints(
   server: IHttpServer,
@@ -193,6 +302,7 @@ export function registerWidgetEndpoints(
     },
   });
 
+
   server.endpoint({
     method: 'POST',
     path: '/dashboard/set_widget_config',
@@ -205,31 +315,8 @@ export function registerWidgetEndpoints(
         return { error: 'Dashboard edit is not allowed' };
       }
 
-      let mutationError: string | null = null;
-      const updatedDashboard = await ctx.updateDashboardConfig(body.slug, (config) => {
-        const widget = config.widgets.find((item) => item.id === body.widgetId);
-
-        if (!widget) {
-          mutationError = 'Dashboard widget not found';
-          return null;
-        }
-
-        const typedWidgetConfig = body.config as EditableDashboardWidgetConfig;
-
-        const nextWidget: DashboardWidgetConfig = {
-          ...typedWidgetConfig,
-          id: widget.id,
-          group_id: widget.group_id,
-          order: widget.order,
-        };
-
-        return {
-          ...config,
-          widgets: config.widgets.map((item) => item.id === body.widgetId
-            ? nextWidget
-            : item),
-        };
-      });
+      const request = body as ConfigureWidgetRequest;
+      const { updatedDashboard, mutationError } = await replaceWidgetConfig(ctx, request.slug, request.widgetId, request.config);
 
       if (!updatedDashboard) {
         response.setStatus(404);
@@ -243,6 +330,66 @@ export function registerWidgetEndpoints(
 
       return updatedDashboard;
     },
+  });
+
+  registerConfigureWidgetEndpoint(server, ctx, {
+    path: '/dashboard/configure_table_widget',
+    description: 'Configures an existing dashboard widget as a table. Superadmin only.',
+    requestSchema: ConfigureTableWidgetRequestSchema,
+  });
+
+  registerConfigureWidgetEndpoint(server, ctx, {
+    path: '/dashboard/configure_kpi_card_widget',
+    description: 'Configures an existing dashboard widget as a KPI card. Superadmin only.',
+    requestSchema: ConfigureKpiCardWidgetRequestSchema,
+  });
+
+  registerConfigureWidgetEndpoint(server, ctx, {
+    path: '/dashboard/configure_gauge_card_widget',
+    description: 'Configures an existing dashboard widget as a gauge card. Superadmin only.',
+    requestSchema: ConfigureGaugeCardWidgetRequestSchema,
+  });
+
+  registerConfigureWidgetEndpoint(server, ctx, {
+    path: '/dashboard/configure_pivot_table_widget',
+    description: 'Configures an existing dashboard widget as a pivot table. Superadmin only.',
+    requestSchema: ConfigurePivotTableWidgetRequestSchema,
+  });
+
+  registerConfigureWidgetEndpoint(server, ctx, {
+    path: '/dashboard/configure_line_chart_widget',
+    description: 'Configures an existing dashboard widget as a line chart. Superadmin only.',
+    requestSchema: ConfigureLineChartWidgetRequestSchema,
+  });
+
+  registerConfigureWidgetEndpoint(server, ctx, {
+    path: '/dashboard/configure_bar_chart_widget',
+    description: 'Configures an existing dashboard widget as a bar chart. Superadmin only.',
+    requestSchema: ConfigureBarChartWidgetRequestSchema,
+  });
+
+  registerConfigureWidgetEndpoint(server, ctx, {
+    path: '/dashboard/configure_stacked_bar_chart_widget',
+    description: 'Configures an existing dashboard widget as a stacked bar chart. Superadmin only.',
+    requestSchema: ConfigureStackedBarChartWidgetRequestSchema,
+  });
+
+  registerConfigureWidgetEndpoint(server, ctx, {
+    path: '/dashboard/configure_pie_chart_widget',
+    description: 'Configures an existing dashboard widget as a pie chart. Superadmin only.',
+    requestSchema: ConfigurePieChartWidgetRequestSchema,
+  });
+
+  registerConfigureWidgetEndpoint(server, ctx, {
+    path: '/dashboard/configure_histogram_chart_widget',
+    description: 'Configures an existing dashboard widget as a histogram chart. Superadmin only.',
+    requestSchema: ConfigureHistogramChartWidgetRequestSchema,
+  });
+
+  registerConfigureWidgetEndpoint(server, ctx, {
+    path: '/dashboard/configure_funnel_chart_widget',
+    description: 'Configures an existing dashboard widget as a funnel chart. Superadmin only.',
+    requestSchema: ConfigureFunnelChartWidgetRequestSchema,
   });
 
   server.endpoint({

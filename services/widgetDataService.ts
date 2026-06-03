@@ -70,7 +70,8 @@ type EffectiveGroupByItem = {
 const CALC_IDENTIFIER_RE = /\b[a-zA-Z_][a-zA-Z0-9_]*\b/g;
 const LOOKUP_CALL_RE = /lookup\(\s*(\$variables(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*,\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/g;
 const VARIABLE_PATH_PREFIX_RE = /^\$variables\.?/;
-const SAFE_CALC_EXPRESSION_RE = /^[\d+\-*/().\s]+$/;
+const SAFE_CALC_EXPRESSION_RE = /^[\d+\-*/().\s?:<>=!]+$/;
+const RELATIVE_DURATION_RE = /^(\d+)(h|d|w|mo|y)$/;
 const FILTER_OPERATORS = {
   eq: Filters.EQ,
   neq: Filters.NEQ,
@@ -165,6 +166,12 @@ async function getQueryWidgetData(
   query: QueryConfig,
   variables: DashboardVariables,
 ): Promise<DashboardWidgetData> {
+  const metricSelect = getSingleAggregateMetricSelect(query);
+
+  if (metricSelect) {
+    return getMetricWidgetData(adminforth, query, metricSelect);
+  }
+
   const selectedRows = isAggregateQuery(query)
     ? await buildAggregateQueryRows(adminforth, query, variables)
     : buildPlainQueryRows(
@@ -194,6 +201,64 @@ async function getQueryWidgetData(
     columns,
     rows: slicedRows,
   };
+}
+
+async function getMetricWidgetData(
+  adminforth: IAdminForth,
+  query: QueryConfig,
+  metric: QueryAggregateSelectItem,
+): Promise<DashboardWidgetData> {
+  const [currentValues = {}] = await getAggregateRows(
+    adminforth,
+    query.resource,
+    query.filters,
+    [metric],
+    [],
+  );
+  const values: Record<string, unknown> = {
+    [metric.as]: currentValues[metric.as] ?? 0,
+  };
+
+  const rows = query.sparkline
+    ? await getMetricSparklineRows(adminforth, query, metric, getAdminForthFilters(query.filters))
+    : [values];
+  const columns = Array.from(new Set([
+    metric.as,
+    ...(query.sparkline ? [query.sparkline.as] : []),
+  ]));
+
+  return {
+    kind: 'aggregate',
+    columns,
+    rows,
+    values,
+  };
+}
+
+async function getMetricSparklineRows(
+  adminforth: IAdminForth,
+  query: QueryConfig,
+  metric: QueryAggregateSelectItem,
+  filters: DashboardWidgetFilters,
+) {
+  const sparkline = query.sparkline!;
+  const groupBy = [{
+    field: sparkline.field,
+    as: sparkline.as,
+    grain: sparkline.grain,
+  }];
+  const rows = await getAggregateRows(
+    adminforth,
+    query.resource,
+    filters,
+    [metric],
+    groupBy,
+  );
+
+  return rows.map((row) => ({
+    ...query.sparkline?.fill_missing,
+    ...row,
+  }));
 }
 
 async function getResourceRows(
@@ -237,7 +302,7 @@ async function buildAggregateQueryRows(
 async function getAggregateRows(
   adminforth: IAdminForth,
   resourceId: string,
-  baseFilters: FilterExpression | undefined,
+  baseFilters: FilterExpression | DashboardWidgetFilters | undefined,
   select: QueryAggregateSelectItem[],
   groupBy: EffectiveGroupByItem[],
 ) {
@@ -403,6 +468,21 @@ function isAggregateQuery(query: QueryConfig) {
     query.group_by?.length
     || query.select?.some((item) => isAggregateSelectItem(item)),
   );
+}
+
+function getSingleAggregateMetricSelect(query: QueryConfig) {
+  if (query.group_by?.length) {
+    return undefined;
+  }
+
+  const select = query.select ?? [];
+  const aggregateItems = select.filter(isAggregateSelectItem);
+
+  if (aggregateItems.length !== 1 || aggregateItems.length !== select.length) {
+    return undefined;
+  }
+
+  return aggregateItems[0];
 }
 
 function isFieldSelectItem(item: QuerySelectItem): item is QueryFieldSelectItem {
@@ -678,11 +758,57 @@ function toAdminForthFilter(filter: FilterExpression): IAdminForthSingleFilter |
 
   for (const [operator, createFilter] of Object.entries(FILTER_OPERATORS)) {
     if (Object.prototype.hasOwnProperty.call(filter, operator)) {
-      return createFilter(filter.field, filter[operator as keyof typeof FILTER_OPERATORS]);
+      return createFilter(filter.field, resolveFilterValue(filter[operator as keyof typeof FILTER_OPERATORS]));
     }
   }
 
   return Filters.AND([]);
+}
+
+function resolveFilterValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveFilterValue(item));
+  }
+
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  if (value.now === true) {
+    return new Date().toISOString();
+  }
+
+  if (typeof value.now_minus === 'string') {
+    return subtractDuration(new Date(), value.now_minus).toISOString();
+  }
+
+  return value;
+}
+
+function subtractDuration(now: Date, duration: string) {
+  const match = duration.match(RELATIVE_DURATION_RE);
+
+  if (!match) {
+    throw new Error(`Unsupported relative date duration: ${duration}`);
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2];
+  const date = new Date(now);
+
+  if (unit === 'h') {
+    date.setUTCHours(date.getUTCHours() - amount);
+  } else if (unit === 'd') {
+    date.setUTCDate(date.getUTCDate() - amount);
+  } else if (unit === 'w') {
+    date.setUTCDate(date.getUTCDate() - amount * 7);
+  } else if (unit === 'mo') {
+    date.setUTCMonth(date.getUTCMonth() - amount);
+  } else if (unit === 'y') {
+    date.setUTCFullYear(date.getUTCFullYear() - amount);
+  }
+
+  return date;
 }
 
 function toFiniteNumber(value: unknown) {

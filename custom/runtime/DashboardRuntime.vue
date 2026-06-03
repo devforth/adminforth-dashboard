@@ -208,7 +208,6 @@ import type {
   DashboardConfig,
   DashboardGroupConfig,
   EditableDashboardGroupConfig,
-  EditableDashboardWidgetConfig,
   DashboardGroupMoveDirection,
   DashboardWidgetConfig,
   DashboardWidgetMoveDirection,
@@ -414,13 +413,13 @@ async function saveWidgetConfig() {
   try {
     widgetConfigError.value = ''
     widgetConfigFieldErrors.value = []
-    const widgetConfig = parseYaml(widgetConfigCode.value) as EditableDashboardWidgetConfig
+    const widgetConfig = parseYaml(widgetConfigCode.value) as DashboardWidgetConfig
 
     applyDashboardResponse(
       await dashboardApi.setWidgetConfig(
         props.dashboardSlug,
         editingWidgetId.value,
-        widgetConfig,
+        serializeDashboardWidgetConfigForEditor(widgetConfig),
       ),
     )
     closeWidgetConfigEditor()

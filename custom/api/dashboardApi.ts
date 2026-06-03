@@ -1,11 +1,15 @@
 import type {
   DashboardConfig,
   EditableDashboardGroupConfig,
-  EditableDashboardWidgetConfig,
   DashboardGroupMoveDirection,
+  ChartDashboardWidgetConfig,
   DashboardWidgetConfig,
   DashboardWidgetConfigValidationError,
   DashboardWidgetMoveDirection,
+  GaugeCardWidgetConfig,
+  KpiCardWidgetConfig,
+  PivotTableWidgetConfig,
+  TableWidgetConfig,
 } from '../model/dashboard.types.js'
 
 export type DashboardResponse = {
@@ -27,6 +31,18 @@ export type DashboardWidgetDataRequest = {
     pageSize: number
   }
 }
+
+export type ConfigurableTableWidgetConfig = Omit<TableWidgetConfig, 'id' | 'group_id' | 'order'>
+export type ConfigurableKpiCardWidgetConfig = Omit<KpiCardWidgetConfig, 'id' | 'group_id' | 'order'>
+export type ConfigurableGaugeCardWidgetConfig = Omit<GaugeCardWidgetConfig, 'id' | 'group_id' | 'order'>
+export type ConfigurableChartWidgetConfig = Omit<ChartDashboardWidgetConfig, 'id' | 'group_id' | 'order'>
+export type ConfigurableLineChartWidgetConfig = ConfigurableChartWidgetConfig & { chart: { type: 'line' } }
+export type ConfigurableBarChartWidgetConfig = ConfigurableChartWidgetConfig & { chart: { type: 'bar' } }
+export type ConfigurableStackedBarChartWidgetConfig = ConfigurableChartWidgetConfig & { chart: { type: 'stacked_bar' } }
+export type ConfigurablePieChartWidgetConfig = ConfigurableChartWidgetConfig & { chart: { type: 'pie' } }
+export type ConfigurableHistogramChartWidgetConfig = ConfigurableChartWidgetConfig & { chart: { type: 'histogram' } }
+export type ConfigurableFunnelChartWidgetConfig = ConfigurableChartWidgetConfig & { chart: { type: 'funnel' } }
+export type ConfigurablePivotTableWidgetConfig = Omit<PivotTableWidgetConfig, 'id' | 'group_id' | 'order'>
 
 export class DashboardApiError extends Error {
   validationErrors: DashboardWidgetConfigValidationError[]
@@ -199,6 +215,126 @@ export const dashboardApi = {
 
   async setWidgetConfig(slug: string, widgetId: string, config: unknown): Promise<DashboardResponse> {
     return callDashboardApi('/adminapi/v1/dashboard/set_widget_config', {
+      slug,
+      widgetId,
+      config,
+    })
+  },
+
+  async configureTableWidget(
+    slug: string,
+    widgetId: string,
+    config: ConfigurableTableWidgetConfig,
+  ): Promise<DashboardResponse> {
+    return callDashboardApi('/adminapi/v1/dashboard/configure_table_widget', {
+      slug,
+      widgetId,
+      config,
+    })
+  },
+
+  async configureKpiCardWidget(
+    slug: string,
+    widgetId: string,
+    config: ConfigurableKpiCardWidgetConfig,
+  ): Promise<DashboardResponse> {
+    return callDashboardApi('/adminapi/v1/dashboard/configure_kpi_card_widget', {
+      slug,
+      widgetId,
+      config,
+    })
+  },
+
+  async configureGaugeCardWidget(
+    slug: string,
+    widgetId: string,
+    config: ConfigurableGaugeCardWidgetConfig,
+  ): Promise<DashboardResponse> {
+    return callDashboardApi('/adminapi/v1/dashboard/configure_gauge_card_widget', {
+      slug,
+      widgetId,
+      config,
+    })
+  },
+
+  async configureLineChartWidget(
+    slug: string,
+    widgetId: string,
+    config: ConfigurableLineChartWidgetConfig,
+  ): Promise<DashboardResponse> {
+    return callDashboardApi('/adminapi/v1/dashboard/configure_line_chart_widget', {
+      slug,
+      widgetId,
+      config,
+    })
+  },
+
+  async configureBarChartWidget(
+    slug: string,
+    widgetId: string,
+    config: ConfigurableBarChartWidgetConfig,
+  ): Promise<DashboardResponse> {
+    return callDashboardApi('/adminapi/v1/dashboard/configure_bar_chart_widget', {
+      slug,
+      widgetId,
+      config,
+    })
+  },
+
+  async configureStackedBarChartWidget(
+    slug: string,
+    widgetId: string,
+    config: ConfigurableStackedBarChartWidgetConfig,
+  ): Promise<DashboardResponse> {
+    return callDashboardApi('/adminapi/v1/dashboard/configure_stacked_bar_chart_widget', {
+      slug,
+      widgetId,
+      config,
+    })
+  },
+
+  async configurePieChartWidget(
+    slug: string,
+    widgetId: string,
+    config: ConfigurablePieChartWidgetConfig,
+  ): Promise<DashboardResponse> {
+    return callDashboardApi('/adminapi/v1/dashboard/configure_pie_chart_widget', {
+      slug,
+      widgetId,
+      config,
+    })
+  },
+
+  async configureHistogramChartWidget(
+    slug: string,
+    widgetId: string,
+    config: ConfigurableHistogramChartWidgetConfig,
+  ): Promise<DashboardResponse> {
+    return callDashboardApi('/adminapi/v1/dashboard/configure_histogram_chart_widget', {
+      slug,
+      widgetId,
+      config,
+    })
+  },
+
+  async configureFunnelChartWidget(
+    slug: string,
+    widgetId: string,
+    config: ConfigurableFunnelChartWidgetConfig,
+  ): Promise<DashboardResponse> {
+    return callDashboardApi('/adminapi/v1/dashboard/configure_funnel_chart_widget', {
+      slug,
+      widgetId,
+      config,
+    })
+  },
+
+  async configurePivotTableWidget(
+    slug: string,
+    widgetId: string,
+    config: ConfigurablePivotTableWidgetConfig,
+  ): Promise<DashboardResponse> {
+    return callDashboardApi('/adminapi/v1/dashboard/configure_pivot_table_widget', {
       slug,
       widgetId,
       config,

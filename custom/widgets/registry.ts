@@ -1,10 +1,10 @@
 import type { Component } from 'vue'
 import type { DashboardWidgetTarget } from '../model/dashboard.types.js'
 import ChartWidget from './chart/ChartWidget.vue'
-import GaugeCardWidget from './gauge-card/GaugeCardWidget.vue'
-import KpiCardWidget from './kpi-card/KpiCardWidget.vue'
-import PivotTableWidget from './pivot-table/PivotTableWidget.vue'
-import TableWidget from './table/TableWidget.vue'
+import GaugeCardWidget from './GaugeCardWidget.vue'
+import KpiCardWidget from './KpiCardWidget.vue'
+import PivotTableWidget from './PivotTableWidget.vue'
+import TableWidget from './TableWidget.vue'
 
 export type DashboardWidgetType = DashboardWidgetTarget
 

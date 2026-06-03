@@ -19,7 +19,6 @@ Dashboard root, groups, and widgets are different entities.
 - Widget tools use widgetId and change target/query/card/chart/table/pivot.
 - Never call dashboard_set_dashboard_group_config to configure a widget.
 - Never call dashboard_add_dashboard_group to configure a widget.
-- If widget target, label, query, chart, card, table, pivot, variables, formulas, filters, or display fields must change, use dashboard_set_widget_config.
 
 ## Tool routing
 
@@ -27,7 +26,16 @@ Dashboard root, groups, and widgets are different entities.
 - Add group: dashboard_add_dashboard_group
 - Rename group: dashboard_set_dashboard_group_config
 - Add widget slot: dashboard_add_dashboard_widget
-- Configure widget: dashboard_set_widget_config
+- Configure table widget: dashboard_configure_table_widget
+- Configure KPI card widget: dashboard_configure_kpi_card_widget
+- Configure gauge card widget: dashboard_configure_gauge_card_widget
+- Configure line chart widget: dashboard_configure_line_chart_widget
+- Configure bar chart widget: dashboard_configure_bar_chart_widget
+- Configure stacked bar chart widget: dashboard_configure_stacked_bar_chart_widget
+- Configure pie chart widget: dashboard_configure_pie_chart_widget
+- Configure histogram chart widget: dashboard_configure_histogram_chart_widget
+- Configure funnel chart widget: dashboard_configure_funnel_chart_widget
+- Configure pivot table widget: dashboard_configure_pivot_table_widget
 - Move/remove widget/group: matching move/remove tool
 - Load widget data: dashboard_get_dashboard_widget_data
 
@@ -42,7 +50,7 @@ Before creating a group, call dashboard_get_config and check existing groups.
 - If no matching group exists, call dashboard_add_dashboard_group at most once for that requested group.
 - After dashboard_add_dashboard_group succeeds, extract the new groupId from the returned dashboard response.
 - If the group needs a label, call dashboard_set_dashboard_group_config once with that groupId.
-- After that, the next mutation must be dashboard_add_dashboard_widget or dashboard_set_widget_config, not another dashboard_add_dashboard_group.
+- After that, the next mutation must be dashboard_add_dashboard_widget or a widget configure tool, not another dashboard_add_dashboard_group.
 
 Never call dashboard_add_dashboard_group repeatedly for the same user request. If you are about to create a second group for the same label/section, stop and report:
 
@@ -57,7 +65,7 @@ For any request to create KPI/chart/table/pivot/gauge widgets:
 3. if needed, rename group once
 4. for each widget:
    - dashboard_add_dashboard_widget
-   - immediately dashboard_set_widget_config for the returned widgetId
+   - immediately configure it with the matching dashboard_configure_*_widget tool
    - confirm target is not empty
 5. dashboard_get_config
 6. validate all requested widgets are configured
@@ -79,7 +87,7 @@ This is incomplete for KPI/chart/table/pivot/gauge/spend/revenue/usage widgets.
 
 If the same mutation tool is about to be called with the same payload twice, stop and reassess.
 If dashboard_add_dashboard_group repeats for the same requested group, stop and reuse the groupId from dashboard_get_config.
-If dashboard_set_dashboard_group_config repeats while new widgets are target: empty, use dashboard_set_widget_config instead.
+If dashboard_set_dashboard_group_config repeats while new widgets are target: empty, use a widget configure tool instead.
 After 2 repeated no-op mutations, stop with an explicit error.
 
 ## State machine
@@ -90,21 +98,42 @@ dashboard_get_config
 -> maybe dashboard_add_dashboard_group
 -> maybe dashboard_set_dashboard_group_config
 -> dashboard_add_dashboard_widget
--> dashboard_set_widget_config
+-> matching dashboard_configure_*_widget tool
 -> repeat only the two widget steps for more widgets
 -> dashboard_get_config
 
 Allowed repeats:
 - dashboard_add_dashboard_widget may repeat once per requested widget.
-- dashboard_set_widget_config may repeat once per requested widget.
+- widget configure tools may repeat once per requested widget.
 
 Forbidden repeats:
 - dashboard_add_dashboard_group for the same requested group.
 - dashboard_set_dashboard_group_config with the same label/groupId.
 
 Forbidden substitutions:
-- dashboard_set_dashboard_group_config instead of set widget config.
+- dashboard_set_dashboard_group_config instead of a widget configure tool.
 - dashboard_add_dashboard_group instead of add widget.
+
+## Specialized widget tools
+
+Available specialized tools:
+- dashboard_configure_table_widget
+- dashboard_configure_kpi_card_widget
+- dashboard_configure_gauge_card_widget
+- dashboard_configure_pivot_table_widget
+- dashboard_configure_line_chart_widget
+- dashboard_configure_bar_chart_widget
+- dashboard_configure_stacked_bar_chart_widget
+- dashboard_configure_pie_chart_widget
+- dashboard_configure_histogram_chart_widget
+- dashboard_configure_funnel_chart_widget
+
+Each specialized tool accepts:
+- slug
+- widgetId
+- config
+
+The config is the normal widget config for that target without server-owned id, group_id, and order.
 
 ## Widget config keys
 
@@ -116,21 +145,48 @@ Use table for table.
 Use pivot for pivot_table.
 
 Use target, not type.
+For charts, use target: chart and chart.type for the concrete chart kind.
 Use query, not dataSource.
 Use resource, not resourceId.
 
 ## Query shape rules
 
-Use query.steps only for funnel charts. Do not use query.steps for kpi_card, gauge_card, table, pivot_table, or normal bar/line/stacked/pie charts.
+Use dashboard_configure_funnel_chart_widget for funnel charts and set query.steps.
+Do not use query.steps for kpi_card, gauge_card, table, pivot_table, line, bar, stacked bar, pie, or histogram charts.
 
 For kpi_card and normal charts, use:
 - query.resource
 - query.select
 - optional query.filters
 - optional query.group_by
-- optional query.period
 - optional query.order_by
 - optional query.calcs
+
+## Date range rules
+
+Use only query.filters for time ranges.
+Never use fixed ISO dates for rolling dashboard periods.
+Never use query.period, period.range, query.time_series, or time_series.range.
+
+For rolling ranges, use this exact filter shape:
+
+filters:
+  and:
+    - field: created_at
+      gte:
+        now_minus: 30d
+    - field: created_at
+      lt:
+        now: true
+
+Supported relative duration suffixes:
+- h for hours
+- d for days
+- w for weeks
+- mo for months
+- y for years
+
+For today/yesterday/last 7 days comparisons, create separate aggregate select items with separate filters and aliases. Do not hard-code calendar dates.
 
 Calculations run after selected fields and aggregates are loaded into a row. Therefore:
 - aggregate real resource fields first
