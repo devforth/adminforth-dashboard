@@ -54,7 +54,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
       @click.self="closeGroupConfigEditor"
     >
-      <section class="w-full max-w-2xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
+      <section class="w-full max-w-5xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
         <header class="mb-3 flex items-center justify-between gap-3">
           <h2 class="m-0 text-base font-bold text-lightNavbarText dark:text-darkNavbarText">
             Group JSON
@@ -81,12 +81,9 @@
           </button>
         </header>
 
-        <textarea
+        <YamlConfigEditor
           v-model="groupConfigCode"
-          class="min-h-[500px] w-full resize-y rounded-lg border border-lightListBorder bg-lightListTable p-3 font-mono text-sm text-lightNavbarText outline-none focus:border-lightPrimaryButtonBackground dark:border-darkListBorder dark:bg-darkListTable dark:text-darkNavbarText dark:focus:border-darkPrimaryButtonBackground"
-          spellcheck="false"
-          @keydown.ctrl.enter.prevent="saveGroupConfig"
-          @keydown.meta.enter.prevent="saveGroupConfig"
+          @save="saveGroupConfig"
         />
 
         <div
@@ -120,7 +117,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
       @click.self="closeWidgetConfigEditor"
     >
-      <section class="w-full max-w-2xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
+      <section class="w-full max-w-5xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
         <header class="mb-3 flex items-center justify-between gap-3">
           <h2 class="m-0 text-base font-bold text-lightNavbarText dark:text-darkNavbarText">
             Widget JSON
@@ -147,12 +144,9 @@
           </button>
         </header>
 
-        <textarea
+        <YamlConfigEditor
           v-model="widgetConfigCode"
-          class="min-h-[500px] w-full resize-y rounded-lg border border-lightListBorder bg-lightListTable p-3 font-mono text-sm text-lightNavbarText outline-none focus:border-lightPrimaryButtonBackground dark:border-darkListBorder dark:bg-darkListTable dark:text-darkNavbarText dark:focus:border-darkPrimaryButtonBackground"
-          spellcheck="false"
-          @keydown.ctrl.enter.prevent="saveWidgetConfig"
-          @keydown.meta.enter.prevent="saveWidgetConfig"
+          @save="saveWidgetConfig"
         />
 
         <div
@@ -203,6 +197,7 @@ import { computed, ref, watch } from 'vue'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { Button } from '@/afcl'
 import DashboardGroup from './DashboardGroup.vue'
+import YamlConfigEditor from './YamlConfigEditor.vue'
 import { DashboardApiError, dashboardApi, type DashboardResponse } from '../api/dashboardApi.js'
 import type {
   DashboardConfig,

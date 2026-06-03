@@ -5,6 +5,7 @@
   "type": "module",
   "license": "MIT",
   "dependencies": {
+    "monaco-editor": "^0.55.1",
     "yaml": "^2.9.0"
   }
 }

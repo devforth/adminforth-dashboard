@@ -11,7 +11,9 @@
     "skipLibCheck": true,
     "paths": {
       "@/afcl": ["./node_modules/adminforth/dist/spa/src/afcl/index.ts"],
-      "@/*": ["./node_modules/adminforth/dist/spa/src/*"]
+      "@/*": ["./node_modules/adminforth/dist/spa/src/*"],
+      "monaco-editor": ["./custom/node_modules/monaco-editor/esm/vs/editor/editor.api.d.ts"],
+      "monaco-editor/*": ["./custom/node_modules/monaco-editor/*"]
     }
   },
   "exclude": ["node_modules", "dist"]
