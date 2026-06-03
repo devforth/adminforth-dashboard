@@ -9,7 +9,6 @@ import type {
   DashboardWidgetConfig,
   DashboardWidgetData,
   DashboardVariables,
-  FunnelQueryConfig,
   FilterExpression,
   QueryAggregateSelectItem,
   QueryCalcSelectItem,
@@ -17,6 +16,8 @@ import type {
   QueryFieldSelectItem,
   QueryGroupByItem,
   QueryOrderByItem,
+  ResourceQueryConfig,
+  StepsQueryStepConfig,
   QuerySelectItem,
   TimeGrain,
 } from '../custom/model/dashboard.types.js';
@@ -98,9 +99,7 @@ export async function getWidgetData(
     return null;
   }
 
-  const data = 'steps' in widget.query
-    ? await getFunnelWidgetData(adminforth, widget.query, options.variables ?? {})
-    : await getQueryWidgetData(adminforth, widget.query, options.variables ?? {});
+  const data = await getQueryWidgetData(adminforth, widget.query, options.variables ?? {});
 
   if (widget.target !== 'table' || !options.pagination) {
     return data;
@@ -122,50 +121,15 @@ export async function getWidgetData(
   };
 }
 
-async function getFunnelWidgetData(
-  adminforth: IAdminForth,
-  query: FunnelQueryConfig,
-  variables: DashboardVariables,
-): Promise<DashboardWidgetData> {
-  const rows = await Promise.all(query.steps.map(async (step) => {
-    const valueField = step.metric.as;
-    const [values = {}] = await getAggregateRows(
-      adminforth,
-      step.resource,
-      step.filters,
-      [step.metric],
-      [],
-    );
-
-    const row: Record<string, unknown> = {
-      name: step.name,
-      resource: step.resource,
-      [valueField]: values[valueField] ?? 0,
-    };
-
-    for (const calc of query.calcs ?? []) {
-      row[calc.as] = evaluateCalc(calc.calc, row, variables);
-    }
-
-    return row;
-  }));
-
-  return {
-    kind: 'aggregate',
-    columns: [
-      'name',
-      ...Array.from(new Set(query.steps.map((step) => step.metric.as))),
-      ...Array.from(new Set((query.calcs ?? []).map((calc) => calc.as))),
-    ],
-    rows,
-  };
-}
-
 async function getQueryWidgetData(
   adminforth: IAdminForth,
   query: QueryConfig,
   variables: DashboardVariables,
 ): Promise<DashboardWidgetData> {
+  if (isStepsQuery(query)) {
+    return getStepsQueryData(adminforth, query, variables);
+  }
+
   const metricSelect = getSingleAggregateMetricSelect(query);
 
   if (metricSelect) {
@@ -203,9 +167,49 @@ async function getQueryWidgetData(
   };
 }
 
+async function getStepsQueryData(
+  adminforth: IAdminForth,
+  query: Extract<QueryConfig, { source: 'steps' }>,
+  variables: DashboardVariables,
+): Promise<DashboardWidgetData> {
+  const rows = await Promise.all(query.steps.map(async (step) => {
+    const select = getStepSelect(step);
+    const [values = {}] = await getAggregateRows(
+      adminforth,
+      step.resource,
+      step.filters,
+      select,
+      [],
+    );
+    const row = buildCalculatedRow({
+      name: step.name,
+      resource: step.resource,
+      ...values,
+    }, select, query.calcs, variables);
+
+    return row;
+  }));
+  const orderedRows = sortRows(rows, query.order_by);
+  const slicedRows = typeof query.limit === 'number'
+    ? orderedRows.slice(query.offset ?? 0, (query.offset ?? 0) + query.limit)
+    : orderedRows.slice(query.offset ?? 0);
+  const columns = Array.from(new Set([
+    'name',
+    'resource',
+    ...query.steps.flatMap((step) => getStepSelect(step).map((item) => item.as)),
+    ...(query.calcs ?? []).map((item) => item.as),
+  ]));
+
+  return {
+    kind: 'aggregate',
+    columns,
+    rows: slicedRows,
+  };
+}
+
 async function getMetricWidgetData(
   adminforth: IAdminForth,
-  query: QueryConfig,
+  query: ResourceQueryConfig,
   metric: QueryAggregateSelectItem,
 ): Promise<DashboardWidgetData> {
   const [currentValues = {}] = await getAggregateRows(
@@ -237,7 +241,7 @@ async function getMetricWidgetData(
 
 async function getMetricSparklineRows(
   adminforth: IAdminForth,
-  query: QueryConfig,
+  query: ResourceQueryConfig,
   metric: QueryAggregateSelectItem,
   filters: DashboardWidgetFilters,
 ) {
@@ -275,14 +279,14 @@ async function getResourceRows(
   );
 }
 
-function buildPlainQueryRows(rows: Record<string, unknown>[], query: QueryConfig, variables: DashboardVariables) {
+function buildPlainQueryRows(rows: Record<string, unknown>[], query: ResourceQueryConfig, variables: DashboardVariables) {
   const select = query.select ?? getDefaultSelect(rows);
   return rows.map((row) => buildPlainRow(row, select, query.calcs, variables));
 }
 
 async function buildAggregateQueryRows(
   adminforth: IAdminForth,
-  query: QueryConfig,
+  query: ResourceQueryConfig,
   variables: DashboardVariables,
 ) {
   const select = query.select ?? [];
@@ -449,7 +453,7 @@ function getBackendSort(orderBy: QueryOrderByItem[] | undefined) {
     : Sorts.DESC(order.field));
 }
 
-function getColumns(rows: Record<string, unknown>[], query: QueryConfig) {
+function getColumns(rows: Record<string, unknown>[], query: ResourceQueryConfig) {
   const selectColumns = [
     ...(query.group_by ?? []).map(getGroupByAlias),
     ...(query.select ?? []).map(getSelectAlias),
@@ -463,14 +467,14 @@ function getDefaultSelect(rows: Record<string, unknown>[]): QuerySelectItem[] {
   return Object.keys(rows[0] ?? {}).map((field) => ({ field }));
 }
 
-function isAggregateQuery(query: QueryConfig) {
+function isAggregateQuery(query: ResourceQueryConfig) {
   return Boolean(
     query.group_by?.length
     || query.select?.some((item) => isAggregateSelectItem(item)),
   );
 }
 
-function getSingleAggregateMetricSelect(query: QueryConfig) {
+function getSingleAggregateMetricSelect(query: ResourceQueryConfig) {
   if (query.group_by?.length) {
     return undefined;
   }
@@ -483,6 +487,14 @@ function getSingleAggregateMetricSelect(query: QueryConfig) {
   }
 
   return aggregateItems[0];
+}
+
+function isStepsQuery(query: QueryConfig): query is Extract<QueryConfig, { source: 'steps' }> {
+  return query.source === 'steps';
+}
+
+function getStepSelect(step: StepsQueryStepConfig): QueryAggregateSelectItem[] {
+  return 'select' in step ? step.select : [step.metric];
 }
 
 function isFieldSelectItem(item: QuerySelectItem): item is QueryFieldSelectItem {

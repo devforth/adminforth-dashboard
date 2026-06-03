@@ -140,7 +140,8 @@ export const QueryCalcItemSchema = z.object({
   as: z.string(),
 }).strict()
 
-export const QueryConfigSchema = z.object({
+const ResourceQueryConfigSchema = z.object({
+  source: z.literal('resource').optional(),
   resource: z.string(),
   select: z.array(QuerySelectItemSchema).optional(),
   sparkline: z.object({
@@ -159,17 +160,35 @@ export const QueryConfigSchema = z.object({
   formatting: z.record(z.string(), z.unknown()).optional(),
 }).strict()
 
-const FunnelQueryStepSchema = z.object({
+const StepsQueryMetricStepSchema = z.object({
   name: z.string(),
   resource: z.string(),
   metric: QueryAggregateSelectItemSchema,
   filters: FilterExpressionSchema.optional(),
 }).strict()
 
-export const FunnelQueryConfigSchema = z.object({
-  steps: z.array(FunnelQueryStepSchema).min(1),
-  calcs: z.array(QueryCalcItemSchema).optional(),
+const StepsQuerySelectStepSchema = z.object({
+  name: z.string(),
+  resource: z.string(),
+  select: z.array(QueryAggregateSelectItemSchema).min(1),
+  filters: FilterExpressionSchema.optional(),
 }).strict()
+
+export const QueryConfigSchema = z.union([
+  ResourceQueryConfigSchema,
+  z.object({
+    source: z.literal('steps'),
+    steps: z.array(z.union([
+      StepsQueryMetricStepSchema,
+      StepsQuerySelectStepSchema,
+    ])).min(1),
+    calcs: z.array(QueryCalcItemSchema).optional(),
+    order_by: z.array(QueryOrderByItemSchema).optional(),
+    limit: z.number().int().positive().optional(),
+    offset: z.number().int().nonnegative().optional(),
+    formatting: z.record(z.string(), z.unknown()).optional(),
+  }).strict(),
+])
 
 export const WidgetPersistedFieldsSchema = z.object({
   id: z.string(),

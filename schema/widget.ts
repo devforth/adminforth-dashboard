@@ -33,7 +33,6 @@ export {
 } from './widgets/table.js'
 export {
   EmptyWidgetConfigSchema,
-  FunnelQueryConfigSchema,
   QueryConfigSchema,
   WidgetEditableBaseSchema,
 } from './widgets/common.js'

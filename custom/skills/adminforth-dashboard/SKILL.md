@@ -151,8 +151,8 @@ Use resource, not resourceId.
 
 ## Query shape rules
 
-Use dashboard_configure_funnel_chart_widget for funnel charts and set query.steps.
-Do not use query.steps for kpi_card, gauge_card, table, pivot_table, line, bar, stacked bar, pie, or histogram charts.
+All chart widgets, including funnel charts, use the same query shape.
+Use a single-resource query by default.
 
 For kpi_card and normal charts, use:
 - query.resource
@@ -161,6 +161,29 @@ For kpi_card and normal charts, use:
 - optional query.group_by
 - optional query.order_by
 - optional query.calcs
+
+For multi-resource charts or widgets, use the general steps source:
+
+query:
+  source: steps
+  steps:
+    - name: Leads
+      resource: leads
+      metric:
+        agg: count
+        as: value
+    - name: Customers
+      resource: orders
+      metric:
+        agg: count_distinct
+        field: customer_id
+        as: value
+
+Each step may use either:
+- metric for one aggregate
+- select for multiple aggregate fields
+
+Do not use bare query.steps without source: steps.
 
 ## Date range rules
 
@@ -203,7 +226,7 @@ select raw token totals:
 then query.calcs:
 - calculate total_spend from those aliases and lookup variables
 
-For today vs yesterday KPI, use multiple aggregate select items with filters and distinct aliases, then calcs. Do not use query.steps.
+For today vs yesterday KPI, use multiple aggregate select items with filters and distinct aliases, then calcs.
 
 ## Calc variables
 

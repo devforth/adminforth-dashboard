@@ -117,7 +117,8 @@ export type QueryOrderByItem = {
   direction?: 'asc' | 'desc'
 }
 
-export type QueryConfig = {
+export type ResourceQueryConfig = {
+  source?: 'resource'
   resource: string
   select?: QuerySelectItem[]
   sparkline?: {
@@ -139,17 +140,31 @@ export type QueryConfig = {
   formatting?: Record<string, JsonValue>
 }
 
-export type FunnelQueryConfig = {
-  steps: FunnelQueryStep[]
+export type StepsQueryStepConfig =
+  | {
+      name: string
+      resource: string
+      metric: QueryAggregateSelectItem
+      filters?: FilterExpression
+    }
+  | {
+      name: string
+      resource: string
+      select: QueryAggregateSelectItem[]
+      filters?: FilterExpression
+    }
+
+export type StepsQueryConfig = {
+  source: 'steps'
+  steps: StepsQueryStepConfig[]
   calcs?: QueryCalcSelectItem[]
+  order_by?: QueryOrderByItem[]
+  limit?: number
+  offset?: number
+  formatting?: Record<string, JsonValue>
 }
 
-export type FunnelQueryStep = {
-  name: string
-  resource: string
-  metric: QueryAggregateSelectItem
-  filters?: FilterExpression
-}
+export type QueryConfig = ResourceQueryConfig | StepsQueryConfig
 
 export type FieldRef = string | {
   field: string
@@ -246,7 +261,7 @@ export type TableWidgetConfig = WidgetBaseConfig & {
 export type ChartDashboardWidgetConfig = WidgetBaseConfig & {
   target: 'chart'
   chart: ChartWidgetConfig
-  query: QueryConfig | FunnelQueryConfig
+  query: QueryConfig
 }
 
 export type KpiCardWidgetConfig = WidgetBaseConfig & {

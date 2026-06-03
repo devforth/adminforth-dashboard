@@ -2,7 +2,6 @@ import { toJSONSchema, z } from 'zod'
 import {
   BarChartSchema,
   FunnelChartSchema,
-  FunnelQueryConfigSchema,
   GaugeCardViewConfigSchema,
   HistogramChartSchema,
   KpiCardViewConfigSchema,
@@ -153,7 +152,7 @@ const ConfigurableHistogramChartWidgetConfigSchema = WidgetEditableBaseSchema.ex
 const ConfigurableFunnelChartWidgetConfigSchema = WidgetEditableBaseSchema.extend({
   target: z.literal('chart'),
   chart: FunnelChartSchema,
-  query: FunnelQueryConfigSchema,
+  query: QueryConfigSchema,
 })
 
 const ConfigurablePivotTableWidgetConfigSchema = WidgetEditableBaseSchema.extend({

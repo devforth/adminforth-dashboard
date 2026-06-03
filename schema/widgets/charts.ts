@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import {
   ChartFieldRefSchema,
-  FunnelQueryConfigSchema,
   QueryConfigSchema,
   WidgetBaseSchema,
 } from './common.js'
@@ -100,7 +99,7 @@ export const HistogramChartWidgetConfigSchema = WidgetBaseSchema.extend({
 export const FunnelChartWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('chart'),
   chart: FunnelChartSchema,
-  query: FunnelQueryConfigSchema,
+  query: QueryConfigSchema,
 })
 
 export const ChartWidgetTargetConfigSchema = z.union([
