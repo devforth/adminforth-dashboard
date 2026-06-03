@@ -140,19 +140,12 @@ export type ResourceQueryConfig = {
   formatting?: Record<string, JsonValue>
 }
 
-export type StepsQueryStepConfig =
-  | {
-      name: string
-      resource: string
-      metric: QueryAggregateSelectItem
-      filters?: FilterExpression
-    }
-  | {
-      name: string
-      resource: string
-      select: QueryAggregateSelectItem[]
-      filters?: FilterExpression
-    }
+export type StepsQueryStepConfig = {
+  name: string
+  resource: string
+  select: QueryAggregateSelectItem[]
+  filters?: FilterExpression
+}
 
 export type StepsQueryConfig = {
   source: 'steps'

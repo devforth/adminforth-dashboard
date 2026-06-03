@@ -29,7 +29,7 @@ Each widget has common fields:
 | `label` | Optional widget title. |
 | `target` | Widget type: `table`, `chart`, `kpi_card`, `pivot_table`, or `gauge_card`. |
 | `order` | Widget order inside its group. |
-| `variables` | Optional static maps/constants available inside widget `query.calcs` via `lookup($variables.path, field, default)`. |
+| `variables` | Optional widget variables passed to widget data loading. Variables are not available inside `query.calcs`. |
 | `size` | Preset width: `small`, `medium`, `large`, `wide`, or `full`. |
 | `width`, `height`, `min_width`, `max_width` | Optional explicit layout constraints. |
 | `query` | Data query definition. |
@@ -39,7 +39,7 @@ Each widget has common fields:
 | Widget target | Config field | Main settings | Data usage |
 | --- | --- | --- | --- |
 | `table` | `table` | `pagination`, `page_size`, `columns` | Uses `query` to display raw or aggregate rows. |
-| `chart` | `chart` | `type`, `x`, `y`, `label`, `value`, `series`, `buckets`, `color`, `colors` | Uses `query`; step-based charts may use `query.steps` with optional `calcs`. |
+| `chart` | `chart` | `type`, `x`, `y`, `label`, `value`, `series`, `buckets`, `color`, `colors` | Uses the same `query` shape for every chart type. Multi-resource charts use `query.source: steps`. |
 | `kpi_card` | `card` | `value`, `subtitle`, `comparison`, `sparkline` | Reads the first returned query row. |
 | `gauge_card` | `card` | `value`, `target`, `progress`, `color` | Reads the first returned query row. |
 | `pivot_table` | `pivot` | `rows`, `columns`, `values` | Uses query rows to build a pivot table. |
@@ -52,13 +52,14 @@ Chart widget types:
 | `pie` | Uses `label` and `value`. |
 | `bar` | Uses `x` and `y`. |
 | `stacked_bar` | Uses `x`, `y`, and `series`. |
-| `funnel` | Uses `query.steps` and optional `label`, `value`, `colors`. |
+| `funnel` | Uses `label`, `value`, and optional `colors`. Data comes from the same `query` shapes as every other chart. |
 | `histogram` | Uses `x`, `y`, and optional `buckets`. |
 
 ## Query Shape
 
 ```ts
 type QueryConfig = {
+  source?: 'resource'
   resource: string
   select?: Array<
     | { field: string; as?: string; grain?: 'day' | 'week' | 'month' | 'year' }
@@ -70,6 +71,22 @@ type QueryConfig = {
   order_by?: Array<{ field: string; direction?: 'asc' | 'desc' }>
   limit?: number
   offset?: number
+  bucket?: { field: string; buckets: Array<{ label: string; min?: number; max?: number }> }
+  calcs?: Array<{ calc: string; as: string }>
+  formatting?: Record<string, JsonValue>
+} | {
+  source: 'steps'
+  steps: Array<{
+    name: string
+    resource: string
+    select: Array<{ agg: 'sum' | 'count' | 'count_distinct' | 'avg' | 'min' | 'max' | 'median'; field?: string; as: string; filters?: DashboardFilter | DashboardFilter[] }>
+    filters?: DashboardFilter | DashboardFilter[]
+  }>
+  calcs?: Array<{ calc: string; as: string }>
+  order_by?: Array<{ field: string; direction?: 'asc' | 'desc' }>
+  limit?: number
+  offset?: number
+  formatting?: Record<string, JsonValue>
 }
 
 type DashboardFilter =
@@ -77,91 +94,97 @@ type DashboardFilter =
   | { or: DashboardFilter[] }
   | {
       field: string
-      eq?: JsonValue
-      neq?: JsonValue
-      gt?: JsonValue
-      gte?: JsonValue
-      lt?: JsonValue
-      lte?: JsonValue
-      in?: JsonValue[]
-      not_in?: JsonValue[]
-      like?: JsonValue
-      ilike?: JsonValue
+      eq?: FilterValue
+      neq?: FilterValue
+      gt?: FilterValue
+      gte?: FilterValue
+      lt?: FilterValue
+      lte?: FilterValue
+      in?: FilterValue[]
+      not_in?: FilterValue[]
+      like?: FilterValue
+      ilike?: FilterValue
     }
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+type RelativeDateValue = { now: true } | { now_minus: `${number}${'h' | 'd' | 'w' | 'mo' | 'y'}` }
+type FilterValue = JsonValue | RelativeDateValue
 ```
 
-Step-based chart queries use `steps` and may include `calcs`:
+Use `filters` for rolling date ranges. Do not hard-code dates for dashboards that should move with time:
+
+```yaml
+query:
+  resource: orders
+  filters:
+    and:
+      - field: created_at
+        gte:
+          now_minus: 30d
+      - field: created_at
+        lt:
+          now: true
+```
+
+Multi-resource queries use `source: steps`. Each step uses `select`, even if it has only one aggregate:
 
 ```yaml
 target: chart
 label: Average price by database
-variables:
-  price_multipliers:
-    cars_sl: 0.84
-    cars_mysql: 1.12
-    cars_pg: 0.91
-    cars_mongo: 1.07
-    cars_ch: 0.76
 chart:
   type: bar
   title: Average price by database
   x:
     field: name
   y:
-    field: adjusted_value
+    field: value
 query:
+  source: steps
   steps:
     - name: SQLite
       resource: cars_sl
-      metric:
-        agg: avg
-        field: price
-        as: value
+      select:
+        - agg: avg
+          field: price
+          as: value
     - name: MySQL
       resource: cars_mysql
-      metric:
-        agg: avg
-        field: price
-        as: value
-  calcs:
-    - calc: value * lookup($variables.price_multipliers, resource, 1)
-      as: adjusted_value
+      select:
+        - agg: avg
+          field: price
+          as: value
 ```
 
-Widget-level variables example:
+Cost calculation example:
 
 ```yaml
 target: chart
 label: Model costs
-variables:
-  token_prices_per_1m:
-    input:
-      gpt-4.1: 2.00
-      gpt-4.1-mini: 0.40
-      gpt-4o-mini: 0.15
-    output:
-      gpt-4.1: 8.00
-      gpt-4.1-mini: 1.60
-      gpt-4o-mini: 0.60
-    cached:
-      gpt-4.1: 0.50
-      gpt-4.1-mini: 0.10
-      gpt-4o-mini: 0.075
 chart:
   type: stacked_bar
-  title: LLM costs by model
+  title: GPT-5.4 costs by day
   x:
-    field: model
+    field: day
   y:
     - field: input_cost
     - field: output_cost
     - field: cached_cost
 query:
   resource: model_usage
+  filters:
+    and:
+      - field: model
+        eq: gpt-5.4
+      - field: used_at
+        gte:
+          now_minus: 7d
+      - field: used_at
+        lt:
+          now: true
   select:
-    - field: model
+    - field: used_at
+      as: day
+      grain: day
     - agg: sum
       field: input_tokens
       as: input_tokens
@@ -172,15 +195,18 @@ query:
       field: cached_tokens
       as: cached_tokens
   group_by:
-    - model
+    - field: used_at
+      as: day
+      grain: day
   calcs:
-    - calc: input_tokens / 1000000 * lookup($variables.token_prices_per_1m.input, model, 0)
+    - calc: input_tokens / 1000000 * 2.5
       as: input_cost
-    - calc: output_tokens / 1000000 * lookup($variables.token_prices_per_1m.output, model, 0)
+    - calc: output_tokens / 1000000 * 15
       as: output_cost
-    - calc: cached_tokens / 1000000 * lookup($variables.token_prices_per_1m.cached, model, 0)
+    - calc: cached_tokens / 1000000 * 0.25
       as: cached_cost
 ```
+
 
 ## Runtime Structure
 

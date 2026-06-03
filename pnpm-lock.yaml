@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      expr-eval-fork:
+        specifier: ^3.0.3
+        version: 3.0.3
       vue:
         specifier: ^3.5.34
         version: 3.5.34(typescript@5.9.3)
@@ -1048,6 +1051,10 @@ packages:
   expand-template@2.0.3:
     resolution: {integrity: sha512-XYfuKMvj4O35f/pOXLObndIRvyQ+/+6AhODh+OKWj9S9498pHHn/IMszH+gt0fBCRWMNfk1ZSp5x3AifmnI2vg==}
     engines: {node: '>=6'}
+
+  expr-eval-fork@3.0.3:
+    resolution: {integrity: sha512-BhC+hbc5lIVjygr840n5DEkW3MQq7H9o+mc1/N7Z5uIiCFVyESLL5DIE7LNq4CYUNxy+XjA+3jRrL/h0Kt2xcg==}
+    engines: {node: '>=16.9.0'}
 
   express@4.22.2:
     resolution: {integrity: sha512-IuL+Elrou2ZvCFHs18/CIzy2Nzvo25nZ1/D2eIZlz7c+QUayAcYoiM2BthCjs+EBHVpjYjcuLDAiCWgeIX3X1Q==}
@@ -3872,6 +3879,8 @@ snapshots:
       yoctocolors: 2.1.2
 
   expand-template@2.0.3: {}
+
+  expr-eval-fork@3.0.3: {}
 
   express@4.22.2:
     dependencies:

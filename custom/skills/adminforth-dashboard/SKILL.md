@@ -169,21 +169,18 @@ query:
   steps:
     - name: Leads
       resource: leads
-      metric:
-        agg: count
-        as: value
+      select:
+        - agg: count
+          as: value
     - name: Customers
       resource: orders
-      metric:
-        agg: count_distinct
-        field: customer_id
-        as: value
-
-Each step may use either:
-- metric for one aggregate
-- select for multiple aggregate fields
+      select:
+        - agg: count_distinct
+          field: customer_id
+          as: value
 
 Do not use bare query.steps without source: steps.
+Do not use metric. Use select even when a step has only one aggregate.
 
 ## Date range rules
 
@@ -224,22 +221,18 @@ select raw token totals:
 - sum output_tokens as output_tokens
 
 then query.calcs:
-- calculate total_spend from those aliases and lookup variables
+- calculate total_spend from those aliases with explicit constants
 
 For today vs yesterday KPI, use multiple aggregate select items with filters and distinct aliases, then calcs.
 
-## Calc variables
+## Calc rules
 
-Use variables for static maps/rates.
-Use lookup($variables.some.map, row_field, default_number) in query.calcs.
+Calcs can reference only fields already present in the current row.
+Use explicit constants for rates.
 
 Minimal example:
 
-variables:
-  prices:
-    gpt-5.4: 2.5
-
 query:
   calcs:
-    - calc: tokens / 1000000 * lookup($variables.prices, model, 0)
+    - calc: tokens / 1000000 * 2.5
       as: cost

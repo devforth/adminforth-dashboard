@@ -160,13 +160,6 @@ const ResourceQueryConfigSchema = z.object({
   formatting: z.record(z.string(), z.unknown()).optional(),
 }).strict()
 
-const StepsQueryMetricStepSchema = z.object({
-  name: z.string(),
-  resource: z.string(),
-  metric: QueryAggregateSelectItemSchema,
-  filters: FilterExpressionSchema.optional(),
-}).strict()
-
 const StepsQuerySelectStepSchema = z.object({
   name: z.string(),
   resource: z.string(),
@@ -178,10 +171,7 @@ export const QueryConfigSchema = z.union([
   ResourceQueryConfigSchema,
   z.object({
     source: z.literal('steps'),
-    steps: z.array(z.union([
-      StepsQueryMetricStepSchema,
-      StepsQuerySelectStepSchema,
-    ])).min(1),
+    steps: z.array(StepsQuerySelectStepSchema).min(1),
     calcs: z.array(QueryCalcItemSchema).optional(),
     order_by: z.array(QueryOrderByItemSchema).optional(),
     limit: z.number().int().positive().optional(),
