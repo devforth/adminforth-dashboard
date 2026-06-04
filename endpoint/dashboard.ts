@@ -2,12 +2,14 @@ import type { IHttpServer } from 'adminforth';
 import type { DashboardConfig } from '../custom/model/dashboard.types.js';
 import {
   DashboardApiResponseSchema,
+  GetSlugsResponseSchema,
   SlugRequestSchema,
 } from '../schema/api.js';
 import type { DashboardRecord } from '../services/dashboardConfigService.js';
 
 type DashboardEndpointsContext = {
   getDashboardRecord: (slug: string) => Promise<DashboardRecord | null>;
+  getAllDashboardRecords: () => Promise<DashboardRecord[]>;
   parseStoredDashboardConfig: (config: unknown) => DashboardConfig;
 };
 
@@ -36,6 +38,21 @@ export function registerDashboardEndpoints(
         revision: dashboard.revision,
         config: ctx.parseStoredDashboardConfig(dashboard.config),
       };
+    },
+  });
+
+  server.endpoint({
+    method: 'GET',
+    path: '/dashboard/get-slugs',
+    description: 'Returns a list of all dashboard slugs and labels for listing purposes.',
+    request_schema: undefined,
+    response_schema: GetSlugsResponseSchema,
+    handler: async () => {
+      const dashboards = await ctx.getAllDashboardRecords();
+      return dashboards.map((dashboard) => ({
+        slug: dashboard.slug,
+        label: dashboard.label,
+      }));
     },
   });
 }

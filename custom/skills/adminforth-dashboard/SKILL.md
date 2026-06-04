@@ -22,25 +22,319 @@ Dashboard root, groups, and widgets are different entities.
 
 ## Tool routing
 
+- Get dashboard slugs: dashboard_get_slugs
 - Read dashboard: dashboard_get_config
 - Add group: dashboard_add_dashboard_group
 - Rename group: dashboard_set_dashboard_group_config
 - Add widget slot: dashboard_add_dashboard_widget
-- Configure table widget: dashboard_configure_table_widget
-- Configure KPI card widget: dashboard_configure_kpi_card_widget
-- Configure gauge card widget: dashboard_configure_gauge_card_widget
-- Configure line chart widget: dashboard_configure_line_chart_widget
-- Configure bar chart widget: dashboard_configure_bar_chart_widget
-- Configure stacked bar chart widget: dashboard_configure_stacked_bar_chart_widget
-- Configure pie chart widget: dashboard_configure_pie_chart_widget
-- Configure histogram chart widget: dashboard_configure_histogram_chart_widget
-- Configure funnel chart widget: dashboard_configure_funnel_chart_widget
-- Configure pivot table widget: dashboard_configure_pivot_table_widget
+- Configure widget:
+  - table: dashboard_configure_table_widget
+  - kpi_card: dashboard_configure_kpi_card_widget
+  - gauge_card: dashboard_configure_gauge_card_widget
+  - pivot_table: dashboard_configure_pivot_table_widget
+  - line_chart: dashboard_configure_line_chart_widget
+  - bar_chart: dashboard_configure_bar_chart_widget
+  - stacked_bar_chart: dashboard_configure_stacked_bar_chart_widget
+  - pie_chart: dashboard_configure_pie_chart_widget
+  - histogram_chart: dashboard_configure_histogram_chart_widget
+  - funnel_chart: dashboard_configure_funnel_chart_widget
 - Move/remove widget/group: matching move/remove tool
 - Load widget data: dashboard_get_dashboard_widget_data
 
 If a known dashboard tool schema is missing, call fetch_tool_schema for that exact tool.
 If fetch_tool_schema returns but the intended tool is still not callable, stop and report a tool-routing error. Do not substitute another mutation tool.
+
+## Configure schema examples
+
+These examples show the expected shape only. Do not copy them one-to-one: adapt resource names, fields, aggregations, labels, filters, formats, and calculations to the actual dashboard request and available resource columns.
+
+Important:
+- `config.target` is the widget target, never a resource path.
+- Never use values like `/resource/llm_usage` in `config.target`.
+- Put the data resource in `config.query.resource`, for example `query.resource: "llm_usage"`.
+- For chart widgets, `config.target` is always `chart`; the concrete chart kind is `config.chart.type`.
+- `query.calcs[].calc` is an expression over already selected fields/aliases, not raw SQL. Do not use SQL syntax such as `CASE WHEN`.
+
+Example `dashboard_configure_table_widget` config:
+
+```yaml
+target: table
+label: Recent usage
+size: wide
+table:
+  columns:
+    - field: used_at
+      label: Date
+    - field: model
+      label: Model
+    - field: total_tokens
+      label: Tokens
+      format: integer
+  pagination: true
+  page_size: 20
+query:
+  resource: llm_usage
+  select:
+    - field: used_at
+    - field: model
+    - field: total_tokens
+  order_by:
+    - field: used_at
+      direction: desc
+```
+
+Example `dashboard_configure_kpi_card_widget` config:
+
+```yaml
+target: kpi_card
+label: Total spend
+size: medium
+card:
+  title: Total spend
+  value:
+    field: spend
+    format: currency
+query:
+  resource: llm_usage
+  select:
+    - agg: sum
+      field: cost
+      as: spend
+```
+
+Example `dashboard_configure_gauge_card_widget` config:
+
+```yaml
+target: gauge_card
+label: Budget usage
+size: medium
+card:
+  title: Budget usage
+  value:
+    field: spend
+    format: currency
+  progress:
+    value_field: spend
+    target_value: 1000
+    format: percent
+query:
+  resource: llm_usage
+  select:
+    - agg: sum
+      field: cost
+      as: spend
+```
+
+Example `dashboard_configure_pivot_table_widget` config:
+
+```yaml
+target: pivot_table
+label: Spend by model and purpose
+size: wide
+pivot:
+  rows:
+    - field: model
+      label: Model
+  columns:
+    - field: purpose
+      label: Purpose
+  values:
+    - field: spend
+      label: Spend
+      format: currency
+      aggregation: sum
+query:
+  resource: llm_usage
+  select:
+    - field: model
+    - field: purpose
+    - agg: sum
+      field: cost
+      as: spend
+  group_by:
+    - model
+    - purpose
+```
+
+Example `dashboard_configure_line_chart_widget` config:
+
+```yaml
+target: chart
+label: Daily spend
+size: wide
+chart:
+  type: line
+  x:
+    field: day
+    label: Day
+  y:
+    - field: spend
+      label: Spend
+      format: currency
+query:
+  resource: llm_usage
+  select:
+    - field: used_at
+      grain: day
+      as: day
+    - agg: sum
+      field: cost
+      as: spend
+  group_by:
+    - field: used_at
+      grain: day
+      as: day
+  order_by:
+    - field: day
+      direction: asc
+```
+
+Example `dashboard_configure_bar_chart_widget` config:
+
+```yaml
+target: chart
+label: Spend by model
+size: wide
+chart:
+  type: bar
+  x:
+    field: model
+    label: Model
+  y:
+    field: spend
+    label: Spend
+    format: currency
+query:
+  resource: llm_usage
+  select:
+    - field: model
+    - agg: sum
+      field: cost
+      as: spend
+  group_by:
+    - model
+```
+
+Example `dashboard_configure_stacked_bar_chart_widget` config:
+
+```yaml
+target: chart
+label: Daily spend by purpose
+size: wide
+chart:
+  type: stacked_bar
+  x:
+    field: day
+    label: Day
+  y:
+    field: spend
+    label: Spend
+    format: currency
+  series:
+    field: purpose
+    label: Purpose
+query:
+  resource: llm_usage
+  select:
+    - field: used_at
+      grain: day
+      as: day
+    - field: purpose
+    - agg: sum
+      field: cost
+      as: spend
+  group_by:
+    - field: used_at
+      grain: day
+      as: day
+    - purpose
+  order_by:
+    - field: day
+      direction: asc
+```
+
+Example `dashboard_configure_pie_chart_widget` config:
+
+```yaml
+target: chart
+label: Spend share by model
+size: medium
+chart:
+  type: pie
+  label:
+    field: model
+    label: Model
+  value:
+    field: spend
+    label: Spend
+    format: currency
+query:
+  resource: llm_usage
+  select:
+    - field: model
+    - agg: sum
+      field: cost
+      as: spend
+  group_by:
+    - model
+```
+
+Example `dashboard_configure_histogram_chart_widget` config:
+
+```yaml
+target: chart
+label: Request size distribution
+size: wide
+chart:
+  type: histogram
+  x:
+    field: total_tokens
+    label: Tokens
+  y:
+    field: requests
+    label: Requests
+query:
+  resource: llm_usage
+  select:
+    - field: total_tokens
+    - agg: count
+      as: requests
+  bucket:
+    field: total_tokens
+    buckets:
+      - label: Small
+        max: 1000
+      - label: Medium
+        min: 1000
+        max: 10000
+      - label: Large
+        min: 10000
+```
+
+Example `dashboard_configure_funnel_chart_widget` config:
+
+```yaml
+target: chart
+label: Request funnel
+size: wide
+chart:
+  type: funnel
+  label:
+    field: stage
+    label: Stage
+  value:
+    field: count
+    label: Count
+query:
+  resource: llm_usage
+  select:
+    - field: stage
+    - agg: count
+      as: count
+  group_by:
+    - stage
+```
+
 
 ## Group creation guard
 
@@ -148,6 +442,7 @@ Use target, not type.
 For charts, use target: chart and chart.type for the concrete chart kind.
 Use query, not dataSource.
 Use resource, not resourceId.
+Never use AdminForth routes such as /resource/llm_usage as resource or target values.
 
 ## Query shape rules
 

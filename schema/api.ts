@@ -60,6 +60,11 @@ export const SlugRequestZodSchema = z.object({
   slug: z.string(),
 }).strict()
 
+export const GetSlugsResponseZodSchema = z.array(z.object({
+  slug: z.string(),
+  label: z.string(),
+}))
+
 export const GroupIdRequestZodSchema = z.object({
   slug: z.string(),
   groupId: z.string(),
@@ -213,6 +218,7 @@ export const DashboardMutationResponseZodSchema = z.object({
 export const DashboardApiResponseSchema = toJSONSchema(z.unknown(), { target: 'draft-07' })
 export const DashboardWidgetDataResponseSchema = toJSONSchema(DashboardWidgetDataResponseZodSchema, { target: 'draft-07' })
 export const SlugRequestSchema = toJSONSchema(SlugRequestZodSchema, { target: 'draft-07' })
+export const GetSlugsResponseSchema = toJSONSchema(GetSlugsResponseZodSchema, { target: 'draft-07' })
 export const GroupIdRequestSchema = toJSONSchema(GroupIdRequestZodSchema, { target: 'draft-07' })
 export const MoveGroupRequestSchema = toJSONSchema(MoveGroupRequestZodSchema, { target: 'draft-07' })
 export const SetGroupConfigRequestSchema = toJSONSchema(SetGroupConfigRequestZodSchema, { target: 'draft-07' })

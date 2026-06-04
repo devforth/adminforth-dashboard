@@ -96,6 +96,13 @@ export async function getDashboardRecord(
   return dashboard || null;
 }
 
+export async function getAllDashboardRecords(
+  adminforth: IAdminForth,
+  dashboardConfigsResourceId: string,
+): Promise<DashboardRecord[]> {
+  return await adminforth.resource(dashboardConfigsResourceId).list([]);
+}
+
 export async function persistDashboardConfig(
   adminforth: IAdminForth,
   dashboardConfigsResourceId: string,
@@ -156,6 +163,7 @@ export async function updateDashboardConfig(
 
 export type DashboardConfigService = {
   getDashboardRecord: (slug: string) => Promise<DashboardRecord | null>;
+  getAllDashboardRecords: () => Promise<DashboardRecord[]>;
   parseStoredDashboardConfig: typeof parseStoredDashboardConfig;
   persistDashboardConfig: (
     dashboard: DashboardRecord,
@@ -173,6 +181,7 @@ export function createDashboardConfigService(
 ): DashboardConfigService {
   return {
     getDashboardRecord: (slug) => getDashboardRecord(adminforth, dashboardConfigsResourceId, slug),
+    getAllDashboardRecords: () => getAllDashboardRecords(adminforth, dashboardConfigsResourceId),
     parseStoredDashboardConfig,
     persistDashboardConfig: (dashboard, config) => persistDashboardConfig(
       adminforth,
