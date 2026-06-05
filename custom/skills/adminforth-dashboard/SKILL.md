@@ -476,6 +476,10 @@ query:
 
 Do not use bare query.steps without source: steps.
 Do not use metric. Use select even when a step has only one aggregate.
+All filters, including aggregate select item filters, must use filter expression shape.
+Use `filters: { field: model, eq: gpt-5.4 }`, not shorthand maps like `filters: { model: gpt-5.4 }`.
+When grouping by a derived date alias, repeat the source field object in `group_by`.
+Example: if `select` has `{ field: used_at, grain: day, as: day }`, use `group_by: [{ field: used_at, grain: day, as: day }]`, not `group_by: [day]`.
 
 ## Date range rules
 
