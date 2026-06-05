@@ -120,7 +120,7 @@ const { el: rootEl, width: rootWidth } = useElementSize<HTMLDivElement>()
 const { el: svgEl, width: svgWidth, height: svgHeight } = useElementSize<HTMLDivElement>()
 
 const barGap = 10
-const seriesNames = computed(() => Array.from(new Set(props.rows.map((row) => formatChartLabel(row[props.seriesField])))))
+const seriesNames = computed(() => Array.from(new Set(props.rows.map((row) => formatSeriesLabel(row[props.seriesField])))))
 const normalizedSeries = computed(() => seriesNames.value.map((name, index) => ({
   name,
   color: props.colors?.[index] || CHART_COLORS[index % CHART_COLORS.length],
@@ -141,7 +141,7 @@ const groupedRows = computed(() => {
   for (const row of props.rows) {
     const label = formatChartLabel(row[props.xField])
     const item = grouped.get(label) ?? { [props.xField]: label }
-    const seriesName = formatChartLabel(row[props.seriesField])
+    const seriesName = formatSeriesLabel(row[props.seriesField])
 
     item[seriesName] = toFiniteNumber(item[seriesName]) + toFiniteNumber(row[props.yField])
 
@@ -239,5 +239,9 @@ function getBarTooltip(bar: { label: string, total: number, segments: Array<{ na
     `Total: ${formatChartValue(bar.total)}`,
     ...segmentLines,
   ].join('\n')
+}
+
+function formatSeriesLabel(value: unknown) {
+  return typeof value === 'string' ? value : String(value)
 }
 </script>

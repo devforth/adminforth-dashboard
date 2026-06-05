@@ -124,9 +124,9 @@ const label = computed(() => kpiConfig.value?.subtitle?.field
       .join(': ')
   : kpiConfig.value?.subtitle?.text ?? kpiConfig.value?.title ?? props.widget.label)
 const formattedValue = computed(() => `${kpiConfig.value?.value.prefix ?? ''}${formatValue(value.value, kpiConfig.value?.value.format)}${kpiConfig.value?.value.suffix ?? ''}`)
-const comparisonValue = computed(() => toFiniteNumber(kpiConfig.value?.comparison?.field
-  ? firstRow.value[kpiConfig.value.comparison.field]
-  : undefined))
+const comparisonValue = computed(() => kpiConfig.value?.comparison?.field
+  ? value.value - toFiniteNumber(firstRow.value[kpiConfig.value.comparison.field])
+  : 0)
 const comparison = computed(() => {
   const config = kpiConfig.value?.comparison
 
