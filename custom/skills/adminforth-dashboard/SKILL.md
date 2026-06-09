@@ -253,6 +253,50 @@ query:
       direction: asc
 ```
 
+Note: use `stacked_bar` with a normal single-resource grouped query when you need a dynamic series dimension such as `series.field: purpose`. For the same numeric buckets across multiple resources, use `query.source: steps` with `query.bucket`; set `chart.x.field: label`, `chart.y.field` to the aggregate alias, and `chart.series.field: name`.
+
+Example bucketed multi-resource stacked bar:
+
+```yaml
+target: chart
+label: Cars by price range and database
+size: wide
+chart:
+  type: stacked_bar
+  x:
+    field: label
+    label: Price range
+  y:
+    field: count
+    label: Cars
+  series:
+    field: name
+    label: Database
+query:
+  source: steps
+  bucket:
+    field: price
+    buckets:
+      - label: Budget
+        max: 3500
+      - label: Mid-range
+        min: 3500
+        max: 7000
+      - label: Premium
+        min: 7000
+  steps:
+    - name: SQLite
+      resource: cars_sl
+      select:
+        - agg: count
+          as: count
+    - name: MySQL
+      resource: cars_mysql
+      select:
+        - agg: count
+          as: count
+```
+
 Example `dashboard_configure_pie_chart_widget` config:
 
 ```yaml
@@ -291,25 +335,23 @@ chart:
     field: total_tokens
     label: Tokens
   y:
-    field: requests
+    field: count
     label: Requests
+  buckets:
+    - label: Small
+      max: 1000
+    - label: Medium
+      min: 1000
+      max: 10000
+    - label: Large
+      min: 10000
 query:
   resource: llm_usage
   select:
     - field: total_tokens
-    - agg: count
-      as: requests
-  bucket:
-    field: total_tokens
-    buckets:
-      - label: Small
-        max: 1000
-      - label: Medium
-        min: 1000
-        max: 10000
-      - label: Large
-        min: 10000
 ```
+
+Note: for the current dashboard runtime, histogram buckets are computed on the frontend from raw rows using `chart.buckets`. Do not rely on `query.bucket` for histogram widgets, do not use `query.source: steps`, and do not aggregate the source rows first. Histogram widgets should use a single-resource plain query with raw numeric rows, for example `select: - field: total_tokens`; the histogram component will derive the per-bucket `count` values itself.
 
 Example `dashboard_configure_funnel_chart_widget` config:
 
@@ -476,6 +518,14 @@ query:
 
 Do not use bare query.steps without source: steps.
 Do not use metric. Use select even when a step has only one aggregate.
+Each `steps[]` item supports only:
+- name
+- resource
+- select with aggregate items only, for example `agg: count`, `agg: sum`, `agg: avg`
+- optional filters
+Do not put `field` selects, `calc` selects, `group_by`, `order_by`, `limit`, `offset`, or `bucket` inside a step.
+Without `query.bucket`, `query.source: steps` produces one output row per step, with built-in `name` and `resource` fields plus the aggregate aliases from that step.
+For per-bucket comparisons across multiple resources, put `bucket` at the query level, not inside a step. Use stacked_bar with `chart.x.field: label`, `chart.series.field: name`, and `chart.y.field` set to the aggregate alias such as `count`.
 All filters, including aggregate select item filters, must use filter expression shape.
 Use `filters: { field: model, eq: gpt-5.4 }`, not shorthand maps like `filters: { model: gpt-5.4 }`.
 When grouping by a derived date alias, repeat the source field object in `group_by`.

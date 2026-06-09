@@ -72,6 +72,9 @@ export function registerGroupEndpoints(
   server.endpoint({
     method: 'POST',
     path: '/dashboard/set_dashboard_group_config',
+    agent: {
+      isDangerous: true,
+    },
     description: 'Replaces editable JSON configuration for a dashboard group while preserving group id and order. Superadmin only.',
     request_schema: SetGroupConfigRequestSchema,
     response_schema: DashboardMutationResponseSchema,
@@ -174,6 +177,9 @@ export function registerGroupEndpoints(
   server.endpoint({
     method: 'POST',
     path: '/dashboard/remove_dashboard_group',
+    agent: {
+      isDangerous: true,
+    },
     description: 'Removes a dashboard group and all widgets inside it. Superadmin only.',
     request_schema: GroupIdRequestSchema,
     response_schema: DashboardMutationResponseSchema,

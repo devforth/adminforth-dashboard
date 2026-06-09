@@ -140,6 +140,11 @@ export type ResourceQueryConfig = {
   formatting?: Record<string, JsonValue>
 }
 
+export type QueryBucketConfig = {
+  field: string
+  buckets: Array<{ label: string, min?: number, max?: number }>
+}
+
 export type StepsQueryStepConfig = {
   name: string
   resource: string
@@ -150,6 +155,7 @@ export type StepsQueryStepConfig = {
 export type StepsQueryConfig = {
   source: 'steps'
   steps: StepsQueryStepConfig[]
+  bucket?: QueryBucketConfig
   calcs?: QueryCalcSelectItem[]
   order_by?: QueryOrderByItem[]
   limit?: number

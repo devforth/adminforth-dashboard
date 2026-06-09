@@ -39,7 +39,7 @@ Each widget has common fields:
 | Widget target | Config field | Main settings | Data usage |
 | --- | --- | --- | --- |
 | `table` | `table` | `pagination`, `page_size`, `columns` | Uses `query` to display raw or aggregate rows. |
-| `chart` | `chart` | `type`, `x`, `y`, `label`, `value`, `series`, `buckets`, `color`, `colors` | Uses the same `query` shape for every chart type. Multi-resource charts use `query.source: steps`. |
+| `chart` | `chart` | `type`, `x`, `y`, `label`, `value`, `series`, `buckets`, `color`, `colors` | Uses the same `query` shape for most chart types. Multi-resource charts use `query.source: steps`; add `query.bucket` for shared numeric buckets across resources. |
 | `kpi_card` | `card` | `value`, `subtitle`, `comparison`, `sparkline` | Reads the first returned query row. |
 | `gauge_card` | `card` | `value`, `target`, `progress`, `color` | Reads the first returned query row. |
 | `pivot_table` | `pivot` | `rows`, `columns`, `values` | Uses query rows to build a pivot table. |
@@ -53,7 +53,7 @@ Chart widget types:
 | `bar` | Uses `x` and `y`. |
 | `stacked_bar` | Uses `x`, `y`, and `series`. |
 | `funnel` | Uses `label`, `value`, and optional `colors`. Data comes from the same `query` shapes as every other chart. |
-| `histogram` | Uses `x`, `y`, and optional `buckets`. |
+| `histogram` | Uses `x`, `y`, and optional `buckets`. Current histogram runtime support is single-resource only: provide raw rows for the numeric field and let `chart.buckets` derive counts on the frontend. For multi-resource bucket distributions, use `stacked_bar` with `query.source: steps` and `query.bucket`. |
 
 ## Query Shape
 
@@ -88,6 +88,8 @@ type QueryConfig = {
   offset?: number
   formatting?: Record<string, JsonValue>
 }
+
+`source: 'steps'` returns one aggregate row per step by default. Each step supports aggregate `select` items plus optional `filters`; it does not support per-step `field` selects, `calc` selects, or `group_by`. Add `query.bucket` when multiple resources need the same numeric buckets, for example a stacked bar distribution by price range.
 
 type DashboardFilter =
   | { and: DashboardFilter[] }
@@ -153,6 +155,45 @@ query:
         - agg: avg
           field: price
           as: value
+```
+
+Bucketed multi-resource queries use `query.bucket`. The dashboard runs each step once per bucket and returns rows with `label`, `name`, `resource`, and the selected aggregate aliases:
+
+```yaml
+target: chart
+label: Cars by price range and database
+chart:
+  type: stacked_bar
+  title: Cars by price range and database
+  x:
+    field: label
+  y:
+    field: count
+  series:
+    field: name
+query:
+  source: steps
+  bucket:
+    field: price
+    buckets:
+      - label: Budget
+        max: 3500
+      - label: Mid-range
+        min: 3500
+        max: 7000
+      - label: Premium
+        min: 7000
+  steps:
+    - name: SQLite
+      resource: cars_sl
+      select:
+        - agg: count
+          as: count
+    - name: MySQL
+      resource: cars_mysql
+      select:
+        - agg: count
+          as: count
 ```
 
 Cost calculation example:

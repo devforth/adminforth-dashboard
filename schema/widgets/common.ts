@@ -140,7 +140,7 @@ export const QueryCalcItemSchema = z.object({
   as: z.string(),
 }).strict()
 
-const ResourceQueryConfigSchema = z.object({
+export const ResourceQueryConfigSchema = z.object({
   source: z.literal('resource').optional(),
   resource: z.string(),
   select: z.array(QuerySelectItemSchema).optional(),
@@ -160,6 +160,23 @@ const ResourceQueryConfigSchema = z.object({
   formatting: z.record(z.string(), z.unknown()).optional(),
 }).strict()
 
+const HistogramQuerySelectItemSchema = z.union([
+  QueryFieldSelectItemSchema,
+  QueryCalcSelectItemSchema,
+])
+
+export const HistogramResourceQueryConfigSchema = z.object({
+  source: z.literal('resource').optional(),
+  resource: z.string(),
+  select: z.array(HistogramQuerySelectItemSchema).optional(),
+  filters: FilterExpressionSchema.optional(),
+  order_by: z.array(QueryOrderByItemSchema).optional(),
+  limit: z.number().int().positive().optional(),
+  offset: z.number().int().nonnegative().optional(),
+  calcs: z.array(QueryCalcItemSchema).optional(),
+  formatting: z.record(z.string(), z.unknown()).optional(),
+}).strict()
+
 const StepsQuerySelectStepSchema = z.object({
   name: z.string(),
   resource: z.string(),
@@ -172,6 +189,7 @@ export const QueryConfigSchema = z.union([
   z.object({
     source: z.literal('steps'),
     steps: z.array(StepsQuerySelectStepSchema).min(1),
+    bucket: BucketConfigSchema.optional(),
     calcs: z.array(QueryCalcItemSchema).optional(),
     order_by: z.array(QueryOrderByItemSchema).optional(),
     limit: z.number().int().positive().optional(),

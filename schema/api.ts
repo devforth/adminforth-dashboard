@@ -3,6 +3,7 @@ import {
   BarChartSchema,
   FunnelChartSchema,
   GaugeCardViewConfigSchema,
+  HistogramResourceQueryConfigSchema,
   HistogramChartSchema,
   KpiCardViewConfigSchema,
   LineChartSchema,
@@ -151,7 +152,7 @@ const ConfigurablePieChartWidgetConfigSchema = WidgetEditableBaseSchema.extend({
 const ConfigurableHistogramChartWidgetConfigSchema = WidgetEditableBaseSchema.extend({
   target: z.literal('chart'),
   chart: HistogramChartSchema,
-  query: QueryConfigSchema,
+  query: HistogramResourceQueryConfigSchema,
 })
 
 const ConfigurableFunnelChartWidgetConfigSchema = WidgetEditableBaseSchema.extend({

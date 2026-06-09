@@ -1,7 +1,8 @@
 <template>
   <div
     ref="rootEl"
-    class="grid h-full min-h-0 w-full grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden"
+    class="relative grid h-full min-h-0 w-full grid-rows-[auto_minmax(0,1fr)] gap-3 overflow-hidden"
+    @mouseleave="hideTooltip"
   >
     <div
       v-if="showLegend"
@@ -70,9 +71,9 @@
             :height="segment.height"
             :fill="segment.color"
             rx="3"
-          >
-            <title>{{ getBarTooltip(bar) }}</title>
-          </rect>
+            @mouseenter="showTooltip($event, bar)"
+            @mousemove="moveTooltip($event)"
+          />
 
           <text
             v-if="visibleLabelIndexes.has(barIndex)"
@@ -88,13 +89,29 @@
         </g>
       </svg>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="tooltip"
+        class="pointer-events-none fixed z-[1000] min-w-44 rounded border border-lightTableBorder bg-lightTableBackground px-3 py-2 text-xs leading-5 text-lightListTableText shadow-lg dark:border-darkTableBorder dark:bg-darkTableBackground dark:text-darkListTableText"
+        :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }"
+      >
+        <div
+          v-for="line in tooltip.lines"
+          :key="line"
+          class="whitespace-nowrap"
+        >
+          {{ line }}
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useElementSize } from '../../composables/useElementSize.js'
 import {
   CHART_COLORS,
@@ -120,6 +137,17 @@ const { el: rootEl, width: rootWidth } = useElementSize<HTMLDivElement>()
 const { el: svgEl, width: svgWidth, height: svgHeight } = useElementSize<HTMLDivElement>()
 
 const barGap = 10
+type StackedBarTooltipBar = {
+  label: string
+  total: number
+  segments: Array<{ name: string, value: number }>
+}
+
+const tooltip = ref<{
+  x: number
+  y: number
+  lines: string[]
+} | null>(null)
 const seriesNames = computed(() => Array.from(new Set(props.rows.map((row) => formatSeriesLabel(row[props.seriesField])))))
 const normalizedSeries = computed(() => seriesNames.value.map((name, index) => ({
   name,
@@ -223,7 +251,36 @@ const yTicks = computed(() => [0, 0.5, 1].map((ratio) => ({
   y: padding.value.top + innerHeight.value * ratio,
 })))
 
-function getBarTooltip(bar: { label: string, total: number, segments: Array<{ name: string, value: number }> }) {
+function showTooltip(event: MouseEvent, bar: StackedBarTooltipBar) {
+  tooltip.value = {
+    ...getTooltipPosition(event),
+    lines: getBarTooltipLines(bar),
+  }
+}
+
+function moveTooltip(event: MouseEvent) {
+  if (!tooltip.value) {
+    return
+  }
+
+  tooltip.value = {
+    ...tooltip.value,
+    ...getTooltipPosition(event),
+  }
+}
+
+function hideTooltip() {
+  tooltip.value = null
+}
+
+function getTooltipPosition(event: MouseEvent) {
+  return {
+    x: event.clientX + 12,
+    y: event.clientY + 12,
+  }
+}
+
+function getBarTooltipLines(bar: StackedBarTooltipBar) {
   const percentFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 })
 
   const segmentLines = bar.segments.map((segment) => {
@@ -238,7 +295,7 @@ function getBarTooltip(bar: { label: string, total: number, segments: Array<{ na
     `${bar.label}`,
     `Total: ${formatChartValue(bar.total)}`,
     ...segmentLines,
-  ].join('\n')
+  ]
 }
 
 function formatSeriesLabel(value: unknown) {

@@ -33,7 +33,9 @@ export {
 } from './widgets/table.js'
 export {
   EmptyWidgetConfigSchema,
+  HistogramResourceQueryConfigSchema,
   QueryConfigSchema,
+  ResourceQueryConfigSchema,
   WidgetEditableBaseSchema,
 } from './widgets/common.js'
 import { ChartWidgetTargetConfigSchema } from './widgets/charts.js'
