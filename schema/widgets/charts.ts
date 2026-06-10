@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
   ChartFieldRefSchema,
+  HistogramResourceQueryConfigSchema,
   QueryConfigSchema,
   WidgetBaseSchema,
 } from './common.js'
@@ -93,7 +94,7 @@ export const PieChartWidgetConfigSchema = WidgetBaseSchema.extend({
 export const HistogramChartWidgetConfigSchema = WidgetBaseSchema.extend({
   target: z.literal('chart'),
   chart: HistogramChartSchema,
-  query: QueryConfigSchema,
+  query: HistogramResourceQueryConfigSchema,
 })
 
 export const FunnelChartWidgetConfigSchema = WidgetBaseSchema.extend({

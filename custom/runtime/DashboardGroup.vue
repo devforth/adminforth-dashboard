@@ -14,91 +14,36 @@
         v-if="isAdmin"
         class="absolute right-3 top-3 flex gap-1 opacity-0 transition-opacity group-hover/dashboard:opacity-100"
       >
-        <button
-          type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-lg border border-lightListViewButtonBorder bg-lightListViewButtonBackground text-lightListViewButtonText shadow-sm hover:bg-lightListViewButtonBackgroundHover hover:text-lightListViewButtonTextHover dark:border-darkListViewButtonBorder dark:bg-darkListViewButtonBackground dark:text-darkListViewButtonText dark:hover:bg-darkListViewButtonBackgroundHover dark:hover:text-darkListViewButtonTextHover"
+        <DashboardToolbarButton
           title="Edit JSON"
           @click="emit('edit-group', group)"
         >
-          <svg
-            class="h-4 w-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M15.5 7.5a3 3 0 1 1 1 2.2l-6.8 6.8H7.5v2.2H5.3v2.2H2.8v-2.5l7.5-7.5a5.5 5.5 0 1 1 5.2 1.6" />
-          </svg>
-        </button>
+          <DashboardToolbarIcon name="edit" />
+        </DashboardToolbarButton>
 
-        <button
-          type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-lg border border-lightListViewButtonBorder bg-lightListViewButtonBackground text-lightListViewButtonText shadow-sm hover:bg-lightListViewButtonBackgroundHover hover:text-lightListViewButtonTextHover disabled:opacity-45 dark:border-darkListViewButtonBorder dark:bg-darkListViewButtonBackground dark:text-darkListViewButtonText dark:hover:bg-darkListViewButtonBackgroundHover dark:hover:text-darkListViewButtonTextHover"
+        <DashboardToolbarButton
           title="Move up"
           :disabled="!canMoveUp"
           @click="emit('move-up')"
         >
-          <svg
-            class="h-4 w-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="m18 15-6-6-6 6" />
-          </svg>
-        </button>
+          <DashboardToolbarIcon name="move-up" />
+        </DashboardToolbarButton>
 
-        <button
-          type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-lg border border-lightListViewButtonBorder bg-lightListViewButtonBackground text-lightListViewButtonText shadow-sm hover:bg-lightListViewButtonBackgroundHover hover:text-lightListViewButtonTextHover disabled:opacity-45 dark:border-darkListViewButtonBorder dark:bg-darkListViewButtonBackground dark:text-darkListViewButtonText dark:hover:bg-darkListViewButtonBackgroundHover dark:hover:text-darkListViewButtonTextHover"
+        <DashboardToolbarButton
           title="Move down"
           :disabled="!canMoveDown"
           @click="emit('move-down')"
         >
-          <svg
-            class="h-4 w-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
+          <DashboardToolbarIcon name="move-down" />
+        </DashboardToolbarButton>
 
-        <button
-          type="button"
-          class="flex h-8 w-8 items-center justify-center rounded-lg border border-lightInputErrorColor/30 bg-lightSecondary text-lightInputErrorColor shadow-sm hover:bg-lightListViewButtonBackgroundHover dark:bg-darkSecondary dark:hover:bg-darkListViewButtonBackgroundHover"
+        <DashboardToolbarButton
           title="Remove"
+          variant="danger"
           @click="emit('remove-group')"
         >
-          <svg
-            class="h-4 w-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M3 6h18" />
-            <path d="M8 6V4h8v2" />
-            <path d="M19 6l-1 14H6L5 6" />
-            <path d="M10 11v5" />
-            <path d="M14 11v5" />
-          </svg>
-        </button>
+          <DashboardToolbarIcon name="remove" />
+        </DashboardToolbarButton>
       </div>
     </header>
 
@@ -158,6 +103,8 @@
 
 <script setup lang="ts">
 import { Button } from '@/afcl'
+import DashboardToolbarButton from './DashboardToolbarButton.vue'
+import DashboardToolbarIcon from './DashboardToolbarIcon.vue'
 import WidgetRenderer from './WidgetRenderer.vue'
 import WidgetShell from './WidgetShell.vue'
 import type { DashboardGroupConfig, DashboardWidgetConfig } from '../model/dashboard.types.js'

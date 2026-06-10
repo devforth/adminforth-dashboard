@@ -62,20 +62,82 @@ export class DashboardApiError extends Error {
 }
 
 function normalizeValidationErrors(response: any): DashboardWidgetConfigValidationError[] {
-  if (Array.isArray(response?.validationErrors)) {
-    return response.validationErrors
+  const errors = Array.isArray(response?.validationErrors)
+    ? response.validationErrors
+    : Array.isArray(response?.details)
+      ? response.details.map((detail: any) => ({
+        field: getValidationErrorField(detail),
+        message: String(detail.message || 'Invalid value'),
+      }))
+      : []
+
+  return simplifyValidationErrors(errors)
+}
+
+function getValidationErrorField(detail: any) {
+  return Array.isArray(detail.instancePath)
+    ? detail.instancePath.join('.')
+    : String(detail.instancePath || detail.path || 'config').replace(/^\//, '').replaceAll('/', '.')
+}
+
+function simplifyValidationErrors(errors: DashboardWidgetConfigValidationError[]) {
+  const collapsed = new Map<string, DashboardWidgetConfigValidationError>()
+
+  for (const error of errors) {
+    const selectItemMatch = error.field.match(/^config\.query\.select\.(\d+)$/)
+
+    if (selectItemMatch) {
+      const field = error.field
+      collapsed.set(field, {
+        field,
+        message: 'must be a valid select item: field, aggregate, or calc',
+      })
+      continue
+    }
+
+    if (isUnionBranchNoise(error)) {
+      continue
+    }
+
+    const key = `${error.field}:${error.message}`
+    collapsed.set(key, error)
   }
 
-  if (Array.isArray(response?.details)) {
-    return response.details.map((detail: any) => ({
-      field: Array.isArray(detail.instancePath)
-        ? detail.instancePath.join('.')
-        : String(detail.instancePath || detail.path || 'config').replace(/^\//, '').replaceAll('/', '.'),
-      message: String(detail.message || 'Invalid value'),
-    }))
+  const simplifiedErrors = Array.from(collapsed.values())
+
+  if (simplifiedErrors.length) {
+    return simplifiedErrors
   }
 
-  return []
+  return dedupeValidationErrors(errors).filter((error) => error.message !== 'must match a schema in anyOf').slice(0, 5)
+}
+
+function dedupeValidationErrors(errors: DashboardWidgetConfigValidationError[]) {
+  const deduped = new Map<string, DashboardWidgetConfigValidationError>()
+
+  for (const error of errors) {
+    deduped.set(`${error.field}:${error.message}`, error)
+  }
+
+  return Array.from(deduped.values())
+}
+
+function isUnionBranchNoise(error: DashboardWidgetConfigValidationError) {
+  if (error.field !== 'config') {
+    return false
+  }
+
+  return error.message === 'must NOT have additional properties'
+    || error.message === 'must match a schema in anyOf'
+    || error.message === 'must match exactly one schema in oneOf'
+    || error.message === 'must have required property \'chart\''
+    || error.message === 'must have required property "chart"'
+    || error.message === 'must have required property \'card\''
+    || error.message === 'must have required property "card"'
+    || error.message === 'must have required property \'table\''
+    || error.message === 'must have required property "table"'
+    || error.message === 'must have required property \'pivot\''
+    || error.message === 'must have required property "pivot"'
 }
 
 async function parseDashboardResponse(rawResponse: Response) {

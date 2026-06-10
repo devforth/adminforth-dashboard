@@ -10,6 +10,7 @@ import type {
   FilterExpression,
   QueryAggregateSelectItem,
   QueryCalcSelectItem,
+  QueryBucketConfig,
   QueryConfig,
   QueryFieldSelectItem,
   QueryGroupByItem,
@@ -153,6 +154,10 @@ async function getStepsQueryData(
   query: Extract<QueryConfig, { source: 'steps' }>,
   variables: DashboardVariables,
 ): Promise<DashboardWidgetData> {
+  if (query.bucket) {
+    return getBucketedStepsQueryData(adminforth, query, query.bucket, variables);
+  }
+
   const rows = await Promise.all(query.steps.map(async (step) => {
     const select = getStepSelect(step);
     const [values = {}] = await getAggregateRows(
@@ -175,6 +180,52 @@ async function getStepsQueryData(
     ? orderedRows.slice(query.offset ?? 0, (query.offset ?? 0) + query.limit)
     : orderedRows.slice(query.offset ?? 0);
   const columns = Array.from(new Set([
+    'name',
+    'resource',
+    ...query.steps.flatMap((step) => getStepSelect(step).map((item) => item.as)),
+    ...(query.calcs ?? []).map((item) => item.as),
+  ]));
+
+  return {
+    kind: 'aggregate',
+    columns,
+    rows: slicedRows,
+  };
+}
+
+async function getBucketedStepsQueryData(
+  adminforth: IAdminForth,
+  query: Extract<QueryConfig, { source: 'steps' }>,
+  bucketConfig: QueryBucketConfig,
+  variables: DashboardVariables,
+): Promise<DashboardWidgetData> {
+  const rows = (await Promise.all(query.steps.map(async (step) => {
+    const select = getStepSelect(step);
+    const stepRows = await Promise.all(bucketConfig.buckets.map(async (bucket) => {
+      const [values = {}] = await getAggregateRows(
+        adminforth,
+        step.resource,
+        mergeFilters(step.filters, getBucketFilter(bucketConfig, bucket)),
+        select,
+        [],
+      );
+
+      return buildCalculatedRow({
+        label: bucket.label,
+        name: step.name,
+        resource: step.resource,
+        ...values,
+      }, select, query.calcs, variables);
+    }));
+
+    return stepRows;
+  }))).flat();
+  const orderedRows = sortRows(rows, query.order_by);
+  const slicedRows = typeof query.limit === 'number'
+    ? orderedRows.slice(query.offset ?? 0, (query.offset ?? 0) + query.limit)
+    : orderedRows.slice(query.offset ?? 0);
+  const columns = Array.from(new Set([
+    'label',
     'name',
     'resource',
     ...query.steps.flatMap((step) => getStepSelect(step).map((item) => item.as)),
@@ -445,6 +496,23 @@ function getSingleAggregateSelectItem(query: ResourceQueryConfig) {
 
 function isStepsQuery(query: QueryConfig): query is Extract<QueryConfig, { source: 'steps' }> {
   return query.source === 'steps';
+}
+
+function getBucketFilter(
+  bucketConfig: QueryBucketConfig,
+  bucket: QueryBucketConfig['buckets'][number],
+): FilterExpression | undefined {
+  const filters: FilterExpression[] = [];
+
+  if (typeof bucket.min === 'number') {
+    filters.push({ field: bucketConfig.field, gte: bucket.min });
+  }
+
+  if (typeof bucket.max === 'number') {
+    filters.push({ field: bucketConfig.field, lt: bucket.max });
+  }
+
+  return filters.length ? { and: filters } : undefined;
 }
 
 function getStepSelect(step: StepsQueryStepConfig): QueryAggregateSelectItem[] {
