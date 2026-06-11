@@ -1,7 +1,7 @@
 <template>
   <button
     type="button"
-    class="flex h-8 w-8 items-center justify-center rounded-lg border shadow-sm"
+    class="flex h-8 w-8 items-center justify-center rounded-default border shadow-sm"
     :class="buttonClass"
     :title="title"
     :disabled="disabled"
