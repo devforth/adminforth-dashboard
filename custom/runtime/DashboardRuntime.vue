@@ -66,7 +66,7 @@
             @click="closeGroupConfigEditor"
           >
             <svg
-              class="h-4 w-4"
+              class="h-5 w-5"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -129,7 +129,7 @@
             @click="closeWidgetConfigEditor"
           >
             <svg
-              class="h-4 w-4"
+              class="h-5 w-5"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"

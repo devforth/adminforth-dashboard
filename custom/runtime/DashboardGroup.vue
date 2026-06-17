@@ -18,7 +18,7 @@
           title="Edit JSON"
           @click="emit('edit-group', group)"
         >
-          <DashboardToolbarIcon name="edit" />
+          <IconToolsOutline class="h-5 w-5" />
         </DashboardToolbarButton>
 
         <DashboardToolbarButton
@@ -26,7 +26,7 @@
           :disabled="!canMoveUp"
           @click="emit('move-up')"
         >
-          <DashboardToolbarIcon name="move-up" />
+          <IconArrowUpOutline class="h-5 w-5" />
         </DashboardToolbarButton>
 
         <DashboardToolbarButton
@@ -34,7 +34,7 @@
           :disabled="!canMoveDown"
           @click="emit('move-down')"
         >
-          <DashboardToolbarIcon name="move-down" />
+          <IconArrowDownOutline class="h-5 w-5" />
         </DashboardToolbarButton>
 
         <DashboardToolbarButton
@@ -42,7 +42,7 @@
           variant="danger"
           @click="emit('remove-group')"
         >
-          <DashboardToolbarIcon name="remove" />
+          <IconTrashBinSolid class="h-5 w-5" />
         </DashboardToolbarButton>
       </div>
     </header>
@@ -103,8 +103,8 @@
 
 <script setup lang="ts">
 import { Button } from '@/afcl'
+import { IconArrowDownOutline, IconArrowUpOutline, IconToolsOutline, IconTrashBinSolid } from '@iconify-prerendered/vue-flowbite'
 import DashboardToolbarButton from './DashboardToolbarButton.vue'
-import DashboardToolbarIcon from './DashboardToolbarIcon.vue'
 import WidgetRenderer from './WidgetRenderer.vue'
 import WidgetShell from './WidgetShell.vue'
 import type { DashboardGroupConfig, DashboardWidgetConfig } from '../model/dashboard.types.js'

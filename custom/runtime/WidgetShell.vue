@@ -14,7 +14,7 @@
         title="Edit JSON"
         @click="emit('edit')"
       >
-        <DashboardToolbarIcon name="edit" />
+        <IconToolsOutline class="h-5 w-5" />
       </DashboardToolbarButton>
 
       <DashboardToolbarButton
@@ -22,7 +22,7 @@
         :disabled="!canMoveUp"
         @click="emit('move-up')"
       >
-        <DashboardToolbarIcon name="move-up" />
+        <IconArrowUpOutline class="h-5 w-5" />
       </DashboardToolbarButton>
 
       <DashboardToolbarButton
@@ -30,7 +30,7 @@
         :disabled="!canMoveDown"
         @click="emit('move-down')"
       >
-        <DashboardToolbarIcon name="move-down" />
+        <IconArrowDownOutline class="h-5 w-5" />
       </DashboardToolbarButton>
 
       <DashboardToolbarButton
@@ -38,7 +38,7 @@
         variant="danger"
         @click="emit('remove')"
       >
-        <DashboardToolbarIcon name="remove" />
+        <IconTrashBinSolid class="h-5 w-5" />
       </DashboardToolbarButton>
     </div>
   </div>
@@ -49,9 +49,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { CSSProperties } from 'vue'
+import { IconArrowDownOutline, IconArrowUpOutline, IconToolsOutline, IconTrashBinSolid } from '@iconify-prerendered/vue-flowbite'
 import type { WidgetLayout } from '../model/dashboard.types.js'
 import DashboardToolbarButton from './DashboardToolbarButton.vue'
-import DashboardToolbarIcon from './DashboardToolbarIcon.vue'
 
 const DEFAULT_WIDGET_HEIGHT = 500
 
