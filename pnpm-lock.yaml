@@ -28,8 +28,8 @@ importers:
         specifier: latest
         version: 25.9.3
       adminforth:
-        specifier: ^3.6.21
-        version: 3.6.21(@adminforth/connector-qdrant@1.0.4)(@types/node@25.9.3)
+        specifier: ^3.7.1
+        version: 3.7.1(@adminforth/connector-qdrant@1.0.4)(@types/node@25.9.3)
       semantic-release:
         specifier: ^24.2.1
         version: 24.2.9(typescript@5.9.3)
@@ -518,8 +518,8 @@ packages:
     engines: {node: '>=0.4.0'}
     hasBin: true
 
-  adminforth@3.6.21:
-    resolution: {integrity: sha512-RBZ7XLUcxGUOxB8WsV2ib0Vv+oTEXz6oAhziRoviVRxNE/ew+ZhVNV35xaz4Yzy8a4eWCGbjqwAEtFtYqrYeKQ==}
+  adminforth@3.7.1:
+    resolution: {integrity: sha512-fFFsvu1aS+qcLUBKAly4E/+ktqcAQCge0pbEMjNhERQheM/OXJ+Z1r9HEnzd8c6kid/hCwPKKW/91XKIMgRLcg==}
     hasBin: true
     peerDependencies:
       '@adminforth/connector-clickhouse': ^1.0.4
@@ -2571,10 +2571,10 @@ packages:
 
 snapshots:
 
-  '@adminforth/connector-qdrant@1.0.4(adminforth@3.6.21)(typescript@5.9.3)':
+  '@adminforth/connector-qdrant@1.0.4(adminforth@3.7.1)(typescript@5.9.3)':
     dependencies:
       '@qdrant/js-client-rest': 1.18.0(typescript@5.9.3)
-      adminforth: 3.6.21(@adminforth/connector-qdrant@1.0.4)(@types/node@25.9.3)
+      adminforth: 3.7.1(@adminforth/connector-qdrant@1.0.4)(@types/node@25.9.3)
       dayjs: 1.11.21
     transitivePeerDependencies:
       - typescript
@@ -3132,7 +3132,7 @@ snapshots:
 
   acorn@8.16.0: {}
 
-  adminforth@3.6.21(@adminforth/connector-qdrant@1.0.4)(@types/node@25.9.3):
+  adminforth@3.7.1(@adminforth/connector-qdrant@1.0.4)(@types/node@25.9.3):
     dependencies:
       '@babel/parser': 7.29.3
       '@faker-js/faker': 9.9.0
@@ -3170,7 +3170,7 @@ snapshots:
       yaml: 2.9.0
       zod: 4.4.3
     optionalDependencies:
-      '@adminforth/connector-qdrant': 1.0.4(adminforth@3.6.21)(typescript@5.9.3)
+      '@adminforth/connector-qdrant': 1.0.4(adminforth@3.7.1)(typescript@5.9.3)
     transitivePeerDependencies:
       - '@types/node'
       - bufferutil
