@@ -11,23 +11,23 @@ import type {
   TableWidgetConfig,
 } from '../custom/model/dashboard.types.js';
 import {
-  ConfigureBarChartWidgetRequestSchema,
-  ConfigureFunnelChartWidgetRequestSchema,
-  ConfigureGaugeCardWidgetRequestSchema,
-  ConfigureHistogramChartWidgetRequestSchema,
-  ConfigureKpiCardWidgetRequestSchema,
-  ConfigureLineChartWidgetRequestSchema,
-  ConfigurePieChartWidgetRequestSchema,
-  ConfigurePivotTableWidgetRequestSchema,
-  ConfigureStackedBarChartWidgetRequestSchema,
-  ConfigureTableWidgetRequestSchema,
-  DashboardMutationResponseSchema,
-  DashboardWidgetDataResponseSchema,
-  GroupIdRequestSchema,
-  MoveWidgetRequestSchema,
-  SetWidgetConfigRequestSchema,
-  WidgetDataRequestSchema,
-  WidgetIdRequestSchema,
+  ConfigureBarChartWidgetRequestZodSchema,
+  ConfigureFunnelChartWidgetRequestZodSchema,
+  ConfigureGaugeCardWidgetRequestZodSchema,
+  ConfigureHistogramChartWidgetRequestZodSchema,
+  ConfigureKpiCardWidgetRequestZodSchema,
+  ConfigureLineChartWidgetRequestZodSchema,
+  ConfigurePieChartWidgetRequestZodSchema,
+  ConfigurePivotTableWidgetRequestZodSchema,
+  ConfigureStackedBarChartWidgetRequestZodSchema,
+  ConfigureTableWidgetRequestZodSchema,
+  DashboardMutationResponseZodSchema,
+  DashboardWidgetDataResponseZodSchema,
+  GroupIdRequestZodSchema,
+  MoveWidgetRequestZodSchema,
+  SetWidgetConfigRequestZodSchema,
+  WidgetDataRequestZodSchema,
+  WidgetIdRequestZodSchema,
 } from '../schema/api.js';
 import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
 
@@ -120,7 +120,7 @@ function registerConfigureWidgetEndpoint(
     },
     description: options.description,
     request_schema: options.requestSchema,
-    response_schema: DashboardMutationResponseSchema,
+    response_schema: DashboardMutationResponseZodSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
@@ -158,8 +158,8 @@ export function registerWidgetEndpoints(
     method: 'POST',
     path: '/dashboard/add_dashboard_widget',
     description: 'Adds a new empty widget to a dashboard group. Superadmin only.',
-    request_schema: GroupIdRequestSchema,
-    response_schema: DashboardMutationResponseSchema,
+    request_schema: GroupIdRequestZodSchema,
+    response_schema: DashboardMutationResponseZodSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
@@ -211,8 +211,8 @@ export function registerWidgetEndpoints(
     method: 'POST',
     path: '/dashboard/move_dashboard_widget',
     description: 'Moves a dashboard widget up or down inside its group. Superadmin only.',
-    request_schema: MoveWidgetRequestSchema,
-    response_schema: DashboardMutationResponseSchema,
+    request_schema: MoveWidgetRequestZodSchema,
+    response_schema: DashboardMutationResponseZodSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
@@ -273,8 +273,8 @@ export function registerWidgetEndpoints(
       isDangerous: true,
     },
     description: 'Removes one dashboard widget by id. Superadmin only.',
-    request_schema: WidgetIdRequestSchema,
-    response_schema: DashboardMutationResponseSchema,
+    request_schema: WidgetIdRequestZodSchema,
+    response_schema: DashboardMutationResponseZodSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
@@ -318,8 +318,8 @@ export function registerWidgetEndpoints(
       isDangerous: true,
     },
     description: 'Replaces editable JSON configuration for a dashboard widget while preserving widget id, group id, and order. Superadmin only.',
-    request_schema: SetWidgetConfigRequestSchema,
-    response_schema: DashboardMutationResponseSchema,
+    request_schema: SetWidgetConfigRequestZodSchema,
+    response_schema: DashboardMutationResponseZodSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
@@ -346,69 +346,69 @@ export function registerWidgetEndpoints(
   registerConfigureWidgetEndpoint(server, ctx, {
     path: '/dashboard/configure_table_widget',
     description: 'Configures an existing dashboard widget as a table. Superadmin only.',
-    requestSchema: ConfigureTableWidgetRequestSchema,
+    requestSchema: ConfigureTableWidgetRequestZodSchema,
   });
 
   registerConfigureWidgetEndpoint(server, ctx, {
     path: '/dashboard/configure_kpi_card_widget',
     description: 'Configures an existing dashboard widget as a KPI card. Superadmin only.',
-    requestSchema: ConfigureKpiCardWidgetRequestSchema,
+    requestSchema: ConfigureKpiCardWidgetRequestZodSchema,
   });
 
   registerConfigureWidgetEndpoint(server, ctx, {
     path: '/dashboard/configure_gauge_card_widget',
     description: 'Configures an existing dashboard widget as a gauge card. Superadmin only.',
-    requestSchema: ConfigureGaugeCardWidgetRequestSchema,
+    requestSchema: ConfigureGaugeCardWidgetRequestZodSchema,
   });
 
   registerConfigureWidgetEndpoint(server, ctx, {
     path: '/dashboard/configure_pivot_table_widget',
     description: 'Configures an existing dashboard widget as a pivot table. Superadmin only.',
-    requestSchema: ConfigurePivotTableWidgetRequestSchema,
+    requestSchema: ConfigurePivotTableWidgetRequestZodSchema,
   });
 
   registerConfigureWidgetEndpoint(server, ctx, {
     path: '/dashboard/configure_line_chart_widget',
     description: 'Configures an existing dashboard widget as a line chart. Superadmin only.',
-    requestSchema: ConfigureLineChartWidgetRequestSchema,
+    requestSchema: ConfigureLineChartWidgetRequestZodSchema,
   });
 
   registerConfigureWidgetEndpoint(server, ctx, {
     path: '/dashboard/configure_bar_chart_widget',
     description: 'Configures an existing dashboard widget as a bar chart. Superadmin only.',
-    requestSchema: ConfigureBarChartWidgetRequestSchema,
+    requestSchema: ConfigureBarChartWidgetRequestZodSchema,
   });
 
   registerConfigureWidgetEndpoint(server, ctx, {
     path: '/dashboard/configure_stacked_bar_chart_widget',
     description: 'Configures an existing dashboard widget as a stacked bar chart. Superadmin only.',
-    requestSchema: ConfigureStackedBarChartWidgetRequestSchema,
+    requestSchema: ConfigureStackedBarChartWidgetRequestZodSchema,
   });
 
   registerConfigureWidgetEndpoint(server, ctx, {
     path: '/dashboard/configure_pie_chart_widget',
     description: 'Configures an existing dashboard widget as a pie chart. Superadmin only.',
-    requestSchema: ConfigurePieChartWidgetRequestSchema,
+    requestSchema: ConfigurePieChartWidgetRequestZodSchema,
   });
 
   registerConfigureWidgetEndpoint(server, ctx, {
     path: '/dashboard/configure_histogram_chart_widget',
     description: 'Configures an existing dashboard widget as a histogram chart. Superadmin only.',
-    requestSchema: ConfigureHistogramChartWidgetRequestSchema,
+    requestSchema: ConfigureHistogramChartWidgetRequestZodSchema,
   });
 
   registerConfigureWidgetEndpoint(server, ctx, {
     path: '/dashboard/configure_funnel_chart_widget',
     description: 'Configures an existing dashboard widget as a funnel chart. Superadmin only.',
-    requestSchema: ConfigureFunnelChartWidgetRequestSchema,
+    requestSchema: ConfigureFunnelChartWidgetRequestZodSchema,
   });
 
   server.endpoint({
     method: 'POST',
     path: '/dashboard/get_dashboard_widget_data',
     description: 'Loads widget data for one dashboard widget by dashboard slug and widget id.',
-    request_schema: WidgetDataRequestSchema,
-    response_schema: DashboardWidgetDataResponseSchema,
+    request_schema: WidgetDataRequestZodSchema,
+    response_schema: DashboardWidgetDataResponseZodSchema,
     handler: async ({ body, response }) => {
       const dashboard = await ctx.getDashboardRecord(body.slug);
 

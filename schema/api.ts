@@ -1,4 +1,4 @@
-import { toJSONSchema, z } from 'zod'
+import { z } from 'zod'
 import {
   BarChartSchema,
   FunnelChartSchema,
@@ -216,25 +216,3 @@ export const DashboardMutationResponseZodSchema = z.object({
   widgetId: z.string().optional(),
 }).strict()
 
-export const DashboardApiResponseSchema = toJSONSchema(z.unknown(), { target: 'draft-07' })
-export const DashboardWidgetDataResponseSchema = toJSONSchema(DashboardWidgetDataResponseZodSchema, { target: 'draft-07' })
-export const SlugRequestSchema = toJSONSchema(SlugRequestZodSchema, { target: 'draft-07' })
-export const GetSlugsResponseSchema = toJSONSchema(GetSlugsResponseZodSchema, { target: 'draft-07' })
-export const GroupIdRequestSchema = toJSONSchema(GroupIdRequestZodSchema, { target: 'draft-07' })
-export const MoveGroupRequestSchema = toJSONSchema(MoveGroupRequestZodSchema, { target: 'draft-07' })
-export const SetGroupConfigRequestSchema = toJSONSchema(SetGroupConfigRequestZodSchema, { target: 'draft-07' })
-export const WidgetIdRequestSchema = toJSONSchema(WidgetIdRequestZodSchema, { target: 'draft-07' })
-export const WidgetDataRequestSchema = toJSONSchema(WidgetDataRequestZodSchema, { target: 'draft-07' })
-export const MoveWidgetRequestSchema = toJSONSchema(MoveWidgetRequestZodSchema, { target: 'draft-07' })
-export const DashboardMutationResponseSchema = toJSONSchema(DashboardMutationResponseZodSchema, { target: 'draft-07' })
-export const SetWidgetConfigRequestSchema = toJSONSchema(SetWidgetConfigRequestZodSchema, { target: 'draft-07' })
-export const ConfigureTableWidgetRequestSchema = toJSONSchema(ConfigureTableWidgetRequestZodSchema, { target: 'draft-07' })
-export const ConfigureKpiCardWidgetRequestSchema = toJSONSchema(ConfigureKpiCardWidgetRequestZodSchema, { target: 'draft-07' })
-export const ConfigureGaugeCardWidgetRequestSchema = toJSONSchema(ConfigureGaugeCardWidgetRequestZodSchema, { target: 'draft-07' })
-export const ConfigureLineChartWidgetRequestSchema = toJSONSchema(ConfigureLineChartWidgetRequestZodSchema, { target: 'draft-07' })
-export const ConfigureBarChartWidgetRequestSchema = toJSONSchema(ConfigureBarChartWidgetRequestZodSchema, { target: 'draft-07' })
-export const ConfigureStackedBarChartWidgetRequestSchema = toJSONSchema(ConfigureStackedBarChartWidgetRequestZodSchema, { target: 'draft-07' })
-export const ConfigurePieChartWidgetRequestSchema = toJSONSchema(ConfigurePieChartWidgetRequestZodSchema, { target: 'draft-07' })
-export const ConfigureHistogramChartWidgetRequestSchema = toJSONSchema(ConfigureHistogramChartWidgetRequestZodSchema, { target: 'draft-07' })
-export const ConfigureFunnelChartWidgetRequestSchema = toJSONSchema(ConfigureFunnelChartWidgetRequestZodSchema, { target: 'draft-07' })
-export const ConfigurePivotTableWidgetRequestSchema = toJSONSchema(ConfigurePivotTableWidgetRequestZodSchema, { target: 'draft-07' })

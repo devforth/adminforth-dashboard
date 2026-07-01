@@ -6,11 +6,11 @@ import type {
   DashboardGroupConfig,
 } from '../custom/model/dashboard.types.js';
 import {
-  DashboardMutationResponseSchema,
-  GroupIdRequestSchema,
-  MoveGroupRequestSchema,
-  SetGroupConfigRequestSchema,
-  SlugRequestSchema,
+  DashboardMutationResponseZodSchema,
+  GroupIdRequestZodSchema,
+  MoveGroupRequestZodSchema,
+  SetGroupConfigRequestZodSchema,
+  SlugRequestZodSchema,
 } from '../schema/api.js';
 import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
 
@@ -36,8 +36,8 @@ export function registerGroupEndpoints(
     method: 'POST',
     path: '/dashboard/add_dashboard_group',
     description: 'Adds a new group to a dashboard configuration. Superadmin only.',
-    request_schema: SlugRequestSchema,
-    response_schema: DashboardMutationResponseSchema,
+    request_schema: SlugRequestZodSchema,
+    response_schema: DashboardMutationResponseZodSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
@@ -76,8 +76,8 @@ export function registerGroupEndpoints(
       isDangerous: true,
     },
     description: 'Replaces editable JSON configuration for a dashboard group while preserving group id and order. Superadmin only.',
-    request_schema: SetGroupConfigRequestSchema,
-    response_schema: DashboardMutationResponseSchema,
+    request_schema: SetGroupConfigRequestZodSchema,
+    response_schema: DashboardMutationResponseZodSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
@@ -126,8 +126,8 @@ export function registerGroupEndpoints(
     method: 'POST',
     path: '/dashboard/move_dashboard_group',
     description: 'Moves a dashboard group up or down in its dashboard. Superadmin only.',
-    request_schema: MoveGroupRequestSchema,
-    response_schema: DashboardMutationResponseSchema,
+    request_schema: MoveGroupRequestZodSchema,
+    response_schema: DashboardMutationResponseZodSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);
@@ -181,8 +181,8 @@ export function registerGroupEndpoints(
       isDangerous: true,
     },
     description: 'Removes a dashboard group and all widgets inside it. Superadmin only.',
-    request_schema: GroupIdRequestSchema,
-    response_schema: DashboardMutationResponseSchema,
+    request_schema: GroupIdRequestZodSchema,
+    response_schema: DashboardMutationResponseZodSchema,
     handler: async ({ body, adminUser, response }) => {
       if (!ctx.canEditDashboard(adminUser)) {
         response.setStatus(403);

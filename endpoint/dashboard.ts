@@ -1,9 +1,9 @@
 import type { IHttpServer } from 'adminforth';
+import { z } from 'zod';
 import type { DashboardConfig } from '../custom/model/dashboard.types.js';
 import {
-  DashboardApiResponseSchema,
-  GetSlugsResponseSchema,
-  SlugRequestSchema,
+  GetSlugsResponseZodSchema,
+  SlugRequestZodSchema,
 } from '../schema/api.js';
 import type { DashboardRecord } from '../services/dashboardConfigService.js';
 
@@ -21,8 +21,8 @@ export function registerDashboardEndpoints(
     method: 'POST',
     path: '/dashboard/get-config',
     description: 'Loads one dashboard configuration by slug for rendering or editing.',
-    request_schema: SlugRequestSchema,
-    response_schema: DashboardApiResponseSchema,
+    request_schema: SlugRequestZodSchema,
+    response_schema: z.unknown(),
     handler: async ({ body, response }) => {
       const dashboard = await ctx.getDashboardRecord(body.slug);
 
@@ -46,7 +46,7 @@ export function registerDashboardEndpoints(
     path: '/dashboard/get-slugs',
     description: 'Returns a list of all dashboard slugs and labels for listing purposes.',
     request_schema: undefined,
-    response_schema: GetSlugsResponseSchema,
+    response_schema: GetSlugsResponseZodSchema,
     handler: async () => {
       const dashboards = await ctx.getAllDashboardRecords();
       return dashboards.map((dashboard) => ({
