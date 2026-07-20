@@ -5,6 +5,10 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "homepage": "https://adminforth.dev/docs/tutorial/Plugins/dashboard/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devforth/adminforth-dashboard.git"
+  },
   "publishConfig": {
     "access": "public"
   },
