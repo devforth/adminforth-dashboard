@@ -116,7 +116,7 @@ function registerConfigureWidgetEndpoint(
     method: 'POST',
     path: options.path,
     agent: {
-      isDangerous: true,
+      isDangerous: false,
     },
     description: options.description,
     request_schema: options.requestSchema,
@@ -270,7 +270,7 @@ export function registerWidgetEndpoints(
     method: 'POST',
     path: '/dashboard/remove_dashboard_widget',
     agent: {
-      isDangerous: true,
+      isDangerous: false,
     },
     description: 'Removes one dashboard widget by id. Superadmin only.',
     request_schema: WidgetIdRequestZodSchema,
@@ -315,7 +315,7 @@ export function registerWidgetEndpoints(
     method: 'POST',
     path: '/dashboard/set_widget_config',
     agent: {
-      isDangerous: true,
+      isDangerous: false,
     },
     description: 'Replaces editable JSON configuration for a dashboard widget while preserving widget id, group id, and order. Superadmin only.',
     request_schema: SetWidgetConfigRequestZodSchema,
