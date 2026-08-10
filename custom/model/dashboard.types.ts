@@ -2,8 +2,15 @@ import type { ChartWidgetConfig } from '../widgets/chart/chart.types.js'
 
 export type DashboardConfig = {
   version: number
+  icon?: string
   groups: DashboardGroupConfig[]
   widgets: DashboardWidgetConfig[]
+}
+
+export type EditableDashboardConfig = {
+  label: string
+  slug: string
+  icon?: string
 }
 
 export type JsonValue =

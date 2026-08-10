@@ -1,6 +1,6 @@
 import { Filters } from 'adminforth';
 import type { IAdminForth } from 'adminforth';
-import type { DashboardConfig, DashboardWidgetConfig } from '../custom/model/dashboard.types.js';
+import type { DashboardConfig, DashboardWidgetConfig, EditableDashboardConfig } from '../custom/model/dashboard.types.js';
 import { getDashboardConfigUpdatedTopic } from '../custom/model/dashboardTopics.js';
 import { DashboardConfigZodSchema } from '../schema/api.js';
 
@@ -173,7 +173,64 @@ export type DashboardConfigService = {
     slug: string,
     mutateConfig: DashboardConfigMutator,
   ) => Promise<PersistedDashboardResponse | null>;
+  updateDashboardDetails: (
+    slug: string,
+    details: EditableDashboardConfig,
+  ) => Promise<PersistedDashboardResponse | 'slug-exists' | null>;
 };
+
+async function updateDashboardDetails(
+  adminforth: IAdminForth,
+  dashboardConfigsResourceId: string,
+  slug: string,
+  details: EditableDashboardConfig,
+): Promise<PersistedDashboardResponse | 'slug-exists' | null> {
+  return runDashboardConfigUpdateQueued(slug, async () => {
+    const dashboard = await getDashboardRecord(adminforth, dashboardConfigsResourceId, slug);
+
+    if (!dashboard) {
+      return null;
+    }
+
+    if (details.slug !== slug) {
+      const dashboardWithNewSlug = await getDashboardRecord(adminforth, dashboardConfigsResourceId, details.slug);
+      if (dashboardWithNewSlug && dashboardWithNewSlug.id !== dashboard.id) {
+        return 'slug-exists';
+      }
+    }
+
+    const config = parseStoredDashboardConfig(dashboard.config);
+    const nextConfig: DashboardConfig = {
+      ...config,
+      ...(details.icon ? { icon: details.icon } : {}),
+    };
+    if (!details.icon) {
+      delete nextConfig.icon;
+    }
+
+    const revision = dashboard.revision + 1;
+    await adminforth.resource(dashboardConfigsResourceId).update(dashboard.id, {
+      slug: details.slug,
+      label: details.label,
+      config: normalizeDashboardOrder(nextConfig),
+      revision,
+    });
+
+    await adminforth.websocket.publish(getDashboardConfigUpdatedTopic(slug), {
+      id: dashboard.id,
+      slug,
+      revision,
+    });
+
+    return {
+      id: dashboard.id,
+      slug: details.slug,
+      label: details.label,
+      revision,
+      config: normalizeDashboardOrder(nextConfig),
+    };
+  });
+}
 
 export function createDashboardConfigService(
   adminforth: IAdminForth,
@@ -194,6 +251,12 @@ export function createDashboardConfigService(
       dashboardConfigsResourceId,
       slug,
       mutateConfig,
+    ),
+    updateDashboardDetails: (slug, details) => updateDashboardDetails(
+      adminforth,
+      dashboardConfigsResourceId,
+      slug,
+      details,
     ),
   };
 }

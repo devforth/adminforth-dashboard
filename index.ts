@@ -58,12 +58,19 @@ export default class DashboardPlugin extends AdminForthPlugin {
               label: 'Dashboards',
               icon: 'flowbite:chart-pie-solid',
               open: true,
-              children: dashboards.map((dashboard: any) => ({
-                itemId: `dashboard-${dashboard.id}`,
-                type: 'page',
-                label: dashboard.label,
-                url: `/dashboard/${dashboard.slug}`,
-              })),
+              children: dashboards.map((dashboard: any) => {
+                const config = typeof dashboard.config === 'string'
+                  ? JSON.parse(dashboard.config)
+                  : dashboard.config;
+
+                return {
+                  itemId: `dashboard-${dashboard.id}`,
+                  type: 'page',
+                  label: dashboard.label,
+                  icon: config?.icon ?? 'flowbite:chart-pie-solid',
+                  url: `/dashboard/${dashboard.slug}`,
+                };
+              }),
             },
             placement: { position: 'first' },
           },
@@ -136,4 +143,5 @@ export default class DashboardPlugin extends AdminForthPlugin {
   instanceUniqueRepresentation(): string {
     return "dashboard";
   }
+
 }

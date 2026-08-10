@@ -31,6 +31,7 @@
       :revision="dashboard.revision"
       :is-admin="isAdmin"
       :is-refreshing="isFetching"
+      @dashboard-updated="handleDashboardUpdated"
     />
 
     <div
@@ -46,7 +47,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { Button } from '@/afcl'
 import { useCoreStore } from '@/stores/core'
 import websocket from '@/websocket'
@@ -55,6 +56,7 @@ import DashboardRuntime from './DashboardRuntime.vue'
 import { useDashboardConfig } from '../queries/useDashboardConfig.js'
 
 const route = useRoute()
+const router = useRouter()
 const coreStore = useCoreStore()
 
 function getDashboardSlugFromRouteParam(value: string | string[] | undefined) {
@@ -105,6 +107,15 @@ function handleDashboardConfigUpdated(data: { slug?: string; revision?: number }
   }
 
   void refetch()
+}
+
+async function handleDashboardUpdated(updatedDashboard: { slug: string }) {
+  if (updatedDashboard.slug !== dashboardSlug.value) {
+    await router.replace(`/dashboard/${updatedDashboard.slug}`)
+    return
+  }
+
+  await refetch()
 }
 
 function subscribeToDashboardUpdates() {

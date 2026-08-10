@@ -1,22 +1,59 @@
-import type { IHttpServer } from 'adminforth';
+import type { AdminUser, IHttpServer } from 'adminforth';
 import { z } from 'zod';
-import type { DashboardConfig } from '../custom/model/dashboard.types.js';
+import type { DashboardConfig, EditableDashboardConfig } from '../custom/model/dashboard.types.js';
 import {
   GetSlugsResponseZodSchema,
+  SetDashboardConfigRequestZodSchema,
   SlugRequestZodSchema,
 } from '../schema/api.js';
-import type { DashboardRecord } from '../services/dashboardConfigService.js';
+import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
 
 type DashboardEndpointsContext = {
+  canEditDashboard: (adminUser: AdminUser) => boolean;
   getDashboardRecord: (slug: string) => Promise<DashboardRecord | null>;
   getAllDashboardRecords: () => Promise<DashboardRecord[]>;
   parseStoredDashboardConfig: (config: unknown) => DashboardConfig;
+  updateDashboardDetails: (
+    slug: string,
+    details: EditableDashboardConfig,
+  ) => Promise<PersistedDashboardResponse | 'slug-exists' | null>;
 };
 
 export function registerDashboardEndpoints(
   server: IHttpServer,
   ctx: DashboardEndpointsContext,
 ) {
+  server.endpoint({
+    method: 'POST',
+    path: '/dashboard/set_dashboard_config',
+    agent: {
+      isDangerous: true,
+    },
+    description: 'Updates a dashboard label, slug, and sidebar icon. Available to configured dashboard editor roles.',
+    request_schema: SetDashboardConfigRequestZodSchema,
+    response_schema: z.unknown(),
+    handler: async ({ body, adminUser, response }) => {
+      if (!ctx.canEditDashboard(adminUser)) {
+        response.setStatus(403);
+        return { error: 'Dashboard edit is not allowed' };
+      }
+
+      const updatedDashboard = await ctx.updateDashboardDetails(body.slug, body.config);
+
+      if (!updatedDashboard) {
+        response.setStatus(404);
+        return { error: 'Dashboard not found' };
+      }
+
+      if (updatedDashboard === 'slug-exists') {
+        response.setStatus(409);
+        return { error: 'A dashboard with this slug already exists' };
+      }
+
+      return updatedDashboard;
+    },
+  });
+
   server.endpoint({
     method: 'POST',
     path: '/dashboard/get-config',

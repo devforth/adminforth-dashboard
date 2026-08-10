@@ -32,6 +32,7 @@ export const DashboardGroupZodSchema = z.object({
 
 export const DashboardConfigZodSchema = z.object({
   version: z.number(),
+  icon: z.string().optional(),
   groups: z.array(DashboardGroupZodSchema),
   widgets: z.array(WidgetConfigSchema),
 }).strict()
@@ -59,6 +60,17 @@ export const DashboardWidgetDataResponseZodSchema = z.union([
 
 export const SlugRequestZodSchema = z.object({
   slug: z.string(),
+}).strict()
+
+export const EditableDashboardConfigZodSchema = z.object({
+  label: z.string().trim().min(1),
+  slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must contain lowercase letters, numbers, and hyphens only'),
+  icon: z.string().trim().min(1).optional(),
+}).strict()
+
+export const SetDashboardConfigRequestZodSchema = z.object({
+  slug: z.string(),
+  config: EditableDashboardConfigZodSchema,
 }).strict()
 
 export const GetSlugsResponseZodSchema = z.array(z.object({
@@ -215,4 +227,3 @@ export const DashboardMutationResponseZodSchema = z.object({
   groupId: z.string().optional(),
   widgetId: z.string().optional(),
 }).strict()
-

@@ -3,7 +3,7 @@
     <header class="mb-6 flex items-start justify-between">
       <div>
         <h1 class="m-0 text-2xl font-bold text-lightNavbarText dark:text-darkNavbarText">
-          {{ label }}
+          {{ dashboardLabel }}
         </h1>
 
         <div
@@ -15,7 +15,46 @@
           <span v-if="isRefreshing">Refreshing...</span>
         </div>
       </div>
+
+      <DashboardToolbarButton
+        v-if="isAdmin"
+        title="Edit dashboard"
+        @click="editDashboard"
+      >
+        <IconToolsOutline class="h-5 w-5" />
+      </DashboardToolbarButton>
     </header>
+
+    <div
+      v-if="isEditingDashboard"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+      @click.self="closeDashboardConfigEditor"
+    >
+      <section class="w-full max-w-5xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
+        <header class="mb-3 flex items-center justify-between gap-3">
+          <h2 class="m-0 text-base font-bold text-lightNavbarText dark:text-darkNavbarText">
+            Dashboard JSON
+          </h2>
+
+          <button
+            type="button"
+            class="flex h-9 w-9 items-center justify-center rounded-lg text-lightListTableText hover:bg-lightListViewButtonBackgroundHover dark:text-darkListTableText dark:hover:bg-darkListViewButtonBackgroundHover"
+            @click="closeDashboardConfigEditor"
+          >
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </header>
+
+        <YamlConfigEditor v-model="dashboardConfigCode" @save="saveDashboardConfig" />
+
+        <div v-if="dashboardConfigError" class="mt-2 text-sm text-lightInputErrorColor">
+          {{ dashboardConfigError }}
+        </div>
+      </section>
+    </div>
 
     <div class="flex flex-col gap-5">
       <DashboardGroup
@@ -196,11 +235,14 @@
 import { computed, ref, watch } from 'vue'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { Button } from '@/afcl'
+import { IconToolsOutline } from '@iconify-prerendered/vue-flowbite'
 import DashboardGroup from './DashboardGroup.vue'
+import DashboardToolbarButton from './DashboardToolbarButton.vue'
 import YamlConfigEditor from './YamlConfigEditor.vue'
 import { DashboardApiError, dashboardApi, type DashboardResponse } from '../api/dashboardApi.js'
 import type {
   DashboardConfig,
+  EditableDashboardConfig,
   DashboardGroupConfig,
   EditableDashboardGroupConfig,
   DashboardGroupMoveDirection,
@@ -219,8 +261,16 @@ const props = defineProps<{
   isRefreshing: boolean
 }>()
 
+const emit = defineEmits<{
+  (e: 'dashboard-updated', dashboard: DashboardResponse): void
+}>()
+
 const draftConfig = ref<DashboardConfig>(cloneConfig(props.config))
 const currentRevision = ref(props.revision)
+const dashboardLabel = ref(props.label)
+const isEditingDashboard = ref(false)
+const dashboardConfigCode = ref('')
+const dashboardConfigError = ref('')
 const editingGroupId = ref<string | null>(null)
 const groupConfigCode = ref('')
 const groupConfigError = ref('')
@@ -243,6 +293,46 @@ watch(
     currentRevision.value = revision
   },
 )
+
+watch(
+  () => props.label,
+  (label: string) => {
+    dashboardLabel.value = label
+  },
+)
+
+function editDashboard() {
+  const editableConfig: EditableDashboardConfig = {
+    label: dashboardLabel.value,
+    slug: props.dashboardSlug,
+    icon: draftConfig.value.icon,
+  }
+
+  dashboardConfigCode.value = stringifyYaml(editableConfig)
+  dashboardConfigError.value = ''
+  isEditingDashboard.value = true
+}
+
+async function saveDashboardConfig() {
+  try {
+    dashboardConfigError.value = ''
+    const dashboardConfig = parseYaml(dashboardConfigCode.value) as EditableDashboardConfig
+    const updatedDashboard = await dashboardApi.setDashboardConfig(props.dashboardSlug, dashboardConfig)
+
+    applyDashboardResponse(updatedDashboard)
+    dashboardLabel.value = updatedDashboard.label
+    closeDashboardConfigEditor()
+    emit('dashboard-updated', updatedDashboard)
+  } catch (error) {
+    dashboardConfigError.value = error instanceof Error ? error.message : 'Invalid dashboard config'
+  }
+}
+
+function closeDashboardConfigEditor() {
+  isEditingDashboard.value = false
+  dashboardConfigCode.value = ''
+  dashboardConfigError.value = ''
+}
 
 const sortedGroups = computed(() => {
   return [...draftConfig.value.groups].sort((a, b) => a.order - b.order)
