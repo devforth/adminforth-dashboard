@@ -5,4 +5,9 @@ export type PluginOptions = {
 	 * Expected columns: id, slug, label, revision, config (JSON).
 	 */
 	dashboardConfigsResourceId: string;
+	/**
+	 * Roles allowed to edit dashboards, groups, and widgets.
+	 * Defaults to ['superadmin'].
+	 */
+	editRoles?: string[];
 };

@@ -29,7 +29,7 @@
       :label="dashboard.label"
       :config="dashboard.config"
       :revision="dashboard.revision"
-      :is-admin="isAdmin"
+      :is-admin="canEditDashboard"
       :is-refreshing="isFetching"
       @dashboard-updated="handleDashboardUpdated"
     />
@@ -49,7 +49,6 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Button } from '@/afcl'
-import { useCoreStore } from '@/stores/core'
 import websocket from '@/websocket'
 import { getDashboardConfigUpdatedTopic } from '../model/dashboardTopics.js'
 import DashboardRuntime from './DashboardRuntime.vue'
@@ -57,7 +56,6 @@ import { useDashboardConfig } from '../queries/useDashboardConfig.js'
 
 const route = useRoute()
 const router = useRouter()
-const coreStore = useCoreStore()
 
 function getDashboardSlugFromRouteParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -87,8 +85,8 @@ const {
   refetch,
 } = useDashboardConfig(dashboardSlug)
 
-const isAdmin = computed(() => {
-  return coreStore.adminUser?.dbUser.role === 'superadmin'
+const canEditDashboard = computed(() => {
+  return dashboard.value?.canEdit === true
 })
 
 const subscribedTopic = ref<string | null>(null)

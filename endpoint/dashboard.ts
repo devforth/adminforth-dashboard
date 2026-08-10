@@ -50,7 +50,7 @@ export function registerDashboardEndpoints(
         return { error: 'A dashboard with this slug already exists' };
       }
 
-      return updatedDashboard;
+      return { ...updatedDashboard, canEdit: true };
     },
   });
 
@@ -60,7 +60,7 @@ export function registerDashboardEndpoints(
     description: 'Loads one dashboard configuration by slug for rendering or editing.',
     request_schema: SlugRequestZodSchema,
     response_schema: z.unknown(),
-    handler: async ({ body, response }) => {
+    handler: async ({ body, adminUser, response }) => {
       const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
@@ -73,6 +73,7 @@ export function registerDashboardEndpoints(
         slug: dashboard.slug,
         label: dashboard.label,
         revision: dashboard.revision,
+        canEdit: ctx.canEditDashboard(adminUser),
         config: ctx.parseStoredDashboardConfig(dashboard.config),
       };
     },

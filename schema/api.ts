@@ -42,6 +42,7 @@ export const DashboardResponseZodSchema = z.object({
   slug: z.string(),
   label: z.string(),
   revision: z.number(),
+  canEdit: z.boolean(),
   config: DashboardConfigZodSchema,
 })
 

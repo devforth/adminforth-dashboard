@@ -19,10 +19,6 @@ const DEFAULT_DASHBOARD_CONFIG = {
   widgets: [],
 };
 
-function canEditDashboard(adminUser: AdminUser) {
-  return adminUser.dbUser.role === 'superadmin';
-}
-
 export default class DashboardPlugin extends AdminForthPlugin {
   options: PluginOptions;
   pluginsScope: "resource" | "global" = "global";
@@ -130,7 +126,7 @@ export default class DashboardPlugin extends AdminForthPlugin {
     const ctx = {
       adminforth: this.adminforth,
       dashboardConfigsResourceId: this.options.dashboardConfigsResourceId,
-      canEditDashboard,
+      canEditDashboard: (adminUser: AdminUser) => this.canEditDashboard(adminUser),
       ...dashboardConfigService,
       ...widgetDataService,
     };
@@ -142,6 +138,11 @@ export default class DashboardPlugin extends AdminForthPlugin {
 
   instanceUniqueRepresentation(): string {
     return "dashboard";
+  }
+
+  private canEditDashboard(adminUser: AdminUser) {
+    const editRoles = this.options.editRoles ?? ['superadmin'];
+    return editRoles.includes(adminUser.dbUser.role);
   }
 
 }

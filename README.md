@@ -6,6 +6,17 @@ It adds configurable dashboard pages backed by an AdminForth resource. Dashboard
 
 Full setup guide: https://adminforth.dev/docs/tutorial/Plugins/dashboard/
 
+## Editing access
+
+Dashboard editing is limited to `superadmin` by default. Set `editRoles` when registering the plugin to allow other roles:
+
+```ts
+new DashboardPlugin({
+  dashboardConfigsResourceId: 'dashboard_configs',
+  editRoles: ['superadmin', 'developer'],
+})
+```
+
 ## Dashboard Config Shape
 
 ```ts

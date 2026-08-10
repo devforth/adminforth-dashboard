@@ -18,6 +18,7 @@ export type DashboardResponse = {
   slug: string
   label: string
   revision: number
+  canEdit: boolean
   config: DashboardConfig
 }
 
@@ -198,6 +199,7 @@ async function callDashboardApi(path: string, body: Record<string, unknown>): Pr
     slug: response.slug,
     label: response.label,
     revision: response.revision,
+    canEdit: response.canEdit === true,
     config: response.config,
   }
 }
