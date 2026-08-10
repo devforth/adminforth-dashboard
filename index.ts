@@ -1,5 +1,5 @@
 import { AdminForthPlugin } from "adminforth";
-import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer } from "adminforth";
+import type { AdminUser, IAdminForth, IHttpServer } from "adminforth";
 import type { PluginOptions } from "./types.js";
 import { randomUUID } from 'crypto';
 import path from 'path';
@@ -25,6 +25,7 @@ function canEditDashboard(adminUser: AdminUser) {
 
 export default class DashboardPlugin extends AdminForthPlugin {
   options: PluginOptions;
+  pluginsScope: "resource" | "global" = "global";
   private didRegisterMenuProvider = false;
   private didInstallSeedHook = false;
 
@@ -35,8 +36,8 @@ export default class DashboardPlugin extends AdminForthPlugin {
     this.customFolderPath = path.join(this.pluginDir, this.customFolderName);
   }
 
-  async modifyResourceConfig(adminforth: IAdminForth, resourceConfig: AdminForthResource) {
-    super.modifyResourceConfig(adminforth, resourceConfig);
+  async modifyGlobalConfig(adminforth: IAdminForth) {
+    super.modifyGlobalConfig(adminforth);
 
     if (!this.didRegisterMenuProvider) {
       this.didRegisterMenuProvider = true;
