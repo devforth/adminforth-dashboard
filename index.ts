@@ -38,8 +38,11 @@ export default class DashboardPlugin extends AdminForthPlugin {
     if (!this.didRegisterMenuProvider) {
       this.didRegisterMenuProvider = true;
 
-      const adminforthWithDynamicMenu = adminforth as any;
-      adminforthWithDynamicMenu.registerMenuContributionProvider(async () => {
+      adminforth.registerMenuContributionProvider(async ({ adminUser }) => {
+        if (!adminUser || !this.canEditDashboard(adminUser)) {
+          return [];
+        }
+
         if (this.adminforth.statuses.dbDiscover !== 'done') {
           return [];
         }

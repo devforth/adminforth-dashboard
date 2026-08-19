@@ -61,6 +61,11 @@ export function registerDashboardEndpoints(
     request_schema: SlugRequestZodSchema,
     response_schema: z.unknown(),
     handler: async ({ body, adminUser, response }) => {
+      if (!ctx.canEditDashboard(adminUser)) {
+        response.setStatus(403);
+        return { error: 'Dashboard access is not allowed' };
+      }
+
       const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
@@ -73,7 +78,7 @@ export function registerDashboardEndpoints(
         slug: dashboard.slug,
         label: dashboard.label,
         revision: dashboard.revision,
-        canEdit: ctx.canEditDashboard(adminUser),
+        canEdit: true,
         config: ctx.parseStoredDashboardConfig(dashboard.config),
       };
     },
@@ -82,10 +87,15 @@ export function registerDashboardEndpoints(
   server.endpoint({
     method: 'GET',
     path: '/dashboard/get-slugs',
-    description: 'Returns a list of all dashboard slugs and labels for listing purposes.',
+    description: 'Returns dashboard slugs and labels for configured dashboard editor roles.',
     request_schema: undefined,
     response_schema: GetSlugsResponseZodSchema,
-    handler: async () => {
+    handler: async ({ adminUser, response }) => {
+      if (!ctx.canEditDashboard(adminUser)) {
+        response.setStatus(403);
+        return { error: 'Dashboard access is not allowed' };
+      }
+
       const dashboards = await ctx.getAllDashboardRecords();
       return dashboards.map((dashboard) => ({
         slug: dashboard.slug,
