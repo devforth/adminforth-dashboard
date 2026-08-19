@@ -1,5 +1,5 @@
-import { ref, watch, type Ref } from 'vue'
-import { dashboardApi, type DashboardWidgetDataRequest } from '../api/dashboardApi.js'
+import { computed, ref, watch, type Ref } from 'vue'
+import { DashboardApiError, dashboardApi, type DashboardWidgetDataRequest } from '../api/dashboardApi.js'
 
 export function useWidgetData(
   slug: Ref<string>,
@@ -10,6 +10,17 @@ export function useWidgetData(
   const isLoading = ref(false)
   const isFetching = ref(false)
   const error = ref<unknown>(null)
+  const errorMessage = computed(() => {
+    if (error.value instanceof DashboardApiError && error.value.status === 403) {
+      return 'You do not have permission to view the data used by this widget.'
+    }
+
+    if (error.value instanceof Error && error.value.message) {
+      return error.value.message
+    }
+
+    return 'The widget data could not be loaded. Please try again.'
+  })
 
   async function refetch() {
     if (!slug.value || !widgetId.value) {
@@ -50,6 +61,7 @@ export function useWidgetData(
     isLoading,
     isFetching,
     error,
+    errorMessage,
     refetch,
   }
 }

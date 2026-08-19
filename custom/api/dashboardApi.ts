@@ -55,11 +55,13 @@ export type ConfigurablePivotTableWidgetConfig = Omit<PivotTableWidgetConfig, 'i
 
 export class DashboardApiError extends Error {
   validationErrors: DashboardWidgetConfigValidationError[]
+  status?: number
 
-  constructor(message: string, validationErrors: DashboardWidgetConfigValidationError[] = []) {
+  constructor(message: string, validationErrors: DashboardWidgetConfigValidationError[] = [], status?: number) {
     super(message)
     this.name = 'DashboardApiError'
     this.validationErrors = validationErrors
+    this.status = status
   }
 }
 
@@ -187,6 +189,7 @@ async function callDashboardApi(path: string, body: Record<string, unknown>): Pr
     throw new DashboardApiError(
       response?.error || rawResponse.statusText || `Dashboard request failed (${rawResponse.status})`,
       normalizeValidationErrors(response),
+      rawResponse.status,
     )
   }
 
@@ -211,6 +214,7 @@ async function callDashboardMutationApi(path: string, body: Record<string, unkno
     throw new DashboardApiError(
       response?.error || rawResponse.statusText || `Dashboard request failed (${rawResponse.status})`,
       normalizeValidationErrors(response),
+      rawResponse.status,
     )
   }
 
@@ -235,6 +239,7 @@ async function callDashboardWidgetDataApi(
     throw new DashboardApiError(
       response?.error || rawResponse.statusText || `Dashboard request failed (${rawResponse.status})`,
       normalizeValidationErrors(response),
+      rawResponse.status,
     )
   }
 

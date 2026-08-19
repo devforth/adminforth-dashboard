@@ -1,5 +1,6 @@
-import { Sorts } from 'adminforth';
+import { ActionCheckSource, interpretResource, Sorts } from 'adminforth';
 import type {
+  AdminUser,
   IAdminForth,
   IAdminForthSort,
 } from 'adminforth';
@@ -28,12 +29,26 @@ import {
 import { evaluateCalc } from './calc-evaluator.js';
 
 export type DashboardWidgetDataOptions = {
+  adminUser: AdminUser;
+  request?: {
+    headers: Record<string, string>;
+    query: Record<string, string>;
+    cookies: Array<{ key: string, value: string }>;
+    requestUrl: string;
+  };
   pagination?: {
     page: number;
     pageSize: number;
   };
   variables?: DashboardVariables;
 };
+
+export class DashboardWidgetDataAccessError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DashboardWidgetDataAccessError';
+  }
+}
 
 type AggregateRule =
   | { operation: 'count' }
@@ -68,20 +83,117 @@ type EffectiveGroupByItem = {
   timezone?: string;
 };
 
+class ResourceDataAccess {
+  constructor(
+    private readonly adminforth: IAdminForth,
+    private readonly adminUser: AdminUser,
+    private readonly request?: DashboardWidgetDataOptions['request'],
+  ) {}
+
+  async prepare(resourceId: string, filters: FilterExpression | DashboardQueryFilters | undefined) {
+    const resource = this.adminforth.config.resources.find((item) => item.resourceId === resourceId);
+
+    if (!resource) {
+      return getAdminForthFilters(filters);
+    }
+
+    const query = {
+      resourceId,
+      source: 'list',
+      filters: getAdminForthFilters(filters),
+    };
+    const { allowedActions } = await interpretResource(
+      this.adminUser,
+      resource,
+      { requestBody: query, pk: undefined },
+      ActionCheckSource.ListRequest,
+      this.adminforth,
+    );
+
+    if (allowedActions.list !== true) {
+      throw new DashboardWidgetDataAccessError(
+        typeof allowedActions.list === 'string' ? allowedActions.list : 'List action is not allowed',
+      );
+    }
+
+    for (const hook of resource.hooks?.list?.beforeDatasourceRequest ?? []) {
+      const result = await hook({
+        resource,
+        query,
+        adminUser: this.adminUser,
+        filtersTools: createFiltersTools(query),
+        extra: {
+          body: query,
+          query: this.request?.query ?? {},
+          headers: this.request?.headers ?? {},
+          cookies: this.request?.cookies ?? [],
+          requestUrl: this.request?.requestUrl ?? '',
+        },
+        adminforth: this.adminforth,
+      });
+
+      if (!result?.ok) {
+        throw new DashboardWidgetDataAccessError(result?.error || 'Dashboard data request was rejected');
+      }
+    }
+
+    return query.filters;
+  }
+}
+
+function createFiltersTools(query: { filters: DashboardQueryFilters }) {
+  return {
+    checkTopFilterExists(field: string) {
+      return Array.isArray(query.filters)
+        ? query.filters.some((filter) => 'field' in filter && filter.field === field)
+        : false;
+    },
+    removeTopFilter(field: string) {
+      if (!Array.isArray(query.filters)) {
+        throw new Error('query.filters is not an array');
+      }
+      if (!this.checkTopFilterExists(field)) {
+        throw new Error(`Top-level filter for field "${field}" not found`);
+      }
+      this.removeTopFilterIfExists(field);
+    },
+    removeTopFilterIfExists(field: string) {
+      if (!Array.isArray(query.filters)) {
+        return;
+      }
+      query.filters = query.filters.filter((filter) => !('field' in filter) || filter.field !== field);
+    },
+    replaceOrAddTopFilter(filter: { field: string, value: unknown, operator: string }) {
+      if (!Array.isArray(query.filters)) {
+        query.filters = [];
+      }
+      this.removeTopFilterIfExists(filter.field);
+      query.filters.push(filter as any);
+    },
+  };
+}
+
 export type WidgetDataService = {
-  getWidgetData: (widget: DashboardWidgetConfig, options?: DashboardWidgetDataOptions) => Promise<DashboardWidgetData | null>;
+  getWidgetData: (widget: DashboardWidgetConfig, options: DashboardWidgetDataOptions) => Promise<DashboardWidgetData | null>;
 };
 
 export async function getWidgetData(
   adminforth: IAdminForth,
   widget: DashboardWidgetConfig,
-  options: DashboardWidgetDataOptions = {},
+  options: DashboardWidgetDataOptions,
 ): Promise<DashboardWidgetData | null> {
   if (!('query' in widget)) {
     return null;
   }
 
-  const data = await getQueryWidgetData(adminforth, widget.query, options.variables ?? {});
+  await assertWidgetQueryHasNoBackendOnlyFields(adminforth, widget.query, options.adminUser);
+
+  const data = await getQueryWidgetData(
+    adminforth,
+    widget.query,
+    options.variables ?? {},
+    new ResourceDataAccess(adminforth, options.adminUser, options.request),
+  );
 
   if (widget.target !== 'table' || !options.pagination) {
     return data;
@@ -103,25 +215,129 @@ export async function getWidgetData(
   };
 }
 
+async function assertWidgetQueryHasNoBackendOnlyFields(
+  adminforth: IAdminForth,
+  query: QueryConfig,
+  adminUser: AdminUser,
+) {
+  const fieldsByResource = new Map<string, Set<string>>();
+  const allFieldsResources = new Set<string>();
+  const addField = (resourceId: string, field: string | undefined) => {
+    if (!field) {
+      return;
+    }
+
+    const fields = fieldsByResource.get(resourceId) ?? new Set<string>();
+    fields.add(field);
+    fieldsByResource.set(resourceId, fields);
+  };
+  const addFilters = (resourceId: string, filters: FilterExpression | undefined): void => {
+    if (!filters) {
+      return;
+    }
+
+    if (Array.isArray(filters)) {
+      filters.forEach((item) => addFilters(resourceId, item));
+    } else if ('field' in filters) {
+      addField(resourceId, filters.field);
+    } else if ('and' in filters) {
+      filters.and.forEach((item) => addFilters(resourceId, item));
+    } else {
+      filters.or.forEach((item) => addFilters(resourceId, item));
+    }
+  };
+  const addSelect = (resourceId: string, select: QuerySelectItem[] | undefined) => {
+    select?.forEach((item) => {
+      if ('field' in item) {
+        addField(resourceId, item.field);
+      }
+      if ('agg' in item) {
+        addField(resourceId, item.field);
+        addFilters(resourceId, item.filters);
+      }
+    });
+  };
+
+  if (isStepsQuery(query)) {
+    for (const step of query.steps) {
+      addSelect(step.resource, step.select);
+      addFilters(step.resource, step.filters);
+      addField(step.resource, query.bucket?.field);
+
+      if (!step.select) {
+        allFieldsResources.add(step.resource);
+      }
+    }
+  } else {
+    addSelect(query.resource, query.select);
+    addFilters(query.resource, query.filters);
+    query.group_by?.forEach((item) => addField(query.resource, typeof item === 'string' ? item : item.field));
+    addField(query.resource, query.sparkline?.field);
+    addField(query.resource, query.bucket?.field);
+    query.order_by?.forEach((item) => addField(query.resource, item.field));
+
+    if (!query.select) {
+      allFieldsResources.add(query.resource);
+    }
+  }
+
+  for (const resourceId of new Set([...fieldsByResource.keys(), ...allFieldsResources])) {
+    const fields = fieldsByResource.get(resourceId) ?? new Set<string>();
+    const resource = adminforth.config.resources.find((item) => item.resourceId === resourceId);
+
+    if (!resource) {
+      continue;
+    }
+
+    const columns = fields.size && !allFieldsResources.has(resourceId)
+      ? resource.columns.filter((column) => fields.has(column.name))
+      : resource.columns;
+
+    for (const column of columns) {
+      const context = {
+        adminUser,
+        resource,
+        meta: {},
+        source: ActionCheckSource.ListRequest,
+        adminforth,
+      };
+      const backendOnly = typeof column.backendOnly === 'function'
+        ? await column.backendOnly(context)
+        : column.backendOnly;
+      const shownInList = typeof column.showIn?.list === 'function'
+        ? await column.showIn.list(context)
+        : column.showIn?.list !== false;
+
+      if (backendOnly || !shownInList) {
+        const restriction = backendOnly ? 'backendOnly' : 'hidden in list view';
+        throw new DashboardWidgetDataAccessError(
+          `Field "${column.name}" in resource "${resourceId}" is ${restriction} and cannot be used in a dashboard widget`,
+        );
+      }
+    }
+  }
+}
+
 async function getQueryWidgetData(
   adminforth: IAdminForth,
   query: QueryConfig,
   variables: DashboardVariables,
+  access: ResourceDataAccess,
 ): Promise<DashboardWidgetData> {
   if (isStepsQuery(query)) {
-    return getStepsQueryData(adminforth, query, variables);
+    return getStepsQueryData(adminforth, query, variables, access);
   }
 
   const singleAggregateSelect = getSingleAggregateSelectItem(query);
 
   if (singleAggregateSelect) {
-    return getSingleAggregateWidgetData(adminforth, query, singleAggregateSelect);
+    return getSingleAggregateWidgetData(adminforth, query, singleAggregateSelect, access);
   }
 
   const selectedRows = isAggregateQuery(query)
-    ? await buildAggregateQueryRows(adminforth, query, variables)
+    ? await buildAggregateQueryRows(adminforth, query, variables, access)
     : buildPlainQueryRows(
-      await getResourceRows(adminforth, query.resource, query.filters, getBackendSort(query.order_by)),
+      await getResourceRows(adminforth, query.resource, query.filters, getBackendSort(query.order_by), access),
       query,
       variables,
     );
@@ -153,9 +369,10 @@ async function getStepsQueryData(
   adminforth: IAdminForth,
   query: Extract<QueryConfig, { source: 'steps' }>,
   variables: DashboardVariables,
+  access: ResourceDataAccess,
 ): Promise<DashboardWidgetData> {
   if (query.bucket) {
-    return getBucketedStepsQueryData(adminforth, query, query.bucket, variables);
+    return getBucketedStepsQueryData(adminforth, query, query.bucket, variables, access);
   }
 
   const rows = await Promise.all(query.steps.map(async (step) => {
@@ -166,6 +383,7 @@ async function getStepsQueryData(
       step.filters,
       select,
       [],
+      access,
     );
     const row = buildCalculatedRow({
       name: step.name,
@@ -198,6 +416,7 @@ async function getBucketedStepsQueryData(
   query: Extract<QueryConfig, { source: 'steps' }>,
   bucketConfig: QueryBucketConfig,
   variables: DashboardVariables,
+  access: ResourceDataAccess,
 ): Promise<DashboardWidgetData> {
   const rows = (await Promise.all(query.steps.map(async (step) => {
     const select = getStepSelect(step);
@@ -208,6 +427,7 @@ async function getBucketedStepsQueryData(
         mergeFilters(step.filters, getBucketFilter(bucketConfig, bucket)),
         select,
         [],
+        access,
       );
 
       return buildCalculatedRow({
@@ -243,6 +463,7 @@ async function getSingleAggregateWidgetData(
   adminforth: IAdminForth,
   query: ResourceQueryConfig,
   aggregate: QueryAggregateSelectItem,
+  access: ResourceDataAccess,
 ): Promise<DashboardWidgetData> {
   const [currentValues = {}] = await getAggregateRows(
     adminforth,
@@ -250,13 +471,14 @@ async function getSingleAggregateWidgetData(
     query.filters,
     [aggregate],
     [],
+    access,
   );
   const values: Record<string, unknown> = {
     [aggregate.as]: currentValues[aggregate.as] ?? 0,
   };
 
   const rows = query.sparkline
-    ? await getSingleAggregateSparklineRows(adminforth, query, aggregate, getAdminForthFilters(query.filters))
+    ? await getSingleAggregateSparklineRows(adminforth, query, aggregate, getAdminForthFilters(query.filters), access)
     : [values];
   const columns = Array.from(new Set([
     aggregate.as,
@@ -276,6 +498,7 @@ async function getSingleAggregateSparklineRows(
   query: ResourceQueryConfig,
   aggregate: QueryAggregateSelectItem,
   filters: DashboardQueryFilters,
+  access: ResourceDataAccess,
 ) {
   const sparkline = query.sparkline!;
   const groupBy = [{
@@ -289,6 +512,7 @@ async function getSingleAggregateSparklineRows(
     filters,
     [aggregate],
     groupBy,
+    access,
   );
 
   return rows.map((row) => ({
@@ -302,9 +526,10 @@ async function getResourceRows(
   resourceId: string,
   filters: FilterExpression | undefined,
   sort?: IAdminForthSort | IAdminForthSort[],
+  access?: ResourceDataAccess,
 ) {
   return adminforth.resource(resourceId).list(
-    getAdminForthFilters(filters),
+    access ? await access.prepare(resourceId, filters) : getAdminForthFilters(filters),
     undefined,
     0,
     sort,
@@ -320,6 +545,7 @@ async function buildAggregateQueryRows(
   adminforth: IAdminForth,
   query: ResourceQueryConfig,
   variables: DashboardVariables,
+  access: ResourceDataAccess,
 ) {
   const select = query.select ?? [];
   const effectiveGroupBy = getEffectiveGroupBy(query.group_by, select);
@@ -330,6 +556,7 @@ async function buildAggregateQueryRows(
     query.filters,
     aggregateSelect,
     effectiveGroupBy,
+    access,
   );
 
   return rows.map((row) => buildCalculatedRow(row, select, query.calcs, variables));
@@ -341,6 +568,7 @@ async function getAggregateRows(
   baseFilters: FilterExpression | DashboardQueryFilters | undefined,
   select: QueryAggregateSelectItem[],
   groupBy: EffectiveGroupByItem[],
+  access: ResourceDataAccess,
 ) {
   const resource = adminforth.resource(resourceId) as unknown as AggregateResource;
   const groups = new Map<string, Record<string, unknown>>();
@@ -350,7 +578,7 @@ async function getAggregateRows(
   if (groupBy.length) {
     const groupSeedAlias = getHiddenAggregateAlias(groupBy, select);
     const groupSeedRows = await resource.aggregate(
-      getAdminForthFilters(baseFilters),
+      await access.prepare(resourceId, baseFilters),
       { [groupSeedAlias]: { operation: 'count' } },
       groupByRules,
     );
@@ -362,7 +590,7 @@ async function getAggregateRows(
 
   for (const filterGroup of aggregateSelectGroups) {
     const rows = await resource.aggregate(
-      mergeFilters(baseFilters, filterGroup.filters),
+      await access.prepare(resourceId, mergeFilters(baseFilters, filterGroup.filters)),
       Object.fromEntries(filterGroup.items.map((item) => [item.as, toAggregationRule(item)])),
       groupByRules,
     );

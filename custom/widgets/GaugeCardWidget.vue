@@ -11,7 +11,7 @@
       v-else-if="error"
       class="text-sm text-lightInputErrorColor"
     >
-      Failed to load gauge data
+      {{ errorMessage }}
     </div>
 
     <div
@@ -73,6 +73,7 @@ const {
   data,
   isLoading,
   error,
+  errorMessage,
   refetch,
 } = useWidgetData(dashboardSlugRef, widgetIdRef)
 

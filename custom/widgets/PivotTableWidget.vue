@@ -11,7 +11,7 @@
       v-else-if="error"
       class="p-4 text-sm text-lightInputErrorColor"
     >
-      Failed to load pivot data
+      {{ errorMessage }}
     </div>
 
     <div
@@ -85,6 +85,7 @@ const {
   data,
   isLoading,
   error,
+  errorMessage,
   refetch,
 } = useWidgetData(dashboardSlugRef, widgetIdRef)
 
@@ -143,4 +144,3 @@ const pivotRows = computed(() => {
   return Array.from(rowMap.values())
 })
 </script>
-

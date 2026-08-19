@@ -30,6 +30,7 @@ import {
   WidgetIdRequestZodSchema,
 } from '../schema/api.js';
 import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
+import { DashboardWidgetDataAccessError } from '../services/widgetDataService.js';
 
 type ConfigurableWidgetConfig =
   | Omit<TableWidgetConfig, 'id' | 'group_id' | 'order'>
@@ -60,7 +61,14 @@ type WidgetEndpointsContext = {
   ) => Promise<PersistedDashboardResponse | null>;
   getWidgetData: (
     widget: DashboardWidgetConfig,
-    options?: {
+    options: {
+      adminUser: AdminUser,
+      request?: {
+        headers: Record<string, string>,
+        query: Record<string, string>,
+        cookies: Array<{ key: string, value: string }>,
+        requestUrl: string,
+      },
       pagination?: { page: number, pageSize: number },
       variables?: DashboardVariables,
     },
@@ -409,7 +417,12 @@ export function registerWidgetEndpoints(
     description: 'Loads widget data for one dashboard widget by dashboard slug and widget id.',
     request_schema: WidgetDataRequestZodSchema,
     response_schema: DashboardWidgetDataResponseZodSchema,
-    handler: async ({ body, response }) => {
+    handler: async ({ body, adminUser, response, headers, query, cookies, requestUrl }) => {
+      if (!ctx.canEditDashboard(adminUser)) {
+        response.setStatus(403);
+        return { error: 'Dashboard data access is not allowed' };
+      }
+
       const dashboard = await ctx.getDashboardRecord(body.slug);
 
       if (!dashboard) {
@@ -425,13 +438,24 @@ export function registerWidgetEndpoints(
         return { error: 'Dashboard widget not found' };
       }
 
-      return {
-        widget,
-        data: await ctx.getWidgetData(widget, {
-          pagination: body.pagination,
-          variables: widget.variables,
-        }),
-      };
+      try {
+        return {
+          widget,
+          data: await ctx.getWidgetData(widget, {
+            adminUser,
+            request: { headers, query, cookies, requestUrl },
+            pagination: body.pagination,
+            variables: widget.variables,
+          }),
+        };
+      } catch (error) {
+        if (error instanceof DashboardWidgetDataAccessError) {
+          response.setStatus(403);
+          return { error: error.message };
+        }
+
+        throw error;
+      }
     },
   });
 }

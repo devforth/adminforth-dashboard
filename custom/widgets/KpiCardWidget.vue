@@ -11,7 +11,7 @@
       v-else-if="error"
       class="text-sm text-lightInputErrorColor"
     >
-      Failed to load KPI data
+      {{ errorMessage }}
     </div>
 
     <div
@@ -101,6 +101,7 @@ const {
   data,
   isLoading,
   error,
+  errorMessage,
   refetch,
 } = useWidgetData(dashboardSlugRef, widgetIdRef)
 

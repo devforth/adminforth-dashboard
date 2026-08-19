@@ -11,7 +11,7 @@
       v-else-if="error"
       class="p-4 text-sm text-lightInputErrorColor"
     >
-      Failed to load table data
+      {{ errorMessage }}
     </div>
 
     <div
@@ -151,6 +151,7 @@ const {
   isLoading,
   isFetching,
   error,
+  errorMessage,
   refetch,
 } = useWidgetData(dashboardSlugRef, widgetIdRef, widgetDataRequest)
 
