@@ -45,13 +45,18 @@ export default class DashboardPlugin extends AdminForthPlugin {
       );
     }
 
+    // Keep the resource usable for manual dashboard management, but apply the same
+    // editRoles authorization to AdminForth's generic resource REST endpoints.
+    const allowedForDashboardEditor = async ({ adminUser }: { adminUser: AdminUser }) => (
+      this.canEditDashboard(adminUser)
+    );
     dashboardConfigsResource.options.allowedActions = {
-      show: false,
-      list: false,
-      edit: false,
-      create: false,
-      delete: false,
-      filter: false,
+      show: allowedForDashboardEditor,
+      list: allowedForDashboardEditor,
+      edit: allowedForDashboardEditor,
+      create: allowedForDashboardEditor,
+      delete: allowedForDashboardEditor,
+      filter: allowedForDashboardEditor,
     };
 
     if (!this.didRegisterMenuProvider) {
