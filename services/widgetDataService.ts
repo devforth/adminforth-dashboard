@@ -83,6 +83,12 @@ type EffectiveGroupByItem = {
   timezone?: string;
 };
 
+type DashboardListQuery = {
+  resourceId: string;
+  source: 'list';
+  filters: DashboardQueryFilters;
+};
+
 class ResourceDataAccess {
   constructor(
     private readonly adminforth: IAdminForth,
@@ -90,14 +96,21 @@ class ResourceDataAccess {
     private readonly request?: DashboardWidgetDataOptions['request'],
   ) {}
 
-  async prepare(resourceId: string, filters: FilterExpression | DashboardQueryFilters | undefined) {
+  async prepare(
+    resourceId: string,
+    filters: FilterExpression | DashboardQueryFilters | undefined,
+  ): Promise<DashboardListQuery> {
     const resource = this.adminforth.config.resources.find((item) => item.resourceId === resourceId);
 
     if (!resource) {
-      return getAdminForthFilters(filters);
+      return {
+        resourceId,
+        source: 'list',
+        filters: getAdminForthFilters(filters),
+      };
     }
 
-    const query = {
+    const query: DashboardListQuery = {
       resourceId,
       source: 'list',
       filters: getAdminForthFilters(filters),
@@ -137,7 +150,81 @@ class ResourceDataAccess {
       }
     }
 
-    return query.filters;
+    return query;
+  }
+
+  async postProcessListResponse(
+    resourceId: string,
+    query: DashboardListQuery,
+    rows: Record<string, unknown>[],
+  ): Promise<Record<string, unknown>[]> {
+    const resource = this.adminforth.config.resources.find((item) => item.resourceId === resourceId);
+
+    if (!resource) {
+      return rows;
+    }
+
+    const context = {
+      adminUser: this.adminUser,
+      resource,
+      meta: {},
+      source: ActionCheckSource.ListRequest,
+      adminforth: this.adminforth,
+    };
+    const columns = new Map(resource.columns.map((column) => [column.name, column]));
+
+    // OperationalResource.list() deliberately returns the connector response as-is.
+    // Apply the same response masking as AdminForth's list REST endpoint before hooks run.
+    for (const row of rows) {
+      for (const key of Object.keys(row)) {
+        const column = columns.get(key);
+        const backendOnly = column
+          ? typeof column.backendOnly === 'function'
+            ? await column.backendOnly(context)
+            : Boolean(column.backendOnly)
+          : true;
+
+        if (!column || backendOnly) {
+          delete row[key];
+        }
+      }
+    }
+
+    const afterDatasourceResponse = resource.hooks?.list?.afterDatasourceResponse;
+    const hooks = Array.isArray(afterDatasourceResponse)
+      ? afterDatasourceResponse
+      : afterDatasourceResponse ? [afterDatasourceResponse] : [];
+
+    for (const hook of hooks) {
+      const result = await hook({
+        resource,
+        query,
+        response: rows,
+        adminUser: this.adminUser,
+        extra: {
+          body: query,
+          query: this.request?.query ?? {},
+          headers: this.request?.headers ?? {},
+          cookies: this.request?.cookies ?? [],
+          requestUrl: this.request?.requestUrl ?? '',
+        },
+        adminforth: this.adminforth,
+      });
+
+      if (!result || typeof result.ok !== 'boolean') {
+        throw new DashboardWidgetDataAccessError(
+          'afterDatasourceResponse must return { ok: boolean, error?: string }',
+        );
+      }
+
+      if (!result.ok || result.error) {
+        throw new DashboardWidgetDataAccessError(
+          result?.error || 'Dashboard data response was rejected',
+        );
+      }
+    }
+
+    return rows;
   }
 }
 
@@ -525,15 +612,17 @@ async function getResourceRows(
   adminforth: IAdminForth,
   resourceId: string,
   filters: FilterExpression | undefined,
-  sort?: IAdminForthSort | IAdminForthSort[],
-  access?: ResourceDataAccess,
+  sort: IAdminForthSort | IAdminForthSort[] | undefined,
+  access: ResourceDataAccess,
 ) {
-  return adminforth.resource(resourceId).list(
-    access ? await access.prepare(resourceId, filters) : getAdminForthFilters(filters),
+  const query = await access.prepare(resourceId, filters);
+  const rows = await adminforth.resource(resourceId).list(
+    query.filters,
     undefined,
     0,
     sort,
   );
+  return access.postProcessListResponse(resourceId, query, rows);
 }
 
 function buildPlainQueryRows(rows: Record<string, unknown>[], query: ResourceQueryConfig, variables: DashboardVariables) {
@@ -578,7 +667,7 @@ async function getAggregateRows(
   if (groupBy.length) {
     const groupSeedAlias = getHiddenAggregateAlias(groupBy, select);
     const groupSeedRows = await resource.aggregate(
-      await access.prepare(resourceId, baseFilters),
+      (await access.prepare(resourceId, baseFilters)).filters,
       { [groupSeedAlias]: { operation: 'count' } },
       groupByRules,
     );
@@ -590,7 +679,7 @@ async function getAggregateRows(
 
   for (const filterGroup of aggregateSelectGroups) {
     const rows = await resource.aggregate(
-      await access.prepare(resourceId, mergeFilters(baseFilters, filterGroup.filters)),
+      (await access.prepare(resourceId, mergeFilters(baseFilters, filterGroup.filters))).filters,
       Object.fromEntries(filterGroup.items.map((item) => [item.as, toAggregationRule(item)])),
       groupByRules,
     );
