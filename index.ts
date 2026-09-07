@@ -35,6 +35,25 @@ export default class DashboardPlugin extends AdminForthPlugin {
   async modifyGlobalConfig(adminforth: IAdminForth) {
     super.modifyGlobalConfig(adminforth);
 
+    const dashboardConfigsResource = adminforth.config.resources.find(
+      (resource) => resource.resourceId === this.options.dashboardConfigsResourceId,
+    );
+
+    if (!dashboardConfigsResource) {
+      throw new Error(
+        `Dashboard configs resource "${this.options.dashboardConfigsResourceId}" was not found`,
+      );
+    }
+
+    dashboardConfigsResource.options.allowedActions = {
+      show: false,
+      list: false,
+      edit: false,
+      create: false,
+      delete: false,
+      filter: false,
+    };
+
     if (!this.didRegisterMenuProvider) {
       this.didRegisterMenuProvider = true;
 
