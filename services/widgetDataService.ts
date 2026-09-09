@@ -1,4 +1,4 @@
-import { ActionCheckSource, interpretResource, Sorts } from 'adminforth';
+import { ActionCheckSource, interpretResource, isBackendOnly, isShown, Sorts, stripBackendOnly } from 'adminforth';
 import type {
   AdminUser,
   IAdminForth,
@@ -167,27 +167,15 @@ class ResourceDataAccess {
     const context = {
       adminUser: this.adminUser,
       resource,
-      meta: {},
+      meta: { requestBody: query, pk: undefined },
       source: ActionCheckSource.ListRequest,
       adminforth: this.adminforth,
     };
-    const columns = new Map(resource.columns.map((column) => [column.name, column]));
 
     // OperationalResource.list() deliberately returns the connector response as-is.
     // Apply the same response masking as AdminForth's list REST endpoint before hooks run.
     for (const row of rows) {
-      for (const key of Object.keys(row)) {
-        const column = columns.get(key);
-        const backendOnly = column
-          ? typeof column.backendOnly === 'function'
-            ? await column.backendOnly(context)
-            : Boolean(column.backendOnly)
-          : true;
-
-        if (!column || backendOnly) {
-          delete row[key];
-        }
-      }
+      await stripBackendOnly(row, context);
     }
 
     const afterDatasourceResponse = resource.hooks?.list?.afterDatasourceResponse;
@@ -388,12 +376,8 @@ async function assertWidgetQueryHasNoBackendOnlyFields(
         source: ActionCheckSource.ListRequest,
         adminforth,
       };
-      const backendOnly = typeof column.backendOnly === 'function'
-        ? await column.backendOnly(context)
-        : column.backendOnly;
-      const shownInList = typeof column.showIn?.list === 'function'
-        ? await column.showIn.list(context)
-        : column.showIn?.list !== false;
+      const backendOnly = await isBackendOnly(column, context);
+      const shownInList = await isShown(column, 'list', context);
 
       if (backendOnly || !shownInList) {
         const restriction = backendOnly ? 'backendOnly' : 'hidden in list view';
