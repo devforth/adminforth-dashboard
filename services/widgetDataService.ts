@@ -1034,4 +1034,4 @@ export function createWidgetDataService(adminforth: IAdminForth): WidgetDataServ
   return {
     getWidgetData: (widget, options) => getWidgetData(adminforth, widget, options),
   };
-}
+} 
