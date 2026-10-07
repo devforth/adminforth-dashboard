@@ -27,7 +27,7 @@ export function registerDashboardEndpoints(
     method: 'POST',
     path: '/dashboard/set_dashboard_config',
     agent: {
-      isDangerous: true,
+      requiresHumanApproval: true,
     },
     description: 'Updates a dashboard label, slug, and sidebar icon. Available to configured dashboard editor roles.',
     request_schema: SetDashboardConfigRequestZodSchema,
@@ -58,6 +58,9 @@ export function registerDashboardEndpoints(
     method: 'POST',
     path: '/dashboard/get-config',
     description: 'Loads one dashboard configuration by slug for rendering or editing.',
+    agent: {
+      onlyReadsData: true,
+    },
     request_schema: SlugRequestZodSchema,
     response_schema: z.unknown(),
     handler: async ({ body, adminUser, response }) => {
@@ -88,6 +91,9 @@ export function registerDashboardEndpoints(
     method: 'GET',
     path: '/dashboard/get-slugs',
     description: 'Returns dashboard slugs and labels for configured dashboard editor roles.',
+    agent: {
+      onlyReadsData: true,
+    },
     request_schema: undefined,
     response_schema: GetSlugsResponseZodSchema,
     handler: async ({ adminUser, response }) => {
