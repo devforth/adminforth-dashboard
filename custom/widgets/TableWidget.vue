@@ -66,15 +66,15 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <button
+          <DashboardToolbarButton
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded border border-lightListBorder text-sm disabled:opacity-45 dark:border-darkListBorder"
             :disabled="currentPage <= 1 || isFetching"
             @click="currentPage -= 1"
             aria-label="Previous page"
           >
-            &lt;
-          </button>
+            <IconArrowLeftOutline class="h-5 w-5" />
+          </DashboardToolbarButton>
 
           <span class="flex items-center gap-1">
             <span>Page</span>
@@ -93,15 +93,15 @@
             <span>of {{ pagination.totalPages }}</span>
           </span>
 
-          <button
+          <DashboardToolbarButton
             type="button"
             class="flex h-8 w-8 items-center justify-center rounded border border-lightListBorder text-sm disabled:opacity-45 dark:border-darkListBorder"
             :disabled="currentPage >= pagination.totalPages || isFetching"
             @click="currentPage += 1"
             aria-label="Next page"
           >
-            &gt;
-          </button>
+            <IconArrowRightOutline class="h-5 w-5" />
+          </DashboardToolbarButton>
         </div>
       </div>
     </div>
@@ -115,6 +115,8 @@ import { computed, ref, watch } from 'vue'
 import { useWidgetData } from '../queries/useWidgetData.js'
 import { getFieldRefField } from '../model/dashboard.types.js'
 import type { DashboardWidgetConfig, DashboardWidgetTableData, FieldRef } from '../model/dashboard.types.js'
+import DashboardToolbarButton from '../runtime/DashboardToolbarButton.vue'
+import { IconArrowLeftOutline, IconArrowRightOutline } from '@iconify-prerendered/vue-flowbite'
 
 type TableWidgetConfig = {
   columns?: FieldRef[]

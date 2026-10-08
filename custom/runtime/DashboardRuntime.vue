@@ -21,7 +21,7 @@
         title="Edit dashboard"
         @click="editDashboard"
       >
-        <IconToolsOutline class="h-5 w-5" />
+        <IconCog6Tooth class="h-5 w-5" />
       </DashboardToolbarButton>
     </header>
 
@@ -235,7 +235,7 @@
 import { computed, ref, watch } from 'vue'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { Button } from '@/afcl'
-import { IconToolsOutline } from '@iconify-prerendered/vue-flowbite'
+import { IconCog6Tooth } from '@iconify-prerendered/vue-heroicons';
 import DashboardGroup from './DashboardGroup.vue'
 import DashboardToolbarButton from './DashboardToolbarButton.vue'
 import YamlConfigEditor from './YamlConfigEditor.vue'

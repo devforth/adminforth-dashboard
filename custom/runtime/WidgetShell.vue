@@ -14,7 +14,7 @@
         title="Edit JSON"
         @click="emit('edit')"
       >
-        <IconToolsOutline class="h-5 w-5" />
+        <IconCog6Tooth class="h-5 w-5" />
       </DashboardToolbarButton>
 
       <DashboardToolbarButton
@@ -49,7 +49,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { CSSProperties } from 'vue'
-import { IconArrowDownOutline, IconArrowUpOutline, IconToolsOutline, IconTrashBinSolid } from '@iconify-prerendered/vue-flowbite'
+import { IconArrowDownOutline, IconArrowUpOutline, IconTrashBinSolid } from '@iconify-prerendered/vue-flowbite'
+import { IconCog6Tooth } from '@iconify-prerendered/vue-heroicons';
 import type { WidgetLayout } from '../model/dashboard.types.js'
 import DashboardToolbarButton from './DashboardToolbarButton.vue'
 

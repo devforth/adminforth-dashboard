@@ -18,7 +18,7 @@
           title="Edit JSON"
           @click="emit('edit-group', group)"
         >
-          <IconToolsOutline class="h-5 w-5" />
+          <IconCog6Tooth class="h-5 w-5" />
         </DashboardToolbarButton>
 
         <DashboardToolbarButton
@@ -103,7 +103,8 @@
 
 <script setup lang="ts">
 import { Button } from '@/afcl'
-import { IconArrowDownOutline, IconArrowUpOutline, IconToolsOutline, IconTrashBinSolid } from '@iconify-prerendered/vue-flowbite'
+import { IconArrowDownOutline, IconArrowUpOutline, IconTrashBinSolid } from '@iconify-prerendered/vue-flowbite'
+import { IconCog6Tooth } from '@iconify-prerendered/vue-heroicons';
 import DashboardToolbarButton from './DashboardToolbarButton.vue'
 import WidgetRenderer from './WidgetRenderer.vue'
 import WidgetShell from './WidgetShell.vue'
