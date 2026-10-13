@@ -60,19 +60,20 @@
         >
           {{ bar.axisLabel }}
         </text>
-        <text
-          v-for="bar in bars"
-          v-show="barWidth >= 18"
-          :key="`value-${bar.label}`"
-          :x="bar.x + barWidth / 2"
-          :y="Math.max(bar.y - 8, 12)"
-          fill="currentColor"
-          font-size="11"
-          font-weight="600"
-          text-anchor="middle"
-        >
-          {{ formatChartValue(bar.value) }}
-        </text>
+        <template v-if="valueLabels">
+          <text
+            v-for="(bar, barIndex) in bars"
+            :key="`value-${bar.label}`"
+            :x="bar.x + barWidth / 2"
+            :y="Math.max(bar.y - 8, 12)"
+            fill="currentColor"
+            font-size="11"
+            font-weight="600"
+            text-anchor="middle"
+          >
+            {{ valueLabels[barIndex] }}
+          </text>
+        </template>
       </g>
     </svg>
   </div>
@@ -85,6 +86,7 @@ import { computed } from 'vue'
 import { useElementSize } from '../../composables/useElementSize.js'
 import {
   CHART_COLORS,
+  COMPACT_NUMBER_FORMAT,
   formatChartAxisLabel,
   formatChartLabel,
   formatChartValue,
@@ -126,6 +128,7 @@ const padding = computed(() => ({
 const innerWidth = computed(() => Math.max(chartWidth.value - padding.value.left - padding.value.right, 1))
 const innerHeight = computed(() => Math.max(chartHeight.value - padding.value.top - padding.value.bottom, 1))
 const barGap = 12
+const valueLabelCharWidth = 7
 const barWidth = computed(() => {
   const count = Math.max(props.rows.length, 1)
   return Math.max(Math.min((innerWidth.value - barGap * (count - 1)) / count, 80), 4)
@@ -152,6 +155,15 @@ const visibleLabelIndexes = computed(() => {
   }
 
   return indexes
+})
+
+// Full values when they fit above the bars, compact (1.2K, 3.4M) when bars get narrow, hidden when even compact would overlap
+const valueLabels = computed(() => {
+  const slotWidth = barWidth.value + barGap
+
+  return [{}, COMPACT_NUMBER_FORMAT]
+    .map((options) => values.value.map((value) => formatChartValue(value, options)))
+    .find((labels) => labels.every((label) => label.length * valueLabelCharWidth <= slotWidth))
 })
 
 const bars = computed(() => props.rows.map((row, index) => {

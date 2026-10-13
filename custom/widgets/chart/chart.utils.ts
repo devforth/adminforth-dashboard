@@ -9,6 +9,11 @@ export const CHART_COLORS = [
   '#db2777',
 ]
 
+export const COMPACT_NUMBER_FORMAT: Intl.NumberFormatOptions = {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+}
+
 export function toFiniteNumber(value: unknown) {
   const numberValue = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(numberValue) ? numberValue : 0

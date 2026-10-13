@@ -88,7 +88,7 @@
 import { computed, watch } from 'vue'
 import { useWidgetData } from '../queries/useWidgetData.js'
 import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../model/dashboard.types.js'
-import { formatChartValue, toFiniteNumber } from './chart/chart.utils.js'
+import { COMPACT_NUMBER_FORMAT, formatChartValue, toFiniteNumber } from './chart/chart.utils.js'
 
 const props = defineProps<{
   dashboardSlug: string
@@ -210,7 +210,7 @@ function formatValue(
   }
 
   if (format === 'compact_number') {
-    return `${sign}${formatChartValue(absoluteValue, { notation: 'compact', maximumFractionDigits: 1 })}`
+    return `${sign}${formatChartValue(absoluteValue, COMPACT_NUMBER_FORMAT)}`
   }
 
   if (format === 'currency' || format === 'currency_delta') {
