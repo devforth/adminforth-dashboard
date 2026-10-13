@@ -25,7 +25,7 @@
   "description": "Dashboard plugin for AdminForth",
   "devDependencies": {
     "@types/node": "latest",
-    "adminforth": "^3.32.0",
+    "adminforth": "^3.35.0",
     "semantic-release": "^24.2.1",
     "semantic-release-slack-bot": "^4.0.2",
     "typescript": "^5.7.3",

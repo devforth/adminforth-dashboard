@@ -19,6 +19,8 @@ const DEFAULT_DASHBOARD_CONFIG = {
   widgets: [],
 };
 
+const DASHBOARD_MENU_ICON = 'flowbite:chart-pie-solid';
+
 export default class DashboardPlugin extends AdminForthPlugin {
   options: PluginOptions;
   pluginsScope: "resource" | "global" = "global";
@@ -79,7 +81,7 @@ export default class DashboardPlugin extends AdminForthPlugin {
               itemId: 'dashboardMenu',
               type: 'group',
               label: 'Dashboards',
-              icon: 'flowbite:chart-pie-solid',
+              icon: DASHBOARD_MENU_ICON,
               open: true,
               children: dashboards.map((dashboard: any) => {
                 const config = typeof dashboard.config === 'string'
@@ -90,7 +92,7 @@ export default class DashboardPlugin extends AdminForthPlugin {
                   itemId: `dashboard-${dashboard.id}`,
                   type: 'page',
                   label: dashboard.label,
-                  icon: config?.icon ?? 'flowbite:chart-pie-solid',
+                  icon: config?.icon ?? DASHBOARD_MENU_ICON,
                   url: `/dashboard/${dashboard.slug}`,
                 };
               }),
@@ -98,6 +100,8 @@ export default class DashboardPlugin extends AdminForthPlugin {
             placement: { position: 'first' },
           },
         ];
+      }, {
+        icons: [DASHBOARD_MENU_ICON],
       });
     }
 
