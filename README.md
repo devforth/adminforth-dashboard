@@ -17,6 +17,19 @@ new DashboardPlugin({
 })
 ```
 
+## Agent approvals
+
+By default, the AI agent asks the user for approval before it changes dashboard settings, group or widget configs, or removes groups and widgets. Set `agentEditsRequireApproval: false` to let it apply these changes without asking:
+
+```ts
+new DashboardPlugin({
+  dashboardConfigsResourceId: 'dashboard_configs',
+  agentEditsRequireApproval: false,
+})
+```
+
+`editRoles` still applies, and MCP clients stop receiving the destructive hint for these tools.
+
 ## Dashboard Config Shape
 
 ```ts

@@ -10,4 +10,10 @@ export type PluginOptions = {
 	 * Defaults to ['superadmin'].
 	 */
 	editRoles?: string[];
+	/**
+	 * Whether the AI agent asks the user for approval before it changes dashboards, groups, or widgets.
+	 * When false, MCP clients also stop receiving the destructive hint for these tools.
+	 * Defaults to true.
+	 */
+	agentEditsRequireApproval?: boolean;
 };

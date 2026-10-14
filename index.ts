@@ -157,6 +157,7 @@ export default class DashboardPlugin extends AdminForthPlugin {
     const ctx = {
       adminforth: this.adminforth,
       dashboardConfigsResourceId: this.options.dashboardConfigsResourceId,
+      agentEditsRequireApproval: this.options.agentEditsRequireApproval ?? true,
       canEditDashboard: (adminUser: AdminUser) => this.canEditDashboard(adminUser),
       ...dashboardConfigService,
       ...widgetDataService,

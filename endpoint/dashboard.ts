@@ -9,6 +9,7 @@ import {
 import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
 
 type DashboardEndpointsContext = {
+  agentEditsRequireApproval: boolean;
   canEditDashboard: (adminUser: AdminUser) => boolean;
   getDashboardRecord: (slug: string) => Promise<DashboardRecord | null>;
   getAllDashboardRecords: () => Promise<DashboardRecord[]>;
@@ -27,7 +28,7 @@ export function registerDashboardEndpoints(
     method: 'POST',
     path: '/dashboard/set_dashboard_config',
     agent: {
-      requiresHumanApproval: true,
+      requiresHumanApproval: ctx.agentEditsRequireApproval,
     },
     description: 'Updates a dashboard label, slug, and sidebar icon. Available to configured dashboard editor roles.',
     request_schema: SetDashboardConfigRequestZodSchema,

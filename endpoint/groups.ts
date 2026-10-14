@@ -15,6 +15,7 @@ import {
 import type { DashboardRecord, PersistedDashboardResponse } from '../services/dashboardConfigService.js';
 
 type GroupEndpointsContext = {
+  agentEditsRequireApproval: boolean;
   canEditDashboard: (adminUser: AdminUser) => boolean;
   getDashboardRecord: (slug: string) => Promise<DashboardRecord | null>;
   parseStoredDashboardConfig: (config: unknown) => DashboardConfig;
@@ -73,7 +74,7 @@ export function registerGroupEndpoints(
     method: 'POST',
     path: '/dashboard/set_dashboard_group_config',
     agent: {
-      requiresHumanApproval: true,
+      requiresHumanApproval: ctx.agentEditsRequireApproval,
     },
     description: 'Replaces editable JSON configuration for a dashboard group while preserving group id and order. Superadmin only.',
     request_schema: SetGroupConfigRequestZodSchema,
@@ -178,7 +179,7 @@ export function registerGroupEndpoints(
     method: 'POST',
     path: '/dashboard/remove_dashboard_group',
     agent: {
-      requiresHumanApproval: true,
+      requiresHumanApproval: ctx.agentEditsRequireApproval,
     },
     description: 'Removes a dashboard group and all widgets inside it. Superadmin only.',
     request_schema: GroupIdRequestZodSchema,
