@@ -19,27 +19,12 @@
           v-for="segment in segments"
           :key="segment.id"
           :d="segment.path"
-          :fill="segment.color"
-          fill-opacity="0.9"
+          :style="{ fill: segment.color }"
         >
           <title>
-            {{ segment.label }}: {{ formatChartValue(segment.value) }} ({{ segment.percentLabel }})
+            {{ segment.label }}: {{ formatValue(segment.value, format) }} ({{ segment.percentLabel }})
           </title>
         </path>
-
-        <text
-          v-for="segment in segments"
-          v-show="segment.labelVisible"
-          :key="`value-${segment.id}`"
-          :x="chartWidth / 2"
-          :y="segment.centerY + 4"
-          fill="#ffffff"
-          font-size="12"
-          font-weight="600"
-          text-anchor="middle"
-        >
-          {{ formatChartValue(segment.value) }}
-        </text>
       </svg>
     </div>
 
@@ -62,7 +47,7 @@
 
         <div class="text-right">
           <div class="font-semibold text-lightNavbarText dark:text-darkNavbarText">
-            {{ formatChartValue(segment.value) }}
+            {{ formatValue(segment.value, format) }}
           </div>
 
           <div class="text-xs text-lightListTableText dark:text-darkListTableText">
@@ -79,11 +64,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useElementSize } from '../../composables/useElementSize.js'
+import type { ValueFormat } from '../../model/dashboard.types.js'
 import {
   CHART_COLORS,
   formatChartAxisLabel,
   formatChartLabel,
-  formatChartValue,
+  formatValue,
   toFiniteNumber,
 } from './chart.utils.js'
 
@@ -92,6 +78,7 @@ const props = withDefaults(defineProps<{
   labelField: string
   valueField: string
   colors?: string[]
+  format?: ValueFormat
   height?: number
 }>(), {
   height: 260,
@@ -194,8 +181,6 @@ const segments = computed(() => funnelRows.value.map((row, index) => {
       `L ${xBottom} ${yBottom}`,
       'Z',
     ].join(' '),
-    centerY: yTop + segmentHeight.value / 2,
-    labelVisible: segmentHeight.value >= 24 && Math.min(topWidth, bottomWidth) >= Math.max(chartWidth.value * 0.22, 96),
   }
 }))
 </script>

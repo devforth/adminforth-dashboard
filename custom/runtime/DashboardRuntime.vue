@@ -1,5 +1,5 @@
 <template>
-  <section class="w-full p-6">
+  <section class="dashboard-runtime w-full p-6">
     <header class="mb-6 flex items-start justify-between">
       <div>
         <h1 class="m-0 text-2xl font-bold text-lightNavbarText dark:text-darkNavbarText">
@@ -549,3 +549,31 @@ function cloneConfig(config: DashboardConfig): DashboardConfig {
   return JSON.parse(JSON.stringify(config))
 }
 </script>
+
+<style scoped>
+/* Chart colors used by widgets/chart/chart.utils.ts. The series order is validated for color-vision
+   deficiency against the card surfaces (lightListTable / darkListTable), so keep it when changing values. */
+.dashboard-runtime {
+  --dashboard-primary: theme('colors.lightPrimary');
+  --dashboard-series-1: #2a78d6;
+  --dashboard-series-2: #eb6834;
+  --dashboard-series-3: #1baf7a;
+  --dashboard-series-4: #eda100;
+  --dashboard-series-5: #e87ba4;
+  --dashboard-series-6: #008300;
+  --dashboard-series-7: #6250d6;
+  --dashboard-series-8: #e34948;
+}
+
+.dark .dashboard-runtime {
+  --dashboard-primary: theme('colors.darkPrimary');
+  --dashboard-series-1: #3987e5;
+  --dashboard-series-2: #d95926;
+  --dashboard-series-3: #199e70;
+  --dashboard-series-4: #c98500;
+  --dashboard-series-5: #d55181;
+  --dashboard-series-6: #008300;
+  --dashboard-series-7: #9085e9;
+  --dashboard-series-8: #e66767;
+}
+</style>

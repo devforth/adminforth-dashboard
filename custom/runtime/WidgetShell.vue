@@ -1,7 +1,7 @@
 <template>
   <div
-    class="group relative flex min-h-24 grow shrink basis-[var(--widget-basis)] flex-col overflow-hidden rounded-lg bg-lightListTable p-3 min-w-[var(--widget-min-width)] max-w-[var(--widget-max-width)] dark:bg-darkListTable"
-    :class="isEditMode ? 'border border-dashed border-lightListBorder dark:border-darkListBorder' : ''"
+    class="group relative flex min-h-24 grow shrink basis-[var(--widget-basis)] flex-col overflow-hidden rounded-lg border border-lightListBorder bg-lightListTable p-4 min-w-[var(--widget-min-width)] max-w-[var(--widget-max-width)] dark:border-darkListBorder dark:bg-darkListTable"
+    :class="isEditMode ? 'border-dashed' : ''"
     :style="widgetLayoutVars"
   >
     <slot />
@@ -54,8 +54,6 @@ import { IconCog6Tooth } from '@iconify-prerendered/vue-heroicons';
 import type { WidgetLayout } from '../model/dashboard.types.js'
 import DashboardToolbarButton from './DashboardToolbarButton.vue'
 
-const DEFAULT_WIDGET_HEIGHT = 500
-
 const sizeToFlexBasis: Record<NonNullable<WidgetLayout['size']>, string> = {
   small: '260px',
   medium: '360px',
@@ -88,7 +86,7 @@ const widgetLayoutVars = computed<CSSProperties>(() => {
     '--widget-max-width': props.layout?.max_width === null
       ? '100%'
       : clampToContainerWidth(fixedWidth ?? formatWidth(props.layout?.max_width) ?? '100%'),
-    height: formatWidth(props.layout?.height ?? DEFAULT_WIDGET_HEIGHT),
+    height: formatWidth(props.layout?.height),
   }
 })
 

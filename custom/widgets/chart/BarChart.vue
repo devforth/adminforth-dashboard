@@ -30,29 +30,25 @@
           font-size="11"
           text-anchor="end"
         >
-          {{ formatChartValue(tick.value) }}
+          {{ tick.label }}
         </text>
       </g>
 
-      <rect
+      <path
         v-for="bar in bars"
         :key="bar.label"
-        :x="bar.x"
-        :y="bar.y"
-        :width="barWidth"
-        :height="bar.height"
-        :fill="chartColor"
-        rx="5"
+        :d="bar.path"
+        :style="{ fill: chartColor }"
       >
-        <title>{{ bar.label }}: {{ formatChartValue(bar.value) }}</title>
-      </rect>
+        <title>{{ bar.label }}: {{ formatValue(bar.value, format) }}</title>
+      </path>
 
       <g class="text-lightListTableText dark:text-darkListTableText">
         <text
           v-for="(bar, barIndex) in bars"
           v-show="visibleLabelIndexes.has(barIndex)"
           :key="`x-${bar.label}`"
-          :x="bar.x + barWidth / 2"
+          :x="bar.centerX"
           :y="padding.top + innerHeight + 24"
           fill="currentColor"
           font-size="11"
@@ -64,7 +60,7 @@
           <text
             v-for="(bar, barIndex) in bars"
             :key="`value-${bar.label}`"
-            :x="bar.x + barWidth / 2"
+            :x="bar.centerX"
             :y="Math.max(bar.y - 8, 12)"
             fill="currentColor"
             font-size="11"
@@ -84,13 +80,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useElementSize } from '../../composables/useElementSize.js'
+import type { ValueFormat } from '../../model/dashboard.types.js'
 import {
-  CHART_COLORS,
-  COMPACT_NUMBER_FORMAT,
+  CHART_PRIMARY_COLOR,
   formatChartAxisLabel,
   formatChartLabel,
-  formatChartValue,
+  formatValue,
+  getBarBand,
+  getBarPath,
   getChartYAxisWidth,
+  getNiceScale,
+  getVisibleLabelIndexes,
   toFiniteNumber,
 } from './chart.utils.js'
 
@@ -99,6 +99,7 @@ const props = withDefaults(defineProps<{
   labelField: string
   valueField: string
   color?: string
+  format?: ValueFormat
   height?: number
 }>(), {
   height: 260,
@@ -115,73 +116,47 @@ const chartHeight = computed(() => {
   return Math.max(props.height, 1)
 })
 
-const chartColor = computed(() => props.color || CHART_COLORS[0])
+const chartColor = computed(() => props.color || CHART_PRIMARY_COLOR)
 const values = computed(() => props.rows.map((row) => toFiniteNumber(row[props.valueField])))
-const maxValue = computed(() => Math.max(...values.value, 1))
-const yTickValues = computed(() => [maxValue.value, maxValue.value * 0.5, 0])
+const scale = computed(() => getNiceScale(Math.max(...values.value, 1)))
+const tickLabels = computed(() => scale.value.ticks.map((value) => formatValue(value, props.format, { compact: true })))
 const padding = computed(() => ({
   top: 20,
   right: 6,
   bottom: 34,
-  left: getChartYAxisWidth(yTickValues.value, chartWidth.value),
+  left: getChartYAxisWidth(tickLabels.value, chartWidth.value),
 }))
 const innerWidth = computed(() => Math.max(chartWidth.value - padding.value.left - padding.value.right, 1))
 const innerHeight = computed(() => Math.max(chartHeight.value - padding.value.top - padding.value.bottom, 1))
-const barGap = 12
+const band = computed(() => getBarBand(innerWidth.value, props.rows.length))
 const valueLabelCharWidth = 7
-const barWidth = computed(() => {
-  const count = Math.max(props.rows.length, 1)
-  return Math.max(Math.min((innerWidth.value - barGap * (count - 1)) / count, 80), 4)
-})
-const totalChartWidth = computed(() => {
-  const count = Math.max(props.rows.length, 1)
-  return count * barWidth.value + (count - 1) * barGap
-})
-const chartStartX = computed(() => padding.value.left + Math.max((innerWidth.value - totalChartWidth.value) / 2, 0))
-const visibleLabelIndexes = computed(() => {
-  const count = props.rows.length
-  const approxLabelWidth = 52
-  const maxLabels = Math.max(2, Math.floor(innerWidth.value / approxLabelWidth))
+const visibleLabelIndexes = computed(() => getVisibleLabelIndexes(props.rows.length, innerWidth.value))
 
-  if (count <= maxLabels || barWidth.value >= 44) {
-    return new Set(props.rows.map((_, index) => index))
-  }
-
-  const indexes = new Set<number>()
-  const step = (count - 1) / (maxLabels - 1)
-
-  for (let index = 0; index < maxLabels; index += 1) {
-    indexes.add(Math.round(index * step))
-  }
-
-  return indexes
-})
-
-// Full values when they fit above the bars, compact (1.2K, 3.4M) when bars get narrow, hidden when even compact would overlap
+// Full values when they fit above the bars, compact (1.2K, 3.4M) when slots get narrow, hidden when even compact would overlap
 const valueLabels = computed(() => {
-  const slotWidth = barWidth.value + barGap
-
-  return [{}, COMPACT_NUMBER_FORMAT]
-    .map((options) => values.value.map((value) => formatChartValue(value, options)))
-    .find((labels) => labels.every((label) => label.length * valueLabelCharWidth <= slotWidth))
+  return [false, true]
+    .map((compact) => values.value.map((value) => formatValue(value, props.format, { compact })))
+    .find((labels) => labels.every((label) => label.length * valueLabelCharWidth <= band.value.slotWidth))
 })
 
 const bars = computed(() => props.rows.map((row, index) => {
   const value = values.value[index]
-  const height = (value / maxValue.value) * innerHeight.value
+  const height = (value / scale.value.max) * innerHeight.value
+  const x = padding.value.left + index * band.value.slotWidth + (band.value.slotWidth - band.value.barWidth) / 2
+  const y = padding.value.top + innerHeight.value - height
 
   return {
     label: formatChartLabel(row[props.labelField]),
     axisLabel: formatChartAxisLabel(row[props.labelField]),
     value,
-    x: chartStartX.value + index * (barWidth.value + barGap),
-    y: padding.value.top + innerHeight.value - height,
-    height,
+    centerX: x + band.value.barWidth / 2,
+    y,
+    path: getBarPath(x, y, band.value.barWidth, height),
   }
 }))
 
-const yTicks = computed(() => [0, 0.5, 1].map((ratio) => ({
-  value: maxValue.value * (1 - ratio),
-  y: padding.value.top + innerHeight.value * ratio,
+const yTicks = computed(() => scale.value.ticks.map((value, index) => ({
+  label: tickLabels.value[index],
+  y: padding.value.top + innerHeight.value - (value / scale.value.max) * innerHeight.value,
 })))
 </script>

@@ -55,6 +55,10 @@ const widgetTitle = computed(() => {
     return props.widget.chart.title || 'Untitled chart'
   }
 
+  if (props.widget.target === 'kpi_card' || props.widget.target === 'gauge_card') {
+    return props.widget.card.title || getWidgetLabel(props.widget.target)
+  }
+
   return getWidgetLabel(props.widget.target)
 })
 </script>

@@ -1,5 +1,5 @@
 <template>
-  <div class="mt-3 rounded-lg border border-lightListBorder bg-lightTableBackground p-4 dark:border-darkListBorder dark:bg-darkTableBackground">
+  <div>
     <div
       v-if="isLoading"
       class="text-sm text-lightListTableText dark:text-darkListTableText"
@@ -27,16 +27,16 @@
       >
         <path
           d="M18 90a72 72 0 0 1 144 0"
-          class="text-lightListBorder dark:text-darkListBorder"
           fill="none"
-          stroke="currentColor"
+          :style="{ stroke: gaugeColor }"
+          stroke-opacity="0.15"
           stroke-linecap="round"
           stroke-width="18"
         />
         <path
           d="M18 90a72 72 0 0 1 144 0"
           fill="none"
-          :stroke="gaugeColor"
+          :style="{ stroke: gaugeColor }"
           stroke-linecap="round"
           stroke-width="18"
           :stroke-dasharray="circumference"
@@ -44,7 +44,7 @@
         />
       </svg>
 
-      <div class="text-3xl font-bold text-lightNavbarText dark:text-darkNavbarText">
+      <div class="text-3xl font-semibold tracking-tight text-lightNavbarText dark:text-darkNavbarText">
         {{ gaugeConfig?.value.prefix ?? '' }}{{ formattedValue }}{{ gaugeConfig?.value.suffix ?? '' }}
       </div>
       <div class="text-sm text-lightListTableText dark:text-darkListTableText">
@@ -60,7 +60,7 @@
 import { computed, watch } from 'vue'
 import { useWidgetData } from '../queries/useWidgetData.js'
 import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../model/dashboard.types.js'
-import { CHART_COLORS, formatChartValue, toFiniteNumber } from './chart/chart.utils.js'
+import { CHART_PRIMARY_COLOR, formatChartValue, toFiniteNumber } from './chart/chart.utils.js'
 
 const props = defineProps<{
   dashboardSlug: string
@@ -152,5 +152,5 @@ const progress = computed(() => {
 const radius = 72
 const circumference = Math.PI * radius
 const strokeDashoffset = computed(() => circumference * (1 - progress.value))
-const gaugeColor = computed(() => gaugeConfig.value?.color || CHART_COLORS[0])
+const gaugeColor = computed(() => gaugeConfig.value?.color || CHART_PRIMARY_COLOR)
 </script>

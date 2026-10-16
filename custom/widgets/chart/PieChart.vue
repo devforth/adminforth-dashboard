@@ -10,7 +10,7 @@
     >
       <svg
         v-if="size > 0"
-        class="shrink-0 -rotate-90 drop-shadow-sm"
+        class="shrink-0 -rotate-90"
         :width="size"
         :height="size"
         :viewBox="`0 0 ${size} ${size}`"
@@ -32,7 +32,7 @@
           :cx="center"
           :cy="center"
           :r="radius"
-          :stroke="slice.color"
+          :style="{ stroke: slice.color }"
           :stroke-dasharray="slice.dashArray"
           :stroke-dashoffset="slice.dashOffset"
           fill="none"
@@ -40,14 +40,14 @@
           stroke-linecap="butt"
           :stroke-width="strokeWidth"
         >
-          <title>{{ slice.label }}: {{ formatChartValue(slice.value) }} ({{ slice.percentLabel }})</title>
+          <title>{{ slice.label }}: {{ formatValue(slice.value, format) }} ({{ slice.percentLabel }})</title>
         </circle>
       </svg>
 
       <div class="absolute inset-0 grid place-items-center text-center">
         <div>
-          <div class="text-2xl font-bold text-lightNavbarText dark:text-darkNavbarText">
-            {{ formatChartValue(total) }}
+          <div class="text-2xl font-semibold text-lightNavbarText dark:text-darkNavbarText">
+            {{ formatValue(total, format, { compact: true }) }}
           </div>
           <div class="text-xs uppercase tracking-wide text-lightListTableText dark:text-darkListTableText">
             Total
@@ -77,7 +77,7 @@
             {{ slice.percentLabel }}
           </div>
           <div class="text-xs text-lightListTableText dark:text-darkListTableText">
-            {{ formatChartValue(slice.value) }}
+            {{ formatValue(slice.value, format) }}
           </div>
         </div>
       </div>
@@ -90,13 +90,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useElementSize } from '../../composables/useElementSize.js'
-import { CHART_COLORS, formatChartLabel, formatChartValue, toFiniteNumber } from './chart.utils.js'
+import type { ValueFormat } from '../../model/dashboard.types.js'
+import { CHART_COLORS, formatChartLabel, formatValue, toFiniteNumber } from './chart.utils.js'
 
 const props = withDefaults(defineProps<{
   rows: Record<string, unknown>[]
   labelField: string
   valueField: string
   colors?: string[]
+  format?: ValueFormat
   height?: number
 }>(), {
   height: 240,

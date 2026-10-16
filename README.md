@@ -56,7 +56,7 @@ Each widget has common fields:
 | `order` | Widget order inside its group. |
 | `variables` | Optional widget variables passed to widget data loading. Variables are not available inside `query.calcs`. |
 | `size` | Preset width: `small`, `medium`, `large`, `wide`, or `full`. |
-| `width`, `height`, `min_width`, `max_width` | Optional explicit layout constraints. |
+| `width`, `height`, `min_width`, `max_width` | Optional explicit layout constraints. Without `height`, charts, tables and pivot tables are 400px tall, and KPI and gauge cards fit their content. |
 | `query` | Data query definition. |
 
 ## Widget Support Matrix

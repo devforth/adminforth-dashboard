@@ -1,22 +1,22 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-lightListBorder bg-lightTableBackground dark:border-darkListBorder dark:bg-darkTableBackground">
+  <div class="flex h-full min-h-0 flex-col overflow-hidden rounded-lg">
     <div
       v-if="isLoading"
-      class="p-4 text-sm text-lightListTableText dark:text-darkListTableText"
+      class="text-sm text-lightListTableText dark:text-darkListTableText"
     >
       Loading...
     </div>
 
     <div
       v-else-if="error"
-      class="p-4 text-sm text-lightInputErrorColor"
+      class="text-sm text-lightInputErrorColor"
     >
       {{ errorMessage }}
     </div>
 
     <div
       v-else-if="!tableData?.rows.length"
-      class="p-4 text-sm text-lightListTableText dark:text-darkListTableText"
+      class="text-sm text-lightListTableText dark:text-darkListTableText"
     >
       No data available
     </div>

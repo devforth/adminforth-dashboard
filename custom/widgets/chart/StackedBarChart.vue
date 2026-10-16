@@ -53,7 +53,7 @@
             font-size="11"
             text-anchor="end"
           >
-            {{ formatChartValue(tick.value) }}
+            {{ tick.label }}
           </text>
         </g>
 
@@ -61,23 +61,18 @@
           v-for="(bar, barIndex) in bars"
           :key="bar.label"
         >
-          <rect
-            v-for="segment in bar.segments"
-            :key="segment.id"
-            v-show="segment.height > 0"
-            :x="bar.x"
-            :y="segment.y"
-            :width="barWidth"
-            :height="segment.height"
-            :fill="segment.color"
-            rx="3"
+          <path
+            v-for="shape in bar.shapes"
+            :key="shape.id"
+            :d="shape.path"
+            :style="{ fill: shape.color }"
             @mouseenter="showTooltip($event, bar)"
             @mousemove="moveTooltip($event)"
           />
 
           <text
             v-if="visibleLabelIndexes.has(barIndex)"
-            :x="bar.x + barWidth / 2"
+            :x="bar.x + band.barWidth / 2"
             :y="padding.top + innerHeight + 24"
             fill="currentColor"
             font-size="11"
@@ -113,12 +108,17 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useElementSize } from '../../composables/useElementSize.js'
+import type { ValueFormat } from '../../model/dashboard.types.js'
 import {
   CHART_COLORS,
   formatChartAxisLabel,
   formatChartLabel,
-  formatChartValue,
+  formatValue,
+  getBarBand,
+  getBarPath,
   getChartYAxisWidth,
+  getNiceScale,
+  getVisibleLabelIndexes,
   toFiniteNumber,
 } from './chart.utils.js'
 
@@ -128,6 +128,7 @@ const props = withDefaults(defineProps<{
   yField: string
   seriesField: string
   colors?: string[]
+  format?: ValueFormat
   height?: number
 }>(), {
   height: 280,
@@ -136,7 +137,9 @@ const props = withDefaults(defineProps<{
 const { el: rootEl, width: rootWidth } = useElementSize<HTMLDivElement>()
 const { el: svgEl, width: svgWidth, height: svgHeight } = useElementSize<HTMLDivElement>()
 
-const barGap = 10
+// Empty space between stacked segments, so neighbors read as separate without an outline
+const SEGMENT_GAP = 2
+
 type StackedBarTooltipBar = {
   label: string
   total: number
@@ -178,77 +181,68 @@ const groupedRows = computed(() => {
 
   return Array.from(grouped.values())
 })
-const barWidth = computed(() => {
-  const count = Math.max(groupedRows.value.length, 1)
-  return Math.max(Math.min((innerWidth.value - barGap * (count - 1)) / count, 80), 4)
-})
-const totalChartWidth = computed(() => {
-  const count = Math.max(groupedRows.value.length, 1)
-  return count * barWidth.value + (count - 1) * barGap
-})
-const chartStartX = computed(() => padding.value.left + Math.max((innerWidth.value - totalChartWidth.value) / 2, 0))
 const totals = computed(() => groupedRows.value.map((row) => normalizedSeries.value.reduce(
   (sum, series) => sum + toFiniteNumber(row[series.name]),
   0,
 )))
-const maxTotal = computed(() => Math.max(...totals.value, 1))
-const yTickValues = computed(() => [maxTotal.value, maxTotal.value * 0.5, 0])
+const scale = computed(() => getNiceScale(Math.max(...totals.value, 1)))
+const tickLabels = computed(() => scale.value.ticks.map((value) => formatValue(value, props.format, { compact: true })))
 const padding = computed(() => ({
   top: 24,
   right: 6,
   bottom: 34,
-  left: getChartYAxisWidth(yTickValues.value, chartWidth.value),
+  left: getChartYAxisWidth(tickLabels.value, chartWidth.value),
 }))
 const innerWidth = computed(() => Math.max(chartWidth.value - padding.value.left - padding.value.right, 1))
 const innerHeight = computed(() => Math.max(chartHeight.value - padding.value.top - padding.value.bottom, 1))
+const band = computed(() => getBarBand(innerWidth.value, groupedRows.value.length))
 
 const bars = computed(() => groupedRows.value.map((row, rowIndex) => {
+  const x = padding.value.left + rowIndex * band.value.slotWidth + (band.value.slotWidth - band.value.barWidth) / 2
   let y = padding.value.top + innerHeight.value
+
+  const segments = normalizedSeries.value.map((series) => {
+    const value = toFiniteNumber(row[series.name])
+    const height = (value / scale.value.max) * innerHeight.value
+    y -= height
+
+    return {
+      id: `${rowIndex}-${series.name}`,
+      name: series.name,
+      value,
+      color: series.color,
+      y,
+      height,
+    }
+  })
+  const visibleSegments = segments.filter((segment) => segment.height > 0)
 
   return {
     label: String(row[props.xField]),
     axisLabel: formatChartAxisLabel(row[props.xField]),
-    x: chartStartX.value + rowIndex * (barWidth.value + barGap),
+    x,
     total: totals.value[rowIndex],
-    segments: normalizedSeries.value.map((series) => {
-      const value = toFiniteNumber(row[series.name])
-      const height = (value / maxTotal.value) * innerHeight.value
-      y -= height
-
-      return {
-        id: `${rowIndex}-${series.name}`,
-        name: series.name,
-        value,
-        color: series.color,
-        y,
-        height,
-      }
-    }),
+    segments,
+    // Every segment above the bottom one gives up SEGMENT_GAP at its base, only the topmost gets the rounded end
+    shapes: visibleSegments.map((segment, index) => ({
+      id: segment.id,
+      color: segment.color,
+      path: getBarPath(
+        x,
+        segment.y,
+        band.value.barWidth,
+        Math.max(segment.height - (index > 0 ? SEGMENT_GAP : 0), 0),
+        index === visibleSegments.length - 1,
+      ),
+    })),
   }
 }))
 
-const visibleLabelIndexes = computed(() => {
-  const count = bars.value.length
-  const approxLabelWidth = 52
-  const maxLabels = Math.max(2, Math.floor(innerWidth.value / approxLabelWidth))
+const visibleLabelIndexes = computed(() => getVisibleLabelIndexes(bars.value.length, innerWidth.value))
 
-  if (count <= maxLabels || barWidth.value >= 44) {
-    return new Set(bars.value.map((_, index) => index))
-  }
-
-  const indexes = new Set<number>()
-  const step = (count - 1) / (maxLabels - 1)
-
-  for (let index = 0; index < maxLabels; index += 1) {
-    indexes.add(Math.round(index * step))
-  }
-
-  return indexes
-})
-
-const yTicks = computed(() => [0, 0.5, 1].map((ratio) => ({
-  value: maxTotal.value * (1 - ratio),
-  y: padding.value.top + innerHeight.value * ratio,
+const yTicks = computed(() => scale.value.ticks.map((value, index) => ({
+  label: tickLabels.value[index],
+  y: padding.value.top + innerHeight.value - (value / scale.value.max) * innerHeight.value,
 })))
 
 function showTooltip(event: MouseEvent, bar: StackedBarTooltipBar) {
@@ -288,12 +282,12 @@ function getBarTooltipLines(bar: StackedBarTooltipBar) {
       ? (segment.value / bar.total) * 100
       : 0
 
-    return `${segment.name}: ${formatChartValue(segment.value)} (${percentFormatter.format(share)}%)`
+    return `${segment.name}: ${formatValue(segment.value, props.format)} (${percentFormatter.format(share)}%)`
   })
 
   return [
     `${bar.label}`,
-    `Total: ${formatChartValue(bar.total)}`,
+    `Total: ${formatValue(bar.total, props.format)}`,
     ...segmentLines,
   ]
 }

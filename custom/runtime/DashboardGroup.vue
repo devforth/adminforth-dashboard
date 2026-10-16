@@ -59,7 +59,7 @@
           width: widget.width,
           min_width: widget.min_width,
           max_width: widget.max_width,
-          height: widget.height,
+          height: widget.height ?? getWidgetDefaultHeight(widget.target),
         }"
         @edit="emit('edit-widget', widget)"
         @move-up="emit('move-widget-up', widget.id)"
@@ -109,6 +109,7 @@ import DashboardToolbarButton from './DashboardToolbarButton.vue'
 import WidgetRenderer from './WidgetRenderer.vue'
 import WidgetShell from './WidgetShell.vue'
 import type { DashboardGroupConfig, DashboardWidgetConfig } from '../model/dashboard.types.js'
+import { getWidgetDefaultHeight } from '../widgets/registry.js'
 
 defineProps<{
   group: DashboardGroupConfig

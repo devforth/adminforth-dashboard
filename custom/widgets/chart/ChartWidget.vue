@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full min-h-0 overflow-hidden rounded-lg bg-lightTableBackground p-3 dark:bg-darkTableBackground">
+  <div class="h-full min-h-0 overflow-hidden">
     <div
       v-if="isLoading"
       class="text-sm text-lightListTableText dark:text-darkListTableText"
@@ -28,6 +28,7 @@
       :y-field="yField"
       :series-name="lineSeriesName"
       :color="chartConfig.color"
+      :format="valueFormat"
       :height="chartHeight"
     />
 
@@ -37,6 +38,7 @@
       :label-field="pieLabelField"
       :value-field="pieValueField"
       :colors="chartConfig.colors"
+      :format="valueFormat"
       :height="chartHeight"
     />
 
@@ -46,6 +48,7 @@
       :label-field="barLabelField"
       :value-field="barValueField"
       :color="chartConfig.color"
+      :format="valueFormat"
       :height="chartHeight"
     />
 
@@ -55,6 +58,7 @@
       :label-field="labelField"
       :value-field="valueField"
       :colors="chartConfig.colors"
+      :format="valueFormat"
       :height="chartHeight"
     />
 
@@ -65,6 +69,7 @@
       :y-field="stackedBarYField"
       :series-field="stackedBarSeriesField"
       :colors="chartConfig.colors"
+      :format="valueFormat"
       :height="chartHeight"
     />
 
@@ -88,9 +93,7 @@ import FunnelChart from './FunnelChart.vue'
 import LineChart from './LineChart.vue'
 import PieChart from './PieChart.vue'
 import StackedBarChart from './StackedBarChart.vue'
-import { toFiniteNumber } from './chart.utils.js'
-
-const DEFAULT_WIDGET_HEIGHT = 500
+import { DEFAULT_WIDGET_HEIGHT, toFiniteNumber } from './chart.utils.js'
 
 const props = defineProps<{
   dashboardSlug: string
@@ -185,6 +188,8 @@ const barValueField = computed(() => chartConfig.value?.type === 'histogram' && 
 const seriesField = computed(() => chartConfig.value?.series?.field || columns.value[2] || '')
 const stackedBarYField = computed(() => stackedBarYItems.value.length ? '__value' : yField.value)
 const stackedBarSeriesField = computed(() => stackedBarYItems.value.length ? '__series' : seriesField.value)
+const valueFormat = computed(() => chartConfig.value?.value?.format
+  ?? (Array.isArray(chartConfig.value?.y) ? chartConfig.value.y[0]?.format : chartConfig.value?.y?.format))
 const lineSeriesName = computed(() => {
   const y = chartConfig.value?.y
   return Array.isArray(y) ? y[0]?.label : undefined

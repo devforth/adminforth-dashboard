@@ -1,5 +1,5 @@
 <template>
-  <div class="mt-3 rounded-lg border border-lightListBorder bg-lightTableBackground p-4 dark:border-darkListBorder dark:bg-darkTableBackground">
+  <div>
     <div
       v-if="isLoading"
       class="text-sm text-lightListTableText dark:text-darkListTableText"
@@ -19,11 +19,11 @@
       class="grid gap-3"
     >
       <div class="grid gap-1">
-        <div class="text-3xl font-bold text-lightNavbarText dark:text-darkNavbarText">
+        <div class="text-3xl font-semibold tracking-tight text-lightNavbarText dark:text-darkNavbarText">
           {{ formattedValue }}
         </div>
         <div class="flex flex-wrap items-center gap-2 text-sm text-lightListTableText dark:text-darkListTableText">
-          <span>{{ label }}</span>
+          <span v-if="label">{{ label }}</span>
           <span
             v-if="comparison"
             class="rounded px-1.5 py-0.5 text-xs font-medium"
@@ -88,7 +88,7 @@
 import { computed, watch } from 'vue'
 import { useWidgetData } from '../queries/useWidgetData.js'
 import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../model/dashboard.types.js'
-import { COMPACT_NUMBER_FORMAT, formatChartValue, toFiniteNumber } from './chart/chart.utils.js'
+import { formatValue, toFiniteNumber } from './chart/chart.utils.js'
 
 const props = defineProps<{
   dashboardSlug: string
@@ -123,7 +123,7 @@ const label = computed(() => kpiConfig.value?.subtitle?.field
   ? [kpiConfig.value.subtitle.text, formatValue(firstRow.value[kpiConfig.value.subtitle.field], kpiConfig.value.value.format)]
       .filter(Boolean)
       .join(': ')
-  : kpiConfig.value?.subtitle?.text ?? kpiConfig.value?.title ?? props.widget.label)
+  : kpiConfig.value?.subtitle?.text)
 const formattedValue = computed(() => `${kpiConfig.value?.value.prefix ?? ''}${formatValue(value.value, kpiConfig.value?.value.format)}${kpiConfig.value?.value.suffix ?? ''}`)
 const comparisonValue = computed(() => kpiConfig.value?.comparison?.field
   ? value.value - toFiniteNumber(firstRow.value[kpiConfig.value.comparison.field])
@@ -137,7 +137,7 @@ const comparison = computed(() => {
 
   const template = config.compact?.template ?? '{sign}{value}'
   const tooltipTemplate = config.tooltip?.template
-  const valueText = formatValue(Math.abs(comparisonValue.value), config.format, { signed: false, compactTemplate: true })
+  const valueText = formatValue(Math.abs(comparisonValue.value), config.format, { compactTemplate: true })
   const sign = comparisonValue.value > 0 ? '+' : comparisonValue.value < 0 ? '-' : ''
 
   return {
@@ -194,42 +194,5 @@ function applyTemplate(template: string, sign: string, value: string) {
   return template
     .replaceAll('{sign}', sign)
     .replaceAll('{value}', value)
-}
-
-function formatValue(
-  rawValue: unknown,
-  format = 'number',
-  options: { signed?: boolean, compactTemplate?: boolean } = {},
-) {
-  const numericValue = toFiniteNumber(rawValue)
-  const sign = options.signed && numericValue > 0 ? '+' : ''
-  const absoluteValue = options.signed ? Math.abs(numericValue) : numericValue
-
-  if (format === 'integer') {
-    return `${sign}${formatChartValue(absoluteValue, { maximumFractionDigits: 0 })}`
-  }
-
-  if (format === 'compact_number') {
-    return `${sign}${formatChartValue(absoluteValue, COMPACT_NUMBER_FORMAT)}`
-  }
-
-  if (format === 'currency' || format === 'currency_delta') {
-    return `${sign}${formatChartValue(absoluteValue, {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 2,
-    })}`
-  }
-
-  if (format === 'percent' || format === 'percent_delta') {
-    const value = formatChartValue(absoluteValue, { maximumFractionDigits: 1 })
-    return options.compactTemplate ? value : `${sign}${value}%`
-  }
-
-  if (format === 'number_delta') {
-    return `${sign}${formatChartValue(absoluteValue, { maximumFractionDigits: 2 })}`
-  }
-
-  return `${sign}${formatChartValue(absoluteValue, { maximumFractionDigits: 2 })}`
 }
 </script>

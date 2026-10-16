@@ -30,36 +30,37 @@
           font-size="11"
           text-anchor="end"
         >
-          {{ formatChartValue(tick.value) }}
+          {{ tick.label }}
         </text>
       </g>
 
       <path
         v-if="fillPath"
         :d="fillPath"
-        :fill="chartColor"
-        fill-opacity="0.12"
+        :style="{ fill: chartColor }"
+        fill-opacity="0.1"
       />
       <path
         v-if="linePath"
         :d="linePath"
         fill="none"
-        :stroke="chartColor"
+        :style="{ stroke: chartColor }"
         stroke-linecap="round"
         stroke-linejoin="round"
-        stroke-width="5"
+        stroke-width="2"
       />
 
-      <g>
+      <g class="stroke-lightListTable dark:stroke-darkListTable">
         <circle
-          v-for="point in points"
+          v-for="point in markedPoints"
           :key="`${point.label}-${point.x}`"
           :cx="point.x"
           :cy="point.y"
-          :fill="chartColor"
+          :style="{ fill: chartColor }"
           r="4"
+          stroke-width="2"
         >
-          <title>{{ point.label }}: {{ formatChartValue(point.value) }}</title>
+          <title>{{ point.label }}: {{ formatValue(point.value, format) }}</title>
         </circle>
       </g>
 
@@ -68,10 +69,10 @@
           v-for="point in xLabels"
           :key="`x-${point.x}`"
           :x="point.x"
-          :y="chartHeight - 10"
+          :y="padding.top + innerHeight + 20"
           fill="currentColor"
           font-size="11"
-          text-anchor="middle"
+          :text-anchor="point.anchor"
         >
           {{ point.axisLabel }}
         </text>
@@ -85,14 +86,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useElementSize } from '../../composables/useElementSize.js'
+import type { ValueFormat } from '../../model/dashboard.types.js'
 import {
-  CHART_COLORS,
+  CHART_PRIMARY_COLOR,
   formatChartAxisLabel,
   formatChartLabel,
-  formatChartValue,
+  formatValue,
   getChartYAxisWidth,
+  getNiceScale,
   toFiniteNumber,
 } from './chart.utils.js'
+
+// Dense series show only the end dot, sparse ones mark every point
+const MAX_MARKED_POINTS = 16
 
 const props = withDefaults(defineProps<{
   rows: Record<string, unknown>[]
@@ -100,6 +106,7 @@ const props = withDefaults(defineProps<{
   yField: string
   seriesName?: string
   color?: string
+  format?: ValueFormat
   height?: number
 }>(), {
   height: 240,
@@ -116,24 +123,28 @@ const chartHeight = computed(() => {
   return Math.max(props.height, 1)
 })
 
-const chartColor = computed(() => props.color || CHART_COLORS[0])
+const chartColor = computed(() => props.color || CHART_PRIMARY_COLOR)
 const values = computed(() => props.rows.map((row) => toFiniteNumber(row[props.yField])))
-const maxValue = computed(() => Math.max(...values.value, 1))
-const yTickValues = computed(() => [maxValue.value, maxValue.value * 0.5, 0])
+const scale = computed(() => getNiceScale(Math.max(...values.value, 1)))
+const tickLabels = computed(() => scale.value.ticks.map((value) => formatValue(value, props.format, { compact: true })))
 const padding = computed(() => ({
   top: 12,
   right: 6,
-  bottom: 24,
-  left: getChartYAxisWidth(yTickValues.value, chartWidth.value),
+  bottom: 30,
+  left: getChartYAxisWidth(tickLabels.value, chartWidth.value),
 }))
 const innerWidth = computed(() => Math.max(chartWidth.value - padding.value.left - padding.value.right, 1))
 const innerHeight = computed(() => Math.max(chartHeight.value - padding.value.top - padding.value.bottom, 1))
+
+function getPointY(value: number) {
+  return padding.value.top + innerHeight.value - (value / scale.value.max) * innerHeight.value
+}
 
 const points = computed(() => {
   if (props.rows.length === 1) {
     return [{
       x: padding.value.left + innerWidth.value / 2,
-      y: padding.value.top + innerHeight.value - (values.value[0] / maxValue.value) * innerHeight.value,
+      y: getPointY(values.value[0]),
       label: formatChartLabel(props.rows[0][props.xField]),
       axisLabel: formatChartAxisLabel(props.rows[0][props.xField]),
       value: values.value[0],
@@ -142,12 +153,16 @@ const points = computed(() => {
 
   return props.rows.map((row, index) => ({
     x: padding.value.left + (index / (props.rows.length - 1)) * innerWidth.value,
-    y: padding.value.top + innerHeight.value - (values.value[index] / maxValue.value) * innerHeight.value,
+    y: getPointY(values.value[index]),
     label: formatChartLabel(row[props.xField]),
     axisLabel: formatChartAxisLabel(row[props.xField]),
     value: values.value[index],
   }))
 })
+
+const markedPoints = computed(() => points.value.length <= MAX_MARKED_POINTS
+  ? points.value
+  : points.value.slice(-1))
 
 const linePath = computed(() => points.value
   .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
@@ -163,21 +178,27 @@ const fillPath = computed(() => {
   return `${linePath.value} L ${last.x} ${padding.value.top + innerHeight.value} L ${first.x} ${padding.value.top + innerHeight.value} Z`
 })
 
-const yTicks = computed(() => [0, 0.5, 1].map((ratio) => ({
-  value: maxValue.value * (1 - ratio),
-  y: padding.value.top + innerHeight.value * ratio,
+const yTicks = computed(() => scale.value.ticks.map((value, index) => ({
+  label: tickLabels.value[index],
+  y: getPointY(value),
 })))
 
+// The first and last labels hug the plot edges so they are not clipped by the chart bounds
 const xLabels = computed(() => {
-  if (points.value.length <= 4) {
-    return points.value
-  }
+  const labeledPoints = points.value.length <= 4
+    ? points.value
+    : [
+        points.value[0],
+        points.value[Math.floor(points.value.length / 3)],
+        points.value[Math.floor((points.value.length * 2) / 3)],
+        points.value[points.value.length - 1],
+      ]
 
-  return [
-    points.value[0],
-    points.value[Math.floor(points.value.length / 3)],
-    points.value[Math.floor((points.value.length * 2) / 3)],
-    points.value[points.value.length - 1],
-  ]
+  return labeledPoints.map((point, index) => ({
+    ...point,
+    anchor: labeledPoints.length === 1
+      ? 'middle'
+      : index === 0 ? 'start' : index === labeledPoints.length - 1 ? 'end' : 'middle',
+  }))
 })
 </script>
