@@ -1,7 +1,7 @@
 <template>
   <div class="flex h-full min-h-0 flex-col gap-1">
     <div
-      v-if="isAdmin"
+      v-if="isEditMode"
       class="text-xs font-bold uppercase tracking-normal text-lightListTableText dark:text-darkListTableText"
     >
       {{ widget.target }}
@@ -31,7 +31,7 @@ import { getWidgetLabel, getWidgetRegistration } from '../widgets/registry.js'
 const props = defineProps<{
   widget: DashboardWidgetConfig
   dashboardSlug: string
-  isAdmin: boolean
+  isEditMode: boolean
 }>()
 
 const widgetRegistration = computed(() => {

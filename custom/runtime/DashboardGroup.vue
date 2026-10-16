@@ -1,7 +1,7 @@
 <template>
   <section
     class="group/dashboard relative rounded-lg p-4"
-    :class="isAdmin ? 'border border-dashed border-lightListBorder dark:border-darkListBorder' : ''"
+    :class="isEditMode ? 'border border-dashed border-lightListBorder dark:border-darkListBorder' : ''"
   >
     <header class="mb-4 flex items-start justify-between gap-4">
       <div>
@@ -11,7 +11,7 @@
       </div>
 
       <div
-        v-if="isAdmin"
+        v-if="isEditMode"
         class="absolute right-3 top-3 flex gap-1 opacity-0 transition-opacity group-hover/dashboard:opacity-100"
       >
         <DashboardToolbarButton
@@ -51,7 +51,7 @@
       <WidgetShell
         v-for="(widget, index) in widgets"
         :key="widget.id"
-        :is-admin="isAdmin"
+        :is-edit-mode="isEditMode"
         :can-move-up="index > 0"
         :can-move-down="index < widgets.length - 1"
         :layout="{
@@ -69,14 +69,14 @@
         <WidgetRenderer
           :widget="widget"
           :dashboard-slug="dashboardSlug"
-          :is-admin="isAdmin"
+          :is-edit-mode="isEditMode"
         />
       </WidgetShell>
 
       <div
         v-if="!widgets.length"
         class="flex min-h-24 w-full items-center justify-center rounded-lg text-sm text-lightListTableText dark:text-darkListTableText"
-        :class="isAdmin ? 'border border-dashed border-lightListBorder dark:border-darkListBorder' : ''"
+        :class="isEditMode ? 'border border-dashed border-lightListBorder dark:border-darkListBorder' : ''"
       >
         No widgets yet
       </div>
@@ -84,7 +84,7 @@
     </div>
 
     <div
-      v-if="isAdmin"
+      v-if="isEditMode"
       class="mt-3 flex"
     >
       <Button
@@ -114,7 +114,7 @@ defineProps<{
   group: DashboardGroupConfig
   widgets: DashboardWidgetConfig[]
   dashboardSlug: string
-  isAdmin: boolean
+  isEditMode: boolean
   canMoveUp: boolean
   canMoveDown: boolean
 }>()

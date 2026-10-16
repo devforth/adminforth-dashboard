@@ -1,13 +1,13 @@
 <template>
   <div
     class="group relative flex min-h-24 grow shrink basis-[var(--widget-basis)] flex-col overflow-hidden rounded-lg bg-lightListTable p-3 min-w-[var(--widget-min-width)] max-w-[var(--widget-max-width)] dark:bg-darkListTable"
-    :class="isAdmin ? 'border border-dashed border-lightListBorder dark:border-darkListBorder' : ''"
+    :class="isEditMode ? 'border border-dashed border-lightListBorder dark:border-darkListBorder' : ''"
     :style="widgetLayoutVars"
   >
     <slot />
 
     <div
-      v-if="isAdmin"
+      v-if="isEditMode"
       class="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100"
     >
       <DashboardToolbarButton
@@ -65,7 +65,7 @@ const sizeToFlexBasis: Record<NonNullable<WidgetLayout['size']>, string> = {
 }
 
 const props = defineProps<{
-  isAdmin: boolean
+  isEditMode: boolean
   canMoveUp: boolean
   canMoveDown: boolean
   layout?: WidgetLayout

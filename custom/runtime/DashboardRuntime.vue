@@ -7,7 +7,7 @@
         </h1>
 
         <div
-          v-if="isAdmin"
+          v-if="isEditMode"
           class="mt-1.5 flex gap-3 text-xs text-lightListTableText dark:text-darkListTableText"
         >
           <span>Slug: {{ dashboardSlug }}</span>
@@ -16,13 +16,27 @@
         </div>
       </div>
 
-      <DashboardToolbarButton
+      <div
         v-if="isAdmin"
-        title="Edit dashboard"
-        @click="editDashboard"
+        class="flex gap-1"
       >
-        <IconCog6Tooth class="h-5 w-5" />
-      </DashboardToolbarButton>
+        <DashboardToolbarButton
+          v-if="isEditMode"
+          title="Dashboard settings"
+          @click="editDashboard"
+        >
+          <IconCog6Tooth class="h-5 w-5" />
+        </DashboardToolbarButton>
+
+        <DashboardToolbarButton
+          title="Edit mode"
+          :active="isEditMode"
+          :aria-pressed="isEditMode"
+          @click="isEditMode = !isEditMode"
+        >
+          <IconWrench class="h-5 w-5" />
+        </DashboardToolbarButton>
+      </div>
     </header>
 
     <div
@@ -63,7 +77,7 @@
         :group="group"
         :widgets="widgetsByGroupId.get(group.id) ?? []"
         :dashboard-slug="dashboardSlug"
-        :is-admin="isAdmin"
+        :is-edit-mode="isEditMode"
         :can-move-up="index > 0"
         :can-move-down="index < visibleGroups.length - 1"
         @add-widget="addWidget(group.id)"
@@ -78,7 +92,7 @@
       />
 
       <Button
-        v-if="isAdmin"
+        v-if="isEditMode"
         type="button"
         mode="secondary"
         class="h-10 w-28 border text-xs font-semibold"
@@ -235,7 +249,7 @@
 import { computed, ref, watch } from 'vue'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { Button } from '@/afcl'
-import { IconCog6Tooth } from '@iconify-prerendered/vue-heroicons';
+import { IconCog6Tooth, IconWrench } from '@iconify-prerendered/vue-heroicons';
 import DashboardGroup from './DashboardGroup.vue'
 import DashboardToolbarButton from './DashboardToolbarButton.vue'
 import YamlConfigEditor from './YamlConfigEditor.vue'
@@ -268,6 +282,7 @@ const emit = defineEmits<{
 const draftConfig = ref<DashboardConfig>(cloneConfig(props.config))
 const currentRevision = ref(props.revision)
 const dashboardLabel = ref(props.label)
+const isEditMode = ref(false)
 const isEditingDashboard = ref(false)
 const dashboardConfigCode = ref('')
 const dashboardConfigError = ref('')
@@ -361,7 +376,7 @@ const widgetsByGroupId = computed<Map<string, DashboardWidgetConfig[]>>(() => {
 })
 
 const visibleGroups = computed(() => {
-  if (props.isAdmin) {
+  if (isEditMode.value) {
     return sortedGroups.value
   }
 
