@@ -249,6 +249,7 @@
 import { computed, ref, watch } from 'vue'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { Button } from '@/afcl'
+import { useAdminforth } from '@/adminforth'
 import { IconCog6Tooth, IconWrench } from '@iconify-prerendered/vue-heroicons';
 import DashboardGroup from './DashboardGroup.vue'
 import DashboardToolbarButton from './DashboardToolbarButton.vue'
@@ -264,6 +265,7 @@ import type {
   DashboardWidgetMoveDirection,
 } from '../model/dashboard.types.js'
 import { serializeDashboardWidgetConfigForEditor } from '../model/dashboard.types.js'
+import { getWidgetTitle } from '../widgets/registry.js'
 
 const props = defineProps<{
   dashboardSlug: string
@@ -279,6 +281,7 @@ const emit = defineEmits<{
   (e: 'dashboard-updated', dashboard: DashboardResponse): void
 }>()
 
+const adminforth = useAdminforth()
 const draftConfig = ref<DashboardConfig>(cloneConfig(props.config))
 const currentRevision = ref(props.revision)
 const dashboardLabel = ref(props.label)
@@ -429,6 +432,22 @@ async function removeGroup(groupId: string) {
     return
   }
 
+  const group = draftConfig.value.groups.find((item) => item.id === groupId)!
+  const widgetCount = widgetsByGroupId.value.get(groupId)?.length ?? 0
+  const isConfirmed = await adminforth.confirm({
+    title: `Remove group "${group.label}"?`,
+    message: widgetCount
+      ? `Its ${widgetCount} ${widgetCount === 1 ? 'widget' : 'widgets'} will be removed too. This cannot be undone.`
+      : 'This cannot be undone.',
+    yes: 'Remove',
+    no: 'Cancel',
+    dangerous: true,
+  })
+
+  if (!isConfirmed) {
+    return
+  }
+
   try {
     await dashboardApi.removeDashboardGroup(props.dashboardSlug, groupId)
     await refreshDashboardConfig()
@@ -488,6 +507,19 @@ async function moveWidget(widgetId: string, direction: DashboardWidgetMoveDirect
 
 async function removeWidget(widgetId: string) {
   if (!props.canEdit) {
+    return
+  }
+
+  const widget = (draftConfig.value.widgets as DashboardWidgetConfig[]).find((item) => item.id === widgetId)!
+  const isConfirmed = await adminforth.confirm({
+    title: `Remove widget "${getWidgetTitle(widget)}"?`,
+    message: 'This cannot be undone.',
+    yes: 'Remove',
+    no: 'Cancel',
+    dangerous: true,
+  })
+
+  if (!isConfirmed) {
     return
   }
 

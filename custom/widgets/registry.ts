@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import type { DashboardWidgetTarget } from '../model/dashboard.types.js'
+import type { DashboardWidgetConfig, DashboardWidgetTarget } from '../model/dashboard.types.js'
 import { DEFAULT_WIDGET_HEIGHT } from './chart/chart.utils.js'
 import ChartWidget from './chart/ChartWidget.vue'
 import GaugeCardWidget from './GaugeCardWidget.vue'
@@ -59,4 +59,24 @@ export function getWidgetDefaultHeight(type: DashboardWidgetType) {
 
 export function getWidgetLabel(type: DashboardWidgetType) {
   return getWidgetRegistration(type)?.label || type.replaceAll('_', ' ')
+}
+
+export function getWidgetTitle(widget: DashboardWidgetConfig) {
+  if (widget.label) {
+    return widget.label
+  }
+
+  if (widget.target === 'empty') {
+    return 'Empty widget'
+  }
+
+  if (widget.target === 'chart') {
+    return widget.chart.title || 'Untitled chart'
+  }
+
+  if (widget.target === 'kpi_card' || widget.target === 'gauge_card') {
+    return widget.card.title || getWidgetLabel(widget.target)
+  }
+
+  return getWidgetLabel(widget.target)
 }

@@ -26,7 +26,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { DashboardWidgetConfig } from '../model/dashboard.types.js'
-import { getWidgetLabel, getWidgetRegistration } from '../widgets/registry.js'
+import { getWidgetRegistration, getWidgetTitle } from '../widgets/registry.js'
 
 const props = defineProps<{
   widget: DashboardWidgetConfig
@@ -42,23 +42,5 @@ const widgetComponent = computed(() => {
   return widgetRegistration.value?.component
 })
 
-const widgetTitle = computed(() => {
-  if (props.widget.label) {
-    return props.widget.label
-  }
-
-  if (props.widget.target === 'empty') {
-    return 'Empty widget'
-  }
-
-  if (props.widget.target === 'chart') {
-    return props.widget.chart.title || 'Untitled chart'
-  }
-
-  if (props.widget.target === 'kpi_card' || props.widget.target === 'gauge_card') {
-    return props.widget.card.title || getWidgetLabel(props.widget.target)
-  }
-
-  return getWidgetLabel(props.widget.target)
-})
+const widgetTitle = computed(() => getWidgetTitle(props.widget))
 </script>
