@@ -11,6 +11,12 @@ export type PluginOptions = {
 	 */
 	editRoles?: string[];
 	/**
+	 * Roles allowed to view dashboards without editing them.
+	 * Roles listed in editRoles can always view dashboards.
+	 * Defaults to [].
+	 */
+	viewRoles?: string[];
+	/**
 	 * Whether the AI agent asks the user for approval before it changes dashboards, groups, or widgets.
 	 * When false, MCP clients also stop receiving the destructive hint for these tools.
 	 * Defaults to true.

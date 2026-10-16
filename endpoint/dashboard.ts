@@ -11,6 +11,7 @@ import type { DashboardRecord, PersistedDashboardResponse } from '../services/da
 type DashboardEndpointsContext = {
   agentEditsRequireApproval: boolean;
   canEditDashboard: (adminUser: AdminUser) => boolean;
+  canViewDashboard: (adminUser: AdminUser) => boolean;
   getDashboardRecord: (slug: string) => Promise<DashboardRecord | null>;
   getAllDashboardRecords: () => Promise<DashboardRecord[]>;
   parseStoredDashboardConfig: (config: unknown) => DashboardConfig;
@@ -65,7 +66,7 @@ export function registerDashboardEndpoints(
     request_schema: SlugRequestZodSchema,
     response_schema: z.unknown(),
     handler: async ({ body, adminUser, response }) => {
-      if (!ctx.canEditDashboard(adminUser)) {
+      if (!ctx.canViewDashboard(adminUser)) {
         response.setStatus(403);
         return { error: 'Dashboard access is not allowed' };
       }
@@ -82,7 +83,7 @@ export function registerDashboardEndpoints(
         slug: dashboard.slug,
         label: dashboard.label,
         revision: dashboard.revision,
-        canEdit: true,
+        canEdit: ctx.canEditDashboard(adminUser),
         config: ctx.parseStoredDashboardConfig(dashboard.config),
       };
     },
@@ -91,14 +92,14 @@ export function registerDashboardEndpoints(
   server.endpoint({
     method: 'GET',
     path: '/dashboard/get-slugs',
-    description: 'Returns dashboard slugs and labels for configured dashboard editor roles.',
+    description: 'Returns dashboard slugs and labels for configured dashboard viewer and editor roles.',
     agent: {
       onlyReadsData: true,
     },
     request_schema: undefined,
     response_schema: GetSlugsResponseZodSchema,
     handler: async ({ adminUser, response }) => {
-      if (!ctx.canEditDashboard(adminUser)) {
+      if (!ctx.canViewDashboard(adminUser)) {
         response.setStatus(403);
         return { error: 'Dashboard access is not allowed' };
       }

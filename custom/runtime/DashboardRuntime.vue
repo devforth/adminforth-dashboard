@@ -17,7 +17,7 @@
       </div>
 
       <div
-        v-if="isAdmin"
+        v-if="canEdit"
         class="flex gap-1"
       >
         <DashboardToolbarButton
@@ -271,7 +271,7 @@ const props = defineProps<{
   label: string
   config: DashboardConfig
   revision: number
-  isAdmin: boolean
+  canEdit: boolean
   isRefreshing: boolean
 }>()
 
@@ -386,7 +386,7 @@ const visibleGroups = computed(() => {
 })
 
 async function addGroup() {
-  if (!props.isAdmin) {
+  if (!props.canEdit) {
     return
   }
 
@@ -399,7 +399,7 @@ async function addGroup() {
 }
 
 async function addWidget(groupId: string) {
-  if (!props.isAdmin) {
+  if (!props.canEdit) {
     return
   }
 
@@ -412,7 +412,7 @@ async function addWidget(groupId: string) {
 }
 
 async function moveGroup(groupId: string, direction: DashboardGroupMoveDirection) {
-  if (!props.isAdmin) {
+  if (!props.canEdit) {
     return
   }
 
@@ -425,7 +425,7 @@ async function moveGroup(groupId: string, direction: DashboardGroupMoveDirection
 }
 
 async function removeGroup(groupId: string) {
-  if (!props.isAdmin) {
+  if (!props.canEdit) {
     return
   }
 
@@ -474,7 +474,7 @@ function closeGroupConfigEditor() {
 }
 
 async function moveWidget(widgetId: string, direction: DashboardWidgetMoveDirection) {
-  if (!props.isAdmin) {
+  if (!props.canEdit) {
     return
   }
 
@@ -487,7 +487,7 @@ async function moveWidget(widgetId: string, direction: DashboardWidgetMoveDirect
 }
 
 async function removeWidget(widgetId: string) {
-  if (!props.isAdmin) {
+  if (!props.canEdit) {
     return
   }
 

@@ -29,7 +29,7 @@
       :label="dashboard.label"
       :config="dashboard.config"
       :revision="dashboard.revision"
-      :is-admin="canEditDashboard"
+      :can-edit="canEditDashboard"
       :is-refreshing="isFetching"
       @dashboard-updated="handleDashboardUpdated"
     />

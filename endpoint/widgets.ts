@@ -50,6 +50,7 @@ type EndpointRequestSchema = Parameters<IHttpServer['endpoint']>[0]['request_sch
 type WidgetEndpointsContext = {
   agentEditsRequireApproval: boolean;
   canEditDashboard: (adminUser: AdminUser) => boolean;
+  canViewDashboard: (adminUser: AdminUser) => boolean;
   getDashboardRecord: (slug: string) => Promise<DashboardRecord | null>;
   parseStoredDashboardConfig: (config: unknown) => DashboardConfig;
   persistDashboardConfig: (
@@ -422,7 +423,7 @@ export function registerWidgetEndpoints(
     request_schema: WidgetDataRequestZodSchema,
     response_schema: DashboardWidgetDataResponseZodSchema,
     handler: async ({ body, adminUser, response, headers, query, cookies, requestUrl }) => {
-      if (!ctx.canEditDashboard(adminUser)) {
+      if (!ctx.canViewDashboard(adminUser)) {
         response.setStatus(403);
         return { error: 'Dashboard data access is not allowed' };
       }

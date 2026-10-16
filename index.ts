@@ -65,7 +65,7 @@ export default class DashboardPlugin extends AdminForthPlugin {
       this.didRegisterMenuProvider = true;
 
       adminforth.registerMenuContributionProvider(async ({ adminUser }) => {
-        if (!adminUser || !this.canEditDashboard(adminUser)) {
+        if (!adminUser || !this.canViewDashboard(adminUser)) {
           return [];
         }
 
@@ -159,6 +159,7 @@ export default class DashboardPlugin extends AdminForthPlugin {
       dashboardConfigsResourceId: this.options.dashboardConfigsResourceId,
       agentEditsRequireApproval: this.options.agentEditsRequireApproval ?? true,
       canEditDashboard: (adminUser: AdminUser) => this.canEditDashboard(adminUser),
+      canViewDashboard: (adminUser: AdminUser) => this.canViewDashboard(adminUser),
       ...dashboardConfigService,
       ...widgetDataService,
     };
@@ -175,6 +176,11 @@ export default class DashboardPlugin extends AdminForthPlugin {
   private canEditDashboard(adminUser: AdminUser) {
     const editRoles = this.options.editRoles ?? ['superadmin'];
     return editRoles.includes(adminUser.dbUser.role);
+  }
+
+  private canViewDashboard(adminUser: AdminUser) {
+    const viewRoles = this.options.viewRoles ?? [];
+    return this.canEditDashboard(adminUser) || viewRoles.includes(adminUser.dbUser.role);
   }
 
 }
