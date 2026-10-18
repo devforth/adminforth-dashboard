@@ -41,7 +41,7 @@
 
     <div
       v-if="isEditingDashboard"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-lightScrim dark:bg-darkScrim p-4"
       @click.self="closeDashboardConfigEditor"
     >
       <section class="w-full max-w-5xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
@@ -104,7 +104,7 @@
 
     <div
       v-if="editingGroupId"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-lightScrim dark:bg-darkScrim p-4"
       @click.self="closeGroupConfigEditor"
     >
       <section class="w-full max-w-5xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
@@ -167,7 +167,7 @@
 
     <div
       v-if="editingWidgetId"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-lightScrim dark:bg-darkScrim p-4"
       @click.self="closeWidgetConfigEditor"
     >
       <section class="w-full max-w-5xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
