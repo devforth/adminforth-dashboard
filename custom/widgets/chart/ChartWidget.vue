@@ -1,84 +1,69 @@
 <template>
-  <div class="h-full min-h-0 overflow-hidden">
-    <div
-      v-if="isLoading"
-      class="text-sm text-lightListTableText dark:text-darkListTableText"
+  <div class="af-dashboard-chart h-full min-h-0 overflow-hidden">
+    <WidgetState
+      :is-loading="isLoading"
+      :error="error ? errorMessage : ''"
+      :is-empty="!rows.length"
     >
-      Loading...
-    </div>
+      <LineChart
+        v-if="chartConfig?.type === 'line'"
+        :rows="rows"
+        :x-field="xField"
+        :y-field="yField"
+        :series-name="lineSeriesName"
+        :color="chartConfig.color"
+        :format="valueFormat"
+        :height="chartHeight"
+      />
 
-    <div
-      v-else-if="error"
-      class="text-sm text-lightInputErrorColor"
-    >
-      {{ errorMessage }}
-    </div>
+      <PieChart
+        v-else-if="chartConfig?.type === 'pie'"
+        :rows="pieRows"
+        :label-field="pieLabelField"
+        :value-field="pieValueField"
+        :colors="chartConfig.colors"
+        :format="valueFormat"
+        :height="chartHeight"
+      />
 
-    <div
-      v-else-if="!rows.length"
-      class="text-sm text-lightListTableText dark:text-darkListTableText"
-    >
-      No data available
-    </div>
+      <BarChart
+        v-else-if="chartConfig?.type === 'bar' || chartConfig?.type === 'histogram'"
+        :rows="barRows"
+        :label-field="barLabelField"
+        :value-field="barValueField"
+        :color="chartConfig.color"
+        :format="valueFormat"
+        :height="chartHeight"
+      />
 
-    <LineChart
-      v-else-if="chartConfig?.type === 'line'"
-      :rows="rows"
-      :x-field="xField"
-      :y-field="yField"
-      :series-name="lineSeriesName"
-      :color="chartConfig.color"
-      :format="valueFormat"
-      :height="chartHeight"
-    />
+      <FunnelChart
+        v-else-if="chartConfig?.type === 'funnel'"
+        :rows="rows"
+        :label-field="labelField"
+        :value-field="valueField"
+        :colors="chartConfig.colors"
+        :format="valueFormat"
+        :height="chartHeight"
+      />
 
-    <PieChart
-      v-else-if="chartConfig?.type === 'pie'"
-      :rows="pieRows"
-      :label-field="pieLabelField"
-      :value-field="pieValueField"
-      :colors="chartConfig.colors"
-      :format="valueFormat"
-      :height="chartHeight"
-    />
+      <StackedBarChart
+        v-else-if="chartConfig?.type === 'stacked_bar'"
+        :rows="stackedBarRows"
+        :x-field="xField"
+        :y-field="stackedBarYField"
+        :series-field="stackedBarSeriesField"
+        :colors="chartConfig.colors"
+        :format="valueFormat"
+        :height="chartHeight"
+      />
 
-    <BarChart
-      v-else-if="chartConfig?.type === 'bar' || chartConfig?.type === 'histogram'"
-      :rows="barRows"
-      :label-field="barLabelField"
-      :value-field="barValueField"
-      :color="chartConfig.color"
-      :format="valueFormat"
-      :height="chartHeight"
-    />
-
-    <FunnelChart
-      v-else-if="chartConfig?.type === 'funnel'"
-      :rows="rows"
-      :label-field="labelField"
-      :value-field="valueField"
-      :colors="chartConfig.colors"
-      :format="valueFormat"
-      :height="chartHeight"
-    />
-
-    <StackedBarChart
-      v-else-if="chartConfig?.type === 'stacked_bar'"
-      :rows="stackedBarRows"
-      :x-field="xField"
-      :y-field="stackedBarYField"
-      :series-field="stackedBarSeriesField"
-      :colors="chartConfig.colors"
-      :format="valueFormat"
-      :height="chartHeight"
-    />
-
-    <div
-      v-else
-      class="text-sm text-lightListTableText dark:text-darkListTableText"
-    >
-      Unsupported chart type
-    </div>
+      <p
+        v-else
+        class="text-sm text-lightCardDescription dark:text-darkCardDescription"
+      >
+        Unsupported chart type
+      </p>
+    </WidgetState>
   </div>
 </template>
 
@@ -90,6 +75,7 @@ import { useWidgetData } from '../../queries/useWidgetData.js'
 import type { ChartDashboardWidgetConfig, DashboardWidgetTableData } from '../../model/dashboard.types.js'
 import BarChart from './BarChart.vue'
 import FunnelChart from './FunnelChart.vue'
+import WidgetState from '../WidgetState.vue'
 import LineChart from './LineChart.vue'
 import PieChart from './PieChart.vue'
 import StackedBarChart from './StackedBarChart.vue'

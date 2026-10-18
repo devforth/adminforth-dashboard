@@ -1,56 +1,28 @@
 <template>
-  <section
-    class="group/dashboard relative rounded-lg p-4"
-    :class="isEditMode ? 'border border-dashed border-lightListBorder dark:border-darkListBorder' : ''"
-  >
-    <header class="mb-4 flex items-start justify-between gap-4">
-      <div>
-        <h2 class="m-0 text-lg font-bold text-lightNavbarText dark:text-darkNavbarText">
-          {{ group.label }}
-        </h2>
-      </div>
+  <section class="af-dashboard-group">
+    <header class="af-dashboard-group-header mb-3 flex min-h-7 items-center justify-between gap-2">
+      <h2 class="min-w-0 truncate text-base font-semibold tracking-tight text-lightCardTitle dark:text-darkCardTitle">
+        {{ group.label }}
+      </h2>
 
-      <div
+      <DashboardItemMenu
         v-if="isEditMode"
-        class="absolute right-3 top-3 flex gap-1 opacity-0 transition-opacity group-hover/dashboard:opacity-100"
-      >
-        <DashboardToolbarButton
-          title="Edit JSON"
-          @click="emit('edit-group', group)"
-        >
-          <IconCog6Tooth class="h-5 w-5" />
-        </DashboardToolbarButton>
-
-        <DashboardToolbarButton
-          title="Move up"
-          :disabled="!canMoveUp"
-          @click="emit('move-up')"
-        >
-          <IconArrowUpOutline class="h-5 w-5" />
-        </DashboardToolbarButton>
-
-        <DashboardToolbarButton
-          title="Move down"
-          :disabled="!canMoveDown"
-          @click="emit('move-down')"
-        >
-          <IconArrowDownOutline class="h-5 w-5" />
-        </DashboardToolbarButton>
-
-        <DashboardToolbarButton
-          title="Remove"
-          variant="danger"
-          @click="emit('remove-group')"
-        >
-          <IconTrashBinSolid class="h-5 w-5" />
-        </DashboardToolbarButton>
-      </div>
+        :label="`${group.label} actions`"
+        :can-move-up="canMoveUp"
+        :can-move-down="canMoveDown"
+        @edit="emit('edit-group', group)"
+        @move-up="emit('move-up')"
+        @move-down="emit('move-down')"
+        @remove="emit('remove-group')"
+      />
     </header>
 
     <div class="flex flex-wrap gap-4">
       <WidgetShell
         v-for="(widget, index) in widgets"
         :key="widget.id"
+        :title="getWidgetTitle(widget)"
+        :type-label="getWidgetLabel(widget.target)"
         :is-edit-mode="isEditMode"
         :can-move-up="index > 0"
         :can-move-down="index < widgets.length - 1"
@@ -69,33 +41,27 @@
         <WidgetRenderer
           :widget="widget"
           :dashboard-slug="dashboardSlug"
-          :is-edit-mode="isEditMode"
         />
       </WidgetShell>
 
       <div
         v-if="!widgets.length"
-        class="flex min-h-24 w-full items-center justify-center rounded-lg text-sm text-lightListTableText dark:text-darkListTableText"
-        :class="isEditMode ? 'border border-dashed border-lightListBorder dark:border-darkListBorder' : ''"
+        class="flex min-h-24 w-full items-center justify-center rounded-lg border border-dashed border-lightCardBorder text-sm text-lightCardDescription dark:border-darkCardBorder dark:text-darkCardDescription"
       >
         No widgets yet
       </div>
-
     </div>
 
-    <div
+    <Button
       v-if="isEditMode"
-      class="mt-3 flex"
+      type="button"
+      variant="secondary"
+      class="mt-3"
+      @click="emit('add-widget')"
     >
-      <Button
-        type="button"
-        mode="secondary"
-        class="h-10 w-28 border text-xs font-semibold"
-        @click="emit('add-widget')"
-      >
-        Add widget
-      </Button>
-    </div>
+      <IconPlus class="h-4 w-4" />
+      Add widget
+    </Button>
   </section>
 </template>
 
@@ -103,13 +69,12 @@
 
 <script setup lang="ts">
 import { Button } from '@/afcl'
-import { IconArrowDownOutline, IconArrowUpOutline, IconTrashBinSolid } from '@iconify-prerendered/vue-flowbite'
-import { IconCog6Tooth } from '@iconify-prerendered/vue-heroicons';
-import DashboardToolbarButton from './DashboardToolbarButton.vue'
+import { IconPlus } from '@iconify-prerendered/vue-lucide'
+import DashboardItemMenu from './DashboardItemMenu.vue'
 import WidgetRenderer from './WidgetRenderer.vue'
 import WidgetShell from './WidgetShell.vue'
 import type { DashboardGroupConfig, DashboardWidgetConfig } from '../model/dashboard.types.js'
-import { getWidgetDefaultHeight } from '../widgets/registry.js'
+import { getWidgetDefaultHeight, getWidgetLabel, getWidgetTitle } from '../widgets/registry.js'
 
 defineProps<{
   group: DashboardGroupConfig

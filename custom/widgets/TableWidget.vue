@@ -1,110 +1,96 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col overflow-hidden rounded-lg">
-    <div
-      v-if="isLoading"
-      class="text-sm text-lightListTableText dark:text-darkListTableText"
+  <div class="flex h-full min-h-0 flex-col">
+    <WidgetState
+      :is-loading="isLoading"
+      :error="error ? errorMessage : ''"
+      :is-empty="!tableData?.rows.length"
     >
-      Loading...
-    </div>
+      <!-- the table reaches the edges of the card, so its row lines run through the whole card -->
+      <div class="-mx-4 -mb-4 flex min-h-0 flex-1 flex-col">
+        <div class="min-h-0 flex-1 overflow-auto">
+          <table class="af-dashboard-table w-full min-w-max border-collapse text-left text-[13px] text-lightTableText dark:text-darkTableText">
+            <thead class="sticky top-0 bg-lightCardBackground dark:bg-darkCardBackground">
+              <tr>
+                <th
+                  v-for="column in columns"
+                  :key="column.field"
+                  class="border-b border-lightTableBorder px-4 py-2 text-xs font-medium text-lightTableHeadingText dark:border-darkTableBorder dark:text-darkTableHeadingText"
+                >
+                  {{ column.label }}
+                </th>
+              </tr>
+            </thead>
 
-    <div
-      v-else-if="error"
-      class="text-sm text-lightInputErrorColor"
-    >
-      {{ errorMessage }}
-    </div>
-
-    <div
-      v-else-if="!tableData?.rows.length"
-      class="text-sm text-lightListTableText dark:text-darkListTableText"
-    >
-      No data available
-    </div>
-
-    <div
-      v-else
-      class="flex min-h-0 flex-1 flex-col"
-    >
-      <div class="min-h-0 flex-1 overflow-auto">
-        <table class="min-w-max w-full border-collapse text-left text-sm">
-          <thead class="bg-lightTableHeadingBackground text-xs uppercase text-lightTableHeadingText dark:bg-darkTableHeadingBackground dark:text-darkTableHeadingText">
-            <tr>
-              <th
-                v-for="column in columns"
-                :key="column"
-                class="px-3 py-2 font-semibold"
+            <tbody>
+              <tr
+                v-for="(row, index) in tableData!.rows"
+                :key="`${currentPage}-${index}`"
+                class="border-b border-lightTableBorder last:border-b-0 dark:border-darkTableBorder"
               >
-                {{ column }}
-              </th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr
-              v-for="(row, index) in tableData.rows"
-              :key="`${currentPage}-${index}`"
-              class="border-t border-lightListBorder odd:bg-lightTableOddBackground even:bg-lightTableEvenBackground dark:border-darkListBorder odd:dark:bg-darkTableOddBackground even:dark:bg-darkTableEvenBackground"
-            >
-              <td
-                v-for="column in columns"
-                :key="column"
-                class="px-3 py-2 text-lightListTableText dark:text-darkListTableText"
-              >
-                {{ formatCell(row[column]) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div
-        v-if="pagination"
-        class="flex flex-wrap items-center justify-between gap-2 border-t border-lightListBorder px-3 py-2 text-sm text-lightListTableText dark:border-darkListBorder dark:text-darkListTableText"
-      >
-        <div>
-          {{ pageStart }}-{{ pageEnd }} of {{ pagination.total }}
+                <td
+                  v-for="column in columns"
+                  :key="column.field"
+                  class="px-4 py-2.5"
+                >
+                  {{ formatCell(row[column.field]) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        <div class="flex items-center gap-2">
-          <DashboardToolbarButton
-            type="button"
-            class="flex h-8 w-8 items-center justify-center rounded border border-lightListBorder text-sm disabled:opacity-45 dark:border-darkListBorder"
-            :disabled="currentPage <= 1 || isFetching"
-            @click="currentPage -= 1"
-            aria-label="Previous page"
-          >
-            <IconArrowLeftOutline class="h-5 w-5" />
-          </DashboardToolbarButton>
-
-          <span class="flex items-center gap-1">
-            <span>Page</span>
-            <input
-              v-model.number="currentPageInput"
-              type="number"
-              min="1"
-              :max="pagination.totalPages"
-              class="dashboard-table-page-input h-8 min-w-8 rounded border border-lightListBorder bg-lightTableBackground px-2 text-center text-sm text-lightListTableText dark:border-darkListBorder dark:bg-darkTableBackground dark:text-darkListTableText"
-              :style="{ width: `${currentPageInputWidth}ch` }"
-              :disabled="isFetching"
-              aria-label="Current page"
-              @blur="applyCurrentPageInput"
-              @keydown.enter="applyCurrentPageInput"
-            >
-            <span>of {{ pagination.totalPages }}</span>
+        <div
+          v-if="pagination"
+          class="flex flex-wrap items-center justify-between gap-2 border-t border-lightTableBorder px-4 py-2 text-sm text-lightTablePaginationText dark:border-darkTableBorder dark:text-darkTablePaginationText"
+        >
+          <span class="tabular-nums">
+            {{ pageStart }}–{{ pageEnd }} of {{ pagination.total }}
           </span>
 
-          <DashboardToolbarButton
-            type="button"
-            class="flex h-8 w-8 items-center justify-center rounded border border-lightListBorder text-sm disabled:opacity-45 dark:border-darkListBorder"
-            :disabled="currentPage >= pagination.totalPages || isFetching"
-            @click="currentPage += 1"
-            aria-label="Next page"
-          >
-            <IconArrowRightOutline class="h-5 w-5" />
-          </DashboardToolbarButton>
+          <div class="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
+              :disabled="currentPage <= 1 || isFetching"
+              aria-label="Previous page"
+              @click="currentPage -= 1"
+            >
+              <IconChevronLeft class="rtl:rotate-180" />
+            </Button>
+
+            <span class="flex items-center gap-1.5 px-1 tabular-nums">
+              <input
+                v-model.number="currentPageInput"
+                type="number"
+                min="1"
+                :max="pagination.totalPages"
+                class="dashboard-table-page-input h-7 rounded-default border border-lightInputBorder bg-lightInputBackground px-1 text-center text-sm text-lightInputText focus:border-lightInputFocusBorder focus:outline-none focus:ring-[3px] focus:ring-lightInputFocusRing dark:border-darkInputBorder dark:bg-darkInputBackground dark:text-darkInputText dark:focus:border-darkInputFocusBorder dark:focus:ring-darkInputFocusRing"
+                :style="{ width: `${currentPageInputWidth}ch` }"
+                :disabled="isFetching"
+                aria-label="Current page"
+                @blur="applyCurrentPageInput"
+                @keydown.enter="applyCurrentPageInput"
+              >
+              <span>of {{ pagination.totalPages }}</span>
+            </span>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
+              :disabled="currentPage >= pagination.totalPages || isFetching"
+              aria-label="Next page"
+              @click="currentPage += 1"
+            >
+              <IconChevronRight class="rtl:rotate-180" />
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+    </WidgetState>
   </div>
 </template>
 
@@ -115,8 +101,10 @@ import { computed, ref, watch } from 'vue'
 import { useWidgetData } from '../queries/useWidgetData.js'
 import { getFieldRefField } from '../model/dashboard.types.js'
 import type { DashboardWidgetConfig, DashboardWidgetTableData, FieldRef } from '../model/dashboard.types.js'
-import DashboardToolbarButton from '../runtime/DashboardToolbarButton.vue'
-import { IconArrowLeftOutline, IconArrowRightOutline } from '@iconify-prerendered/vue-flowbite'
+import { Button } from '@/afcl'
+import { IconChevronLeft, IconChevronRight } from '@iconify-prerendered/vue-lucide'
+import WidgetState from './WidgetState.vue'
+import { formatFieldName } from './chart/chart.utils.js'
 
 type TableWidgetConfig = {
   columns?: FieldRef[]
@@ -173,10 +161,13 @@ const tableData = computed(() => {
 const columns = computed(() => {
   const configuredColumns = tableConfig.value?.columns
   if (configuredColumns) {
-    return configuredColumns.map((column) => getFieldRefField(column)).filter(Boolean) as string[]
+    return configuredColumns.map((column) => {
+      const field = getFieldRefField(column)!
+      return { field, label: (typeof column === 'string' ? undefined : column.label) ?? formatFieldName(field) }
+    })
   }
 
-  return tableData.value?.columns ?? []
+  return (tableData.value?.columns ?? []).map((field) => ({ field, label: formatFieldName(field) }))
 })
 
 const pagination = computed(() => tableData.value?.pagination)

@@ -21,7 +21,7 @@
           :cx="center"
           :cy="center"
           :r="radius"
-          class="text-lightListBorder dark:text-darkListBorder"
+          class="text-lightCardBorder dark:text-darkCardBorder"
           fill="none"
           stroke="currentColor"
           :stroke-width="strokeWidth"
@@ -44,19 +44,26 @@
         </circle>
       </svg>
 
-      <div class="absolute inset-0 grid place-items-center text-center">
+      <!-- a small donut has no room for the total -->
+      <div
+        v-if="size >= MIN_SIZE_WITH_TOTAL"
+        class="absolute inset-0 grid place-items-center text-center"
+      >
         <div>
-          <div class="text-2xl font-semibold text-lightNavbarText dark:text-darkNavbarText">
+          <div class="text-2xl font-semibold tabular-nums text-lightCardTitle dark:text-darkCardTitle">
             {{ formatValue(total, format, { compact: true }) }}
           </div>
-          <div class="text-xs uppercase tracking-wide text-lightListTableText dark:text-darkListTableText">
+          <div class="text-xs text-lightCardDescription dark:text-darkCardDescription">
             Total
           </div>
         </div>
       </div>
     </div>
 
-    <div class="grid min-w-0 gap-3">
+    <div
+      class="grid min-w-0"
+      :class="isCompact ? 'gap-1.5' : 'gap-3'"
+    >
       <div
         v-for="slice in slices"
         :key="`legend-${slice.id}`"
@@ -67,16 +74,20 @@
             class="h-3 w-3 shrink-0 rounded-full"
             :style="{ backgroundColor: slice.color }"
           />
-          <span class="truncate font-medium text-lightNavbarText dark:text-darkNavbarText">
+          <span class="truncate font-medium text-lightCardTitle dark:text-darkCardTitle">
             {{ slice.label }}
           </span>
         </div>
 
-        <div class="text-right">
-          <div class="font-semibold text-lightNavbarText dark:text-darkNavbarText">
+        <!-- a compact legend keeps every slice on one line, so the donut above it keeps its size -->
+        <div
+          class="text-right"
+          :class="isCompact ? 'flex items-baseline gap-1.5' : ''"
+        >
+          <div class="font-semibold text-lightCardTitle dark:text-darkCardTitle">
             {{ slice.percentLabel }}
           </div>
-          <div class="text-xs text-lightListTableText dark:text-darkListTableText">
+          <div class="text-xs text-lightCardDescription dark:text-darkCardDescription">
             {{ formatValue(slice.value, format) }}
           </div>
         </div>
@@ -106,6 +117,8 @@ const props = withDefaults(defineProps<{
 
 const { el: rootEl, width: rootWidth } = useElementSize<HTMLDivElement>()
 const { el: chartEl, width: chartWidth, height: chartHeight } = useElementSize<HTMLDivElement>()
+
+const MIN_SIZE_WITH_TOTAL = 120
 
 const isCompact = computed(() => rootWidth.value > 0 && rootWidth.value < 420)
 

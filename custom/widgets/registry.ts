@@ -33,19 +33,23 @@ export const widgetRegistry: DashboardWidgetRegistration[] = [
   },
   {
     type: 'kpi_card',
-    label: 'KPI Card',
+    label: 'KPI card',
     component: KpiCardWidget,
   },
   {
     type: 'pivot_table',
-    label: 'Pivot Table',
+    label: 'Pivot table',
     component: PivotTableWidget,
     defaultHeight: DEFAULT_WIDGET_HEIGHT,
   },
   {
     type: 'gauge_card',
-    label: 'Gauge Card',
+    label: 'Gauge card',
     component: GaugeCardWidget,
+  },
+  {
+    type: 'empty',
+    label: 'Empty widget',
   },
 ]
 

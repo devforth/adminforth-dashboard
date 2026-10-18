@@ -1,47 +1,38 @@
 <template>
-  <div
-    class="group relative flex min-h-24 grow shrink basis-[var(--widget-basis)] flex-col overflow-hidden rounded-lg border border-lightListBorder bg-lightListTable p-4 min-w-[var(--widget-min-width)] max-w-[var(--widget-max-width)] dark:border-darkListBorder dark:bg-darkListTable"
+  <Card
+    size="md"
+    class="af-dashboard-widget flex min-h-24 grow shrink basis-[var(--widget-basis)] flex-col overflow-hidden min-w-[var(--widget-min-width)] max-w-[var(--widget-max-width)]"
     :class="isEditMode ? 'border-dashed' : ''"
     :style="widgetLayoutVars"
   >
-    <slot />
+    <div class="mb-3 flex items-start justify-between gap-2">
+      <div class="min-w-0">
+        <h3 class="af-dashboard-widget-title truncate text-sm font-medium leading-6 text-lightCardTitle dark:text-darkCardTitle">
+          {{ title }}
+        </h3>
+        <p
+          v-if="isEditMode"
+          class="text-xs text-lightCardDescription dark:text-darkCardDescription"
+        >
+          {{ typeLabel }}
+        </p>
+      </div>
 
-    <div
-      v-if="isEditMode"
-      class="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100"
-    >
-      <DashboardToolbarButton
-        title="Edit JSON"
-        @click="emit('edit')"
-      >
-        <IconCog6Tooth class="h-5 w-5" />
-      </DashboardToolbarButton>
-
-      <DashboardToolbarButton
-        title="Move up"
-        :disabled="!canMoveUp"
-        @click="emit('move-up')"
-      >
-        <IconArrowUpOutline class="h-5 w-5" />
-      </DashboardToolbarButton>
-
-      <DashboardToolbarButton
-        title="Move down"
-        :disabled="!canMoveDown"
-        @click="emit('move-down')"
-      >
-        <IconArrowDownOutline class="h-5 w-5" />
-      </DashboardToolbarButton>
-
-      <DashboardToolbarButton
-        title="Remove"
-        variant="danger"
-        @click="emit('remove')"
-      >
-        <IconTrashBinSolid class="h-5 w-5" />
-      </DashboardToolbarButton>
+      <DashboardItemMenu
+        v-if="isEditMode"
+        class="af-dashboard-widget-actions -me-1.5 -mt-0.5"
+        :label="`${title} actions`"
+        :can-move-up="canMoveUp"
+        :can-move-down="canMoveDown"
+        @edit="emit('edit')"
+        @move-up="emit('move-up')"
+        @move-down="emit('move-down')"
+        @remove="emit('remove')"
+      />
     </div>
-  </div>
+
+    <slot />
+  </Card>
 </template>
 
 
@@ -49,10 +40,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { CSSProperties } from 'vue'
-import { IconArrowDownOutline, IconArrowUpOutline, IconTrashBinSolid } from '@iconify-prerendered/vue-flowbite'
-import { IconCog6Tooth } from '@iconify-prerendered/vue-heroicons';
+import { Card } from '@/afcl'
 import type { WidgetLayout } from '../model/dashboard.types.js'
-import DashboardToolbarButton from './DashboardToolbarButton.vue'
+import DashboardItemMenu from './DashboardItemMenu.vue'
 
 const sizeToFlexBasis: Record<NonNullable<WidgetLayout['size']>, string> = {
   small: '260px',
@@ -63,6 +53,8 @@ const sizeToFlexBasis: Record<NonNullable<WidgetLayout['size']>, string> = {
 }
 
 const props = defineProps<{
+  title: string
+  typeLabel: string
   isEditMode: boolean
   canMoveUp: boolean
   canMoveDown: boolean

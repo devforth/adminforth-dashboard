@@ -1,65 +1,48 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col overflow-hidden rounded-lg">
-    <div
-      v-if="isLoading"
-      class="text-sm text-lightListTableText dark:text-darkListTableText"
+  <div class="flex h-full min-h-0 flex-col">
+    <WidgetState
+      :is-loading="isLoading"
+      :error="error ? errorMessage : ''"
+      :is-empty="!pivotRows.length"
     >
-      Loading...
-    </div>
-
-    <div
-      v-else-if="error"
-      class="text-sm text-lightInputErrorColor"
-    >
-      {{ errorMessage }}
-    </div>
-
-    <div
-      v-else-if="!pivotRows.length"
-      class="text-sm text-lightListTableText dark:text-darkListTableText"
-    >
-      No data available
-    </div>
-
-    <div
-      v-else
-      class="min-h-0 flex-1 overflow-auto"
-    >
-      <table class="min-w-max w-full border-collapse text-left text-sm">
-        <thead class="bg-lightTableHeadingBackground text-xs uppercase text-lightTableHeadingText dark:bg-darkTableHeadingBackground dark:text-darkTableHeadingText">
-          <tr>
-            <th class="px-3 py-2 font-semibold">
-              {{ rowField }}
-            </th>
-            <th
-              v-for="column in pivotColumnLabels"
-              :key="column"
-              class="px-3 py-2 text-right font-semibold"
+      <!-- the table reaches the edges of the card, so its row lines run through the whole card -->
+      <div class="-mx-4 -mb-4 min-h-0 flex-1 overflow-auto">
+        <table class="af-dashboard-pivot-table w-full min-w-max border-collapse text-left text-[13px] text-lightTableText dark:text-darkTableText">
+          <thead class="sticky top-0 bg-lightCardBackground dark:bg-darkCardBackground">
+            <tr>
+              <th class="border-b border-lightTableBorder px-4 py-2 text-xs font-medium text-lightTableHeadingText dark:border-darkTableBorder dark:text-darkTableHeadingText">
+                {{ formatFieldName(rowField) }}
+              </th>
+              <th
+                v-for="column in pivotColumnLabels"
+                :key="column"
+                class="border-b border-lightTableBorder px-4 py-2 text-right text-xs font-medium text-lightTableHeadingText dark:border-darkTableBorder dark:text-darkTableHeadingText"
+              >
+                {{ shouldRenderAggregateMatrix ? formatFieldName(column) : column }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="row in pivotRows"
+              :key="String(row.label)"
+              class="border-b border-lightTableBorder last:border-b-0 dark:border-darkTableBorder"
             >
-              {{ column }}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="row in pivotRows"
-            :key="String(row.label)"
-            class="border-t border-lightListBorder odd:bg-lightTableOddBackground even:bg-lightTableEvenBackground dark:border-darkListBorder odd:dark:bg-darkTableOddBackground even:dark:bg-darkTableEvenBackground"
-          >
-            <td class="px-3 py-2 font-medium text-lightNavbarText dark:text-darkNavbarText">
-              {{ row.label }}
-            </td>
-            <td
-              v-for="column in pivotColumnLabels"
-              :key="column"
-              class="px-3 py-2 text-right text-lightListTableText dark:text-darkListTableText"
-            >
-              {{ formatChartValue(typeof row[column] === 'number' ? row[column] : 0) }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+              <td class="px-4 py-2.5 font-medium text-lightCardTitle dark:text-darkCardTitle">
+                {{ row.label }}
+              </td>
+              <td
+                v-for="column in pivotColumnLabels"
+                :key="column"
+                class="px-4 py-2.5 text-right tabular-nums"
+              >
+                {{ formatChartValue(typeof row[column] === 'number' ? row[column] : 0) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </WidgetState>
   </div>
 </template>
 
@@ -72,7 +55,8 @@ import {
   getFieldRefField,
 } from '../model/dashboard.types.js'
 import type { DashboardWidgetConfig, DashboardWidgetData } from '../model/dashboard.types.js'
-import { formatChartLabel, formatChartValue, toFiniteNumber } from './chart/chart.utils.js'
+import { formatChartLabel, formatChartValue, formatFieldName, toFiniteNumber } from './chart/chart.utils.js'
+import WidgetState from './WidgetState.vue'
 
 const props = defineProps<{
   dashboardSlug: string

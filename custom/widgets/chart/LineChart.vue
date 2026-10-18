@@ -10,7 +10,7 @@
       role="img"
       :aria-label="seriesName || yField"
     >
-      <g class="text-lightListTableText dark:text-darkListTableText">
+      <g class="text-lightCardDescription dark:text-darkCardDescription">
         <line
           v-for="tick in yTicks"
           :key="tick.y"
@@ -50,7 +50,7 @@
         stroke-width="2"
       />
 
-      <g class="stroke-lightListTable dark:stroke-darkListTable">
+      <g class="stroke-lightCardBackground dark:stroke-darkCardBackground">
         <circle
           v-for="point in markedPoints"
           :key="`${point.label}-${point.x}`"
@@ -64,7 +64,7 @@
         </circle>
       </g>
 
-      <g class="text-lightListTableText dark:text-darkListTableText">
+      <g class="text-lightCardDescription dark:text-darkCardDescription">
         <text
           v-for="point in xLabels"
           :key="`x-${point.x}`"

@@ -6,7 +6,7 @@
   >
     <div
       v-if="showLegend"
-      class="flex flex-wrap items-center gap-3 text-xs text-lightListTableText dark:text-darkListTableText"
+      class="flex flex-wrap items-center gap-3 text-xs text-lightCardDescription dark:text-darkCardDescription"
       :class="isCompact ? 'justify-start' : 'justify-end'"
     >
       <div
@@ -33,7 +33,7 @@
         role="img"
         :aria-label="xField"
       >
-        <g class="text-lightListTableText dark:text-darkListTableText">
+        <g class="text-lightCardDescription dark:text-darkCardDescription">
           <line
             v-for="tick in yTicks"
             :key="tick.y"
@@ -77,7 +77,7 @@
             fill="currentColor"
             font-size="11"
             text-anchor="middle"
-            class="text-lightListTableText dark:text-darkListTableText"
+            class="text-lightCardDescription dark:text-darkCardDescription"
           >
             {{ bar.axisLabel }}
           </text>
@@ -88,7 +88,7 @@
     <Teleport to="body">
       <div
         v-if="tooltip"
-        class="pointer-events-none fixed z-[1000] min-w-44 rounded border border-lightTableBorder bg-lightTableBackground px-3 py-2 text-xs leading-5 text-lightListTableText shadow-lg dark:border-darkTableBorder dark:bg-darkTableBackground dark:text-darkListTableText"
+        class="pointer-events-none fixed z-[1000] min-w-44 rounded-lg bg-lightDropdownOptionsBackground px-3 py-2 text-xs leading-5 text-lightDropdownOptionsText shadow-popover dark:bg-darkDropdownOptionsBackground dark:text-darkDropdownOptionsText dark:shadow-darkPopover"
         :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }"
       >
         <div

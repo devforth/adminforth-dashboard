@@ -1,76 +1,44 @@
 <template>
-  <section class="dashboard-runtime w-full p-6">
-    <header class="mb-6 flex items-start justify-between">
-      <div>
-        <h1 class="m-0 text-2xl font-bold text-lightNavbarText dark:text-darkNavbarText">
-          {{ dashboardLabel }}
-        </h1>
-
-        <div
-          v-if="isEditMode"
-          class="mt-1.5 flex gap-3 text-xs text-lightListTableText dark:text-darkListTableText"
-        >
-          <span>Slug: {{ dashboardSlug }}</span>
-          <span>Revision: {{ currentRevision }}</span>
-          <span v-if="isRefreshing">Refreshing...</span>
-        </div>
-      </div>
-
-      <div
+  <section class="dashboard-runtime af-dashboard w-full p-4">
+    <PageHeader
+      class="af-dashboard-header mb-6"
+      :title="dashboardLabel"
+      :description="headerDescription"
+    >
+      <template
         v-if="canEdit"
-        class="flex gap-1"
+        #actions
       >
-        <DashboardToolbarButton
+        <Button
           v-if="isEditMode"
-          title="Dashboard settings"
+          type="button"
+          variant="secondary"
           @click="editDashboard"
         >
-          <IconCog6Tooth class="h-5 w-5" />
-        </DashboardToolbarButton>
+          <IconSettings class="h-4 w-4" />
+          Settings
+        </Button>
 
-        <DashboardToolbarButton
-          title="Edit mode"
-          :active="isEditMode"
+        <Button
+          type="button"
+          :variant="isEditMode ? 'primary' : 'secondary'"
           :aria-pressed="isEditMode"
           @click="isEditMode = !isEditMode"
         >
-          <IconWrench class="h-5 w-5" />
-        </DashboardToolbarButton>
-      </div>
-    </header>
+          <IconCheck
+            v-if="isEditMode"
+            class="h-4 w-4"
+          />
+          <IconPencil
+            v-else
+            class="h-4 w-4"
+          />
+          {{ isEditMode ? 'Done' : 'Edit' }}
+        </Button>
+      </template>
+    </PageHeader>
 
-    <div
-      v-if="isEditingDashboard"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-lightScrim dark:bg-darkScrim p-4"
-      @click.self="closeDashboardConfigEditor"
-    >
-      <section class="w-full max-w-5xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
-        <header class="mb-3 flex items-center justify-between gap-3">
-          <h2 class="m-0 text-base font-bold text-lightNavbarText dark:text-darkNavbarText">
-            Dashboard JSON
-          </h2>
-
-          <button
-            type="button"
-            class="flex h-9 w-9 items-center justify-center rounded-lg text-lightListTableText hover:bg-lightListViewButtonBackgroundHover dark:text-darkListTableText dark:hover:bg-darkListViewButtonBackgroundHover"
-            @click="closeDashboardConfigEditor"
-          >
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
-        </header>
-
-        <YamlConfigEditor v-model="dashboardConfigCode" @save="saveDashboardConfig" />
-
-        <div v-if="dashboardConfigError" class="mt-2 text-sm text-lightInputErrorColor">
-          {{ dashboardConfigError }}
-        </div>
-      </section>
-    </div>
-
-    <div class="flex flex-col gap-5">
+    <div class="flex flex-col gap-8">
       <DashboardGroup
         v-for="(group, index) in visibleGroups"
         :key="group.id"
@@ -94,152 +62,51 @@
       <Button
         v-if="isEditMode"
         type="button"
-        mode="secondary"
-        class="h-10 w-28 border text-xs font-semibold"
+        variant="secondary"
+        class="self-start"
         @click="addGroup"
       >
+        <IconPlus class="h-4 w-4" />
         Add group
       </Button>
     </div>
 
-    <div
-      v-if="editingGroupId"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-lightScrim dark:bg-darkScrim p-4"
-      @click.self="closeGroupConfigEditor"
+    <!-- backdrop clicks are ignored: selecting text in the editor and releasing the mouse outside must not drop the edits -->
+    <Dialog
+      v-model:open="isEditorOpen"
+      class="af-dashboard-config-dialog w-full sm:mx-4 sm:max-w-4xl"
+      :header="editor ? EDITOR_TITLES[editor.kind] : ''"
+      :buttons="editorButtons"
+      :closeByClickOutside="false"
+      :askForCloseConfirmation="isEditorDirty"
+      closeConfirmationText="Close without saving the changes?"
     >
-      <section class="w-full max-w-5xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
-        <header class="mb-3 flex items-center justify-between gap-3">
-          <h2 class="m-0 text-base font-bold text-lightNavbarText dark:text-darkNavbarText">
-            Group JSON
-          </h2>
+      <YamlConfigEditor
+        v-if="editor"
+        v-model="editorCode"
+        @save="saveEditor"
+      />
 
-          <button
-            type="button"
-            class="flex h-9 w-9 items-center justify-center rounded-lg text-lightListTableText hover:bg-lightListViewButtonBackgroundHover dark:text-darkListTableText dark:hover:bg-darkListViewButtonBackgroundHover"
-            @click="closeGroupConfigEditor"
-          >
-            <svg
-              class="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
-        </header>
+      <p
+        v-if="editorError"
+        class="mt-2 text-sm text-lightDanger dark:text-darkDanger"
+      >
+        {{ editorError }}
+      </p>
 
-        <YamlConfigEditor
-          v-model="groupConfigCode"
-          @save="saveGroupConfig"
-        />
-
-        <div
-          v-if="groupConfigError"
-          class="mt-2 text-sm text-lightInputErrorColor"
+      <ul
+        v-if="editorFieldErrors.length"
+        class="mt-2 grid gap-1 text-sm text-lightDanger dark:text-darkDanger"
+      >
+        <li
+          v-for="validationError in editorFieldErrors"
+          :key="`${validationError.field}-${validationError.message}`"
         >
-          {{ groupConfigError }}
-        </div>
-
-        <div class="mt-4 flex justify-end gap-2">
-          <Button
-            type="button"
-            mode="secondary"
-            @click="closeGroupConfigEditor"
-          >
-            Cancel
-          </Button>
-
-          <Button
-            type="button"
-            @click="saveGroupConfig"
-          >
-            Save
-          </Button>
-        </div>
-      </section>
-    </div>
-
-    <div
-      v-if="editingWidgetId"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-lightScrim dark:bg-darkScrim p-4"
-      @click.self="closeWidgetConfigEditor"
-    >
-      <section class="w-full max-w-5xl rounded-lg border border-lightListBorder bg-lightDropdownOptionsBackground p-4 shadow-xl dark:border-darkListBorder dark:bg-darkDropdownOptionsBackground">
-        <header class="mb-3 flex items-center justify-between gap-3">
-          <h2 class="m-0 text-base font-bold text-lightNavbarText dark:text-darkNavbarText">
-            Widget JSON
-          </h2>
-
-          <button
-            type="button"
-            class="flex h-9 w-9 items-center justify-center rounded-lg text-lightListTableText hover:bg-lightListViewButtonBackgroundHover dark:text-darkListTableText dark:hover:bg-darkListViewButtonBackgroundHover"
-            @click="closeWidgetConfigEditor"
-          >
-            <svg
-              class="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
-        </header>
-
-        <YamlConfigEditor
-          v-model="widgetConfigCode"
-          @save="saveWidgetConfig"
-        />
-
-        <div
-          v-if="widgetConfigError"
-          class="mt-2 text-sm text-lightInputErrorColor"
-        >
-          {{ widgetConfigError }}
-        </div>
-
-        <ul
-          v-if="widgetConfigFieldErrors.length"
-          class="mt-2 grid gap-1 text-sm text-lightInputErrorColor"
-        >
-          <li
-            v-for="validationError in widgetConfigFieldErrors"
-            :key="`${validationError.field}-${validationError.message}`"
-          >
-            <span class="font-semibold">{{ validationError.field }}:</span>
-            {{ validationError.message }}
-          </li>
-        </ul>
-
-        <div class="mt-4 flex justify-end gap-2">
-          <Button
-            type="button"
-            mode="secondary"
-            @click="closeWidgetConfigEditor"
-          >
-            Cancel
-          </Button>
-
-          <Button
-            type="button"
-            @click="saveWidgetConfig"
-          >
-            Save
-          </Button>
-        </div>
-      </section>
-    </div>
+          <span class="font-semibold">{{ validationError.field }}:</span>
+          {{ validationError.message }}
+        </li>
+      </ul>
+    </Dialog>
   </section>
 </template>
 
@@ -248,11 +115,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
-import { Button } from '@/afcl'
+import { Button, Dialog, PageHeader } from '@/afcl'
 import { useAdminforth } from '@/adminforth'
-import { IconCog6Tooth, IconWrench } from '@iconify-prerendered/vue-heroicons';
+import { IconCheck, IconPencil, IconPlus, IconSettings } from '@iconify-prerendered/vue-lucide'
 import DashboardGroup from './DashboardGroup.vue'
-import DashboardToolbarButton from './DashboardToolbarButton.vue'
 import YamlConfigEditor from './YamlConfigEditor.vue'
 import { DashboardApiError, dashboardApi, type DashboardResponse } from '../api/dashboardApi.js'
 import type {
@@ -266,6 +132,17 @@ import type {
 } from '../model/dashboard.types.js'
 import { serializeDashboardWidgetConfigForEditor } from '../model/dashboard.types.js'
 import { getWidgetTitle } from '../widgets/registry.js'
+
+type ConfigEditor =
+  | { kind: 'dashboard' }
+  | { kind: 'group', id: string }
+  | { kind: 'widget', id: string }
+
+const EDITOR_TITLES: Record<ConfigEditor['kind'], string> = {
+  dashboard: 'Dashboard settings',
+  group: 'Edit group',
+  widget: 'Edit widget',
+}
 
 const props = defineProps<{
   dashboardSlug: string
@@ -286,16 +163,38 @@ const draftConfig = ref<DashboardConfig>(cloneConfig(props.config))
 const currentRevision = ref(props.revision)
 const dashboardLabel = ref(props.label)
 const isEditMode = ref(false)
-const isEditingDashboard = ref(false)
-const dashboardConfigCode = ref('')
-const dashboardConfigError = ref('')
-const editingGroupId = ref<string | null>(null)
-const groupConfigCode = ref('')
-const groupConfigError = ref('')
-const editingWidgetId = ref<string | null>(null)
-const widgetConfigCode = ref('')
-const widgetConfigError = ref('')
-const widgetConfigFieldErrors = ref<{ field: string, message: string }[]>([])
+const editor = ref<ConfigEditor | null>(null)
+const editorCode = ref('')
+const editorInitialCode = ref('')
+const editorError = ref('')
+const editorFieldErrors = ref<{ field: string, message: string }[]>([])
+
+const headerDescription = computed(() => {
+  if (!isEditMode.value) {
+    return undefined
+  }
+
+  return [
+    `Slug: ${props.dashboardSlug}`,
+    `Revision: ${currentRevision.value}`,
+    props.isRefreshing ? 'Refreshing…' : '',
+  ].filter(Boolean).join(' · ')
+})
+
+const isEditorOpen = computed({
+  get: () => editor.value !== null,
+  set: (isOpen: boolean) => {
+    if (!isOpen) {
+      closeEditor()
+    }
+  },
+})
+// Modal handles Esc on the whole document, so a closed editor must never count as dirty
+const isEditorDirty = computed(() => editor.value !== null && editorCode.value !== editorInitialCode.value)
+const editorButtons = [
+  { label: 'Cancel', options: { variant: 'secondary' }, onclick: () => closeEditor() },
+  { label: 'Save', options: { variant: 'primary' }, onclick: () => saveEditor() },
+]
 
 watch(
   () => props.config,
@@ -319,6 +218,51 @@ watch(
   },
 )
 
+function openEditor(target: ConfigEditor, value: unknown) {
+  editor.value = target
+  editorCode.value = stringifyYaml(value)
+  editorInitialCode.value = editorCode.value
+  editorError.value = ''
+  editorFieldErrors.value = []
+}
+
+function closeEditor() {
+  editor.value = null
+}
+
+async function saveEditor() {
+  const target = editor.value!
+
+  try {
+    editorError.value = ''
+    editorFieldErrors.value = []
+    const config = parseYaml(editorCode.value)
+
+    if (target.kind === 'dashboard') {
+      const updatedDashboard = await dashboardApi.setDashboardConfig(props.dashboardSlug, config as EditableDashboardConfig)
+
+      applyDashboardResponse(updatedDashboard)
+      dashboardLabel.value = updatedDashboard.label
+      emit('dashboard-updated', updatedDashboard)
+    } else if (target.kind === 'group') {
+      await dashboardApi.setDashboardGroupConfig(props.dashboardSlug, target.id, config as EditableDashboardGroupConfig)
+      await refreshDashboardConfig()
+    } else {
+      await dashboardApi.setWidgetConfig(
+        props.dashboardSlug,
+        target.id,
+        serializeDashboardWidgetConfigForEditor(config as DashboardWidgetConfig),
+      )
+      await refreshDashboardConfig()
+    }
+
+    closeEditor()
+  } catch (error) {
+    editorError.value = error instanceof Error ? error.message : `Invalid ${target.kind} config`
+    editorFieldErrors.value = error instanceof DashboardApiError ? error.validationErrors : []
+  }
+}
+
 function editDashboard() {
   const editableConfig: EditableDashboardConfig = {
     label: dashboardLabel.value,
@@ -326,30 +270,19 @@ function editDashboard() {
     icon: draftConfig.value.icon,
   }
 
-  dashboardConfigCode.value = stringifyYaml(editableConfig)
-  dashboardConfigError.value = ''
-  isEditingDashboard.value = true
+  openEditor({ kind: 'dashboard' }, editableConfig)
 }
 
-async function saveDashboardConfig() {
-  try {
-    dashboardConfigError.value = ''
-    const dashboardConfig = parseYaml(dashboardConfigCode.value) as EditableDashboardConfig
-    const updatedDashboard = await dashboardApi.setDashboardConfig(props.dashboardSlug, dashboardConfig)
-
-    applyDashboardResponse(updatedDashboard)
-    dashboardLabel.value = updatedDashboard.label
-    closeDashboardConfigEditor()
-    emit('dashboard-updated', updatedDashboard)
-  } catch (error) {
-    dashboardConfigError.value = error instanceof Error ? error.message : 'Invalid dashboard config'
+function editGroup(group: DashboardGroupConfig) {
+  const editableGroupConfig: EditableDashboardGroupConfig = {
+    label: group.label,
   }
+
+  openEditor({ kind: 'group', id: group.id }, editableGroupConfig)
 }
 
-function closeDashboardConfigEditor() {
-  isEditingDashboard.value = false
-  dashboardConfigCode.value = ''
-  dashboardConfigError.value = ''
+function editWidget(widget: DashboardWidgetConfig) {
+  openEditor({ kind: 'widget', id: widget.id }, serializeDashboardWidgetConfigForEditor(widget))
 }
 
 const sortedGroups = computed(() => {
@@ -388,50 +321,32 @@ const visibleGroups = computed(() => {
   })
 })
 
-async function addGroup() {
-  if (!props.canEdit) {
-    return
-  }
-
+// mutations refresh the config on success and show the error to the user on failure
+async function mutate(failureMessage: string, request: () => Promise<unknown>) {
   try {
-    await dashboardApi.addDashboardGroup(props.dashboardSlug)
+    await request()
     await refreshDashboardConfig()
   } catch (error) {
-    console.error('Failed to add dashboard group', error)
+    adminforth.alert({
+      message: `${failureMessage}: ${error instanceof Error ? error.message : String(error)}`,
+      variant: 'danger',
+    })
   }
+}
+
+async function addGroup() {
+  await mutate('Failed to add the group', () => dashboardApi.addDashboardGroup(props.dashboardSlug))
 }
 
 async function addWidget(groupId: string) {
-  if (!props.canEdit) {
-    return
-  }
-
-  try {
-    await dashboardApi.addDashboardWidget(props.dashboardSlug, groupId)
-    await refreshDashboardConfig()
-  } catch (error) {
-    console.error('Failed to add dashboard widget', error)
-  }
+  await mutate('Failed to add the widget', () => dashboardApi.addDashboardWidget(props.dashboardSlug, groupId))
 }
 
 async function moveGroup(groupId: string, direction: DashboardGroupMoveDirection) {
-  if (!props.canEdit) {
-    return
-  }
-
-  try {
-    await dashboardApi.moveDashboardGroup(props.dashboardSlug, groupId, direction)
-    await refreshDashboardConfig()
-  } catch (error) {
-    console.error('Failed to move dashboard group', error)
-  }
+  await mutate('Failed to move the group', () => dashboardApi.moveDashboardGroup(props.dashboardSlug, groupId, direction))
 }
 
 async function removeGroup(groupId: string) {
-  if (!props.canEdit) {
-    return
-  }
-
   const group = draftConfig.value.groups.find((item) => item.id === groupId)!
   const widgetCount = widgetsByGroupId.value.get(groupId)?.length ?? 0
   const isConfirmed = await adminforth.confirm({
@@ -444,72 +359,16 @@ async function removeGroup(groupId: string) {
     dangerous: true,
   })
 
-  if (!isConfirmed) {
-    return
+  if (isConfirmed) {
+    await mutate('Failed to remove the group', () => dashboardApi.removeDashboardGroup(props.dashboardSlug, groupId))
   }
-
-  try {
-    await dashboardApi.removeDashboardGroup(props.dashboardSlug, groupId)
-    await refreshDashboardConfig()
-  } catch (error) {
-    console.error('Failed to remove dashboard group', error)
-  }
-}
-
-function editGroup(group: DashboardGroupConfig) {
-  const editableGroupConfig: EditableDashboardGroupConfig = {
-    label: group.label,
-  }
-
-  editingGroupId.value = group.id
-  groupConfigCode.value = stringifyYaml(editableGroupConfig)
-  groupConfigError.value = ''
-}
-
-async function saveGroupConfig() {
-  if (!editingGroupId.value) {
-    return
-  }
-
-  try {
-    const groupConfig = parseYaml(groupConfigCode.value) as EditableDashboardGroupConfig
-
-    await dashboardApi.setDashboardGroupConfig(
-      props.dashboardSlug,
-      editingGroupId.value,
-      groupConfig,
-    )
-    await refreshDashboardConfig()
-    closeGroupConfigEditor()
-  } catch (error) {
-    groupConfigError.value = error instanceof Error ? error.message : 'Invalid group config'
-  }
-}
-
-function closeGroupConfigEditor() {
-  editingGroupId.value = null
-  groupConfigCode.value = ''
-  groupConfigError.value = ''
 }
 
 async function moveWidget(widgetId: string, direction: DashboardWidgetMoveDirection) {
-  if (!props.canEdit) {
-    return
-  }
-
-  try {
-    await dashboardApi.moveDashboardWidget(props.dashboardSlug, widgetId, direction)
-    await refreshDashboardConfig()
-  } catch (error) {
-    console.error('Failed to move dashboard widget', error)
-  }
+  await mutate('Failed to move the widget', () => dashboardApi.moveDashboardWidget(props.dashboardSlug, widgetId, direction))
 }
 
 async function removeWidget(widgetId: string) {
-  if (!props.canEdit) {
-    return
-  }
-
   const widget = (draftConfig.value.widgets as DashboardWidgetConfig[]).find((item) => item.id === widgetId)!
   const isConfirmed = await adminforth.confirm({
     title: `Remove widget "${getWidgetTitle(widget)}"?`,
@@ -519,53 +378,9 @@ async function removeWidget(widgetId: string) {
     dangerous: true,
   })
 
-  if (!isConfirmed) {
-    return
+  if (isConfirmed) {
+    await mutate('Failed to remove the widget', () => dashboardApi.removeDashboardWidget(props.dashboardSlug, widgetId))
   }
-
-  try {
-    await dashboardApi.removeDashboardWidget(props.dashboardSlug, widgetId)
-    await refreshDashboardConfig()
-  } catch (error) {
-    console.error('Failed to remove dashboard widget', error)
-  }
-}
-
-function editWidget(widget: DashboardWidgetConfig) {
-  editingWidgetId.value = widget.id
-  widgetConfigCode.value = stringifyYaml(serializeDashboardWidgetConfigForEditor(widget))
-  widgetConfigError.value = ''
-  widgetConfigFieldErrors.value = []
-}
-
-async function saveWidgetConfig() {
-  if (!editingWidgetId.value) {
-    return
-  }
-
-  try {
-    widgetConfigError.value = ''
-    widgetConfigFieldErrors.value = []
-    const widgetConfig = parseYaml(widgetConfigCode.value) as DashboardWidgetConfig
-
-    await dashboardApi.setWidgetConfig(
-      props.dashboardSlug,
-      editingWidgetId.value,
-      serializeDashboardWidgetConfigForEditor(widgetConfig),
-    )
-    await refreshDashboardConfig()
-    closeWidgetConfigEditor()
-  } catch (error) {
-    widgetConfigError.value = error instanceof Error ? error.message : 'Invalid widget config'
-    widgetConfigFieldErrors.value = error instanceof DashboardApiError ? error.validationErrors : []
-  }
-}
-
-function closeWidgetConfigEditor() {
-  editingWidgetId.value = null
-  widgetConfigCode.value = ''
-  widgetConfigError.value = ''
-  widgetConfigFieldErrors.value = []
 }
 
 async function refreshDashboardConfig() {
@@ -584,7 +399,7 @@ function cloneConfig(config: DashboardConfig): DashboardConfig {
 
 <style scoped>
 /* Chart colors used by widgets/chart/chart.utils.ts. The series order is validated for color-vision
-   deficiency against the card surfaces (lightListTable / darkListTable), so keep it when changing values. */
+   deficiency against the card surfaces (lightCardBackground / darkCardBackground), so keep it when changing values. */
 .dashboard-runtime {
   --dashboard-primary: theme('colors.lightPrimary');
   --dashboard-series-1: #2a78d6;

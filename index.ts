@@ -19,7 +19,9 @@ const DEFAULT_DASHBOARD_CONFIG = {
   widgets: [],
 };
 
-const DASHBOARD_MENU_ICON = 'flowbite:chart-pie-solid';
+const DASHBOARD_MENU_ICON = 'lucide:chart-pie';
+// the previous default, still declared so dashboards which store it in their config keep their menu icon
+const LEGACY_DASHBOARD_MENU_ICON = 'flowbite:chart-pie-solid';
 
 export default class DashboardPlugin extends AdminForthPlugin {
   options: PluginOptions;
@@ -101,7 +103,7 @@ export default class DashboardPlugin extends AdminForthPlugin {
           },
         ];
       }, {
-        icons: [DASHBOARD_MENU_ICON],
+        icons: [DASHBOARD_MENU_ICON, LEGACY_DASHBOARD_MENU_ICON],
       });
     }
 

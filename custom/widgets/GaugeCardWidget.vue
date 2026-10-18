@@ -1,56 +1,44 @@
 <template>
-  <div>
-    <div
-      v-if="isLoading"
-      class="text-sm text-lightListTableText dark:text-darkListTableText"
+  <div class="af-dashboard-gauge">
+    <WidgetState
+      :is-loading="isLoading"
+      :error="error ? errorMessage : ''"
     >
-      Loading...
-    </div>
+      <div class="flex flex-col items-center gap-2">
+        <svg
+          width="180"
+          height="104"
+          viewBox="0 0 180 104"
+          role="img"
+          :aria-label="valueField"
+        >
+          <path
+            d="M18 90a72 72 0 0 1 144 0"
+            fill="none"
+            :style="{ stroke: gaugeColor }"
+            stroke-opacity="0.15"
+            stroke-linecap="round"
+            stroke-width="18"
+          />
+          <path
+            d="M18 90a72 72 0 0 1 144 0"
+            fill="none"
+            :style="{ stroke: gaugeColor }"
+            stroke-linecap="round"
+            stroke-width="18"
+            :stroke-dasharray="circumference"
+            :stroke-dashoffset="strokeDashoffset"
+          />
+        </svg>
 
-    <div
-      v-else-if="error"
-      class="text-sm text-lightInputErrorColor"
-    >
-      {{ errorMessage }}
-    </div>
-
-    <div
-      v-else
-      class="flex flex-col items-center gap-2"
-    >
-      <svg
-        width="180"
-        height="104"
-        viewBox="0 0 180 104"
-        role="img"
-        :aria-label="valueField"
-      >
-        <path
-          d="M18 90a72 72 0 0 1 144 0"
-          fill="none"
-          :style="{ stroke: gaugeColor }"
-          stroke-opacity="0.15"
-          stroke-linecap="round"
-          stroke-width="18"
-        />
-        <path
-          d="M18 90a72 72 0 0 1 144 0"
-          fill="none"
-          :style="{ stroke: gaugeColor }"
-          stroke-linecap="round"
-          stroke-width="18"
-          :stroke-dasharray="circumference"
-          :stroke-dashoffset="strokeDashoffset"
-        />
-      </svg>
-
-      <div class="text-3xl font-semibold tracking-tight text-lightNavbarText dark:text-darkNavbarText">
-        {{ gaugeConfig?.value.prefix ?? '' }}{{ formattedValue }}{{ gaugeConfig?.value.suffix ?? '' }}
+        <div class="text-3xl font-semibold tracking-tight tabular-nums text-lightCardTitle dark:text-darkCardTitle">
+          {{ gaugeConfig?.value.prefix ?? '' }}{{ formattedValue }}{{ gaugeConfig?.value.suffix ?? '' }}
+        </div>
+        <div class="text-sm tabular-nums text-lightCardDescription dark:text-darkCardDescription">
+          {{ formattedMinValue }} – {{ formattedMaxValue }}
+        </div>
       </div>
-      <div class="text-sm text-lightListTableText dark:text-darkListTableText">
-        {{ formattedMinValue }} - {{ formattedMaxValue }}
-      </div>
-    </div>
+    </WidgetState>
   </div>
 </template>
 
@@ -61,6 +49,7 @@ import { computed, watch } from 'vue'
 import { useWidgetData } from '../queries/useWidgetData.js'
 import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../model/dashboard.types.js'
 import { CHART_PRIMARY_COLOR, formatChartValue, toFiniteNumber } from './chart/chart.utils.js'
+import WidgetState from './WidgetState.vue'
 
 const props = defineProps<{
   dashboardSlug: string

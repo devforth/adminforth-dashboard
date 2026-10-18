@@ -1,84 +1,72 @@
 <template>
-  <div>
-    <div
-      v-if="isLoading"
-      class="text-sm text-lightListTableText dark:text-darkListTableText"
+  <div class="af-dashboard-kpi">
+    <WidgetState
+      :is-loading="isLoading"
+      :error="error ? errorMessage : ''"
     >
-      Loading...
-    </div>
-
-    <div
-      v-else-if="error"
-      class="text-sm text-lightInputErrorColor"
-    >
-      {{ errorMessage }}
-    </div>
-
-    <div
-      v-else
-      class="grid gap-3"
-    >
-      <div class="grid gap-1">
-        <div class="text-3xl font-semibold tracking-tight text-lightNavbarText dark:text-darkNavbarText">
-          {{ formattedValue }}
+      <div class="grid gap-3">
+        <div class="grid gap-1">
+          <div class="text-3xl font-semibold tracking-tight tabular-nums text-lightCardTitle dark:text-darkCardTitle">
+            {{ formattedValue }}
+          </div>
+          <div class="flex flex-wrap items-center gap-2 text-sm text-lightCardDescription dark:text-darkCardDescription">
+            <span v-if="label">{{ label }}</span>
+            <span
+              v-if="comparison"
+              class="inline-flex h-5 items-center whitespace-nowrap rounded-full border px-2 text-xs font-medium tabular-nums"
+              :class="comparisonClass"
+              :title="comparison.tooltip"
+            >
+              {{ comparison.label }}
+            </span>
+          </div>
         </div>
-        <div class="flex flex-wrap items-center gap-2 text-sm text-lightListTableText dark:text-darkListTableText">
-          <span v-if="label">{{ label }}</span>
-          <span
-            v-if="comparison"
-            class="rounded px-1.5 py-0.5 text-xs font-medium"
-            :class="comparisonClass"
-            :title="comparison.tooltip"
-          >
-            {{ comparison.label }}
-          </span>
-        </div>
+        <svg
+          v-if="sparklinePoints"
+          class="h-12 w-full overflow-visible"
+          viewBox="0 0 100 32"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <defs v-if="usesSparklineGradient">
+            <linearGradient
+              :id="sparklineGradientId"
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop
+                offset="0%"
+                stop-color="currentColor"
+                stop-opacity="0.24"
+              />
+              <stop
+                offset="100%"
+                stop-color="currentColor"
+                stop-opacity="0"
+              />
+            </linearGradient>
+          </defs>
+          <polygon
+            v-if="usesSparklineGradient"
+            class="text-lightPrimary dark:text-darkPrimary"
+            :points="sparklineFillPoints"
+            :fill="`url(#${sparklineGradientId})`"
+          />
+          <polyline
+            class="text-lightPrimary dark:text-darkPrimary"
+            :points="sparklinePoints"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            vector-effect="non-scaling-stroke"
+          />
+        </svg>
       </div>
-      <svg
-        v-if="sparklinePoints"
-        class="h-12 w-full overflow-visible"
-        viewBox="0 0 100 32"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        <defs v-if="usesSparklineGradient">
-          <linearGradient
-            :id="sparklineGradientId"
-            x1="0"
-            y1="0"
-            x2="0"
-            y2="1"
-          >
-            <stop
-              offset="0%"
-              stop-color="currentColor"
-              stop-opacity="0.24"
-            />
-            <stop
-              offset="100%"
-              stop-color="currentColor"
-              stop-opacity="0"
-            />
-          </linearGradient>
-        </defs>
-        <polygon
-          v-if="usesSparklineGradient"
-          class="text-lightPrimary dark:text-darkPrimary"
-          :points="sparklineFillPoints"
-          :fill="`url(#${sparklineGradientId})`"
-        />
-        <polyline
-          class="text-lightPrimary dark:text-darkPrimary"
-          :points="sparklinePoints"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          vector-effect="non-scaling-stroke"
-        />
-      </svg>
-    </div>
+    </WidgetState>
   </div>
 </template>
 
@@ -89,6 +77,7 @@ import { computed, watch } from 'vue'
 import { useWidgetData } from '../queries/useWidgetData.js'
 import type { DashboardWidgetConfig, DashboardWidgetTableData } from '../model/dashboard.types.js'
 import { formatValue, toFiniteNumber } from './chart/chart.utils.js'
+import WidgetState from './WidgetState.vue'
 
 const props = defineProps<{
   dashboardSlug: string
@@ -151,7 +140,7 @@ const comparison = computed(() => {
 })
 const comparisonClass = computed(() => {
   if (!comparison.value || comparison.value.value === 0) {
-    return 'bg-lightListBorder text-lightListTableText dark:bg-darkListBorder dark:text-darkListTableText'
+    return 'border-transparent bg-lightSecondaryDarken text-lightInputIconColor dark:bg-darkSecondaryLighten dark:text-darkInputIconColor'
   }
 
   const isGood = comparison.value.positiveIsGood
@@ -159,8 +148,8 @@ const comparisonClass = computed(() => {
     : comparison.value.value < 0
 
   return isGood
-    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+    ? 'border-lightSuccessBorder bg-lightSuccessSoft text-lightSuccess dark:border-darkSuccessBorder dark:bg-darkSuccessSoft dark:text-darkSuccess'
+    : 'border-lightDangerBorder bg-lightDangerSoft text-lightDanger dark:border-darkDangerBorder dark:bg-darkDangerSoft dark:text-darkDanger'
 })
 const sparklineRows = computed(() => widgetData.value?.rows ?? [])
 const sparklineConfig = computed(() => kpiConfig.value?.sparkline)

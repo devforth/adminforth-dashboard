@@ -10,7 +10,7 @@
       role="img"
       :aria-label="valueField"
     >
-      <g class="text-lightListTableText dark:text-darkListTableText">
+      <g class="text-lightCardDescription dark:text-darkCardDescription">
         <line
           v-for="tick in yTicks"
           :key="tick.y"
@@ -43,7 +43,7 @@
         <title>{{ bar.label }}: {{ formatValue(bar.value, format) }}</title>
       </path>
 
-      <g class="text-lightListTableText dark:text-darkListTableText">
+      <g class="text-lightCardDescription dark:text-darkCardDescription">
         <text
           v-for="(bar, barIndex) in bars"
           v-show="visibleLabelIndexes.has(barIndex)"

@@ -40,17 +40,17 @@
             :style="{ backgroundColor: segment.color }"
           />
 
-          <span class="truncate text-lightNavbarText dark:text-darkNavbarText">
+          <span class="truncate text-lightCardTitle dark:text-darkCardTitle">
             {{ segment.shortLabel }}
           </span>
         </div>
 
         <div class="text-right">
-          <div class="font-semibold text-lightNavbarText dark:text-darkNavbarText">
+          <div class="font-semibold text-lightCardTitle dark:text-darkCardTitle">
             {{ formatValue(segment.value, format) }}
           </div>
 
-          <div class="text-xs text-lightListTableText dark:text-darkListTableText">
+          <div class="text-xs text-lightCardDescription dark:text-darkCardDescription">
             {{ segment.percentLabel }}
           </div>
         </div>

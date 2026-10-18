@@ -1,7 +1,7 @@
 <template>
   <div
     ref="editorEl"
-    class="min-h-[500px] w-full overflow-hidden rounded-lg border border-lightListBorder bg-lightListTable text-sm dark:border-darkListBorder dark:bg-darkListTable"
+    class="h-[min(500px,55dvh)] w-full overflow-hidden rounded-default border border-lightInputBorder bg-lightInputBackground text-sm dark:border-darkInputBorder dark:bg-darkInputBackground"
   />
 </template>
 
@@ -60,6 +60,7 @@ onMounted(async () => {
   ])
 
   monaco = loadedMonaco
+  defineTransparentThemes(monaco)
   await nextTick()
 
   if (!editorEl.value) {
@@ -79,7 +80,7 @@ onMounted(async () => {
     insertSpaces: true,
     wordWrap: 'on',
     wrappingIndent: 'same',
-    theme: document.documentElement.classList.contains('dark') ? 'vs-dark' : 'vs',
+    theme: document.documentElement.classList.contains('dark') ? 'adminforth-dark' : 'adminforth-light',
   })
 
   editor.onDidChangeModelContent(() => {
@@ -99,6 +100,17 @@ onMounted(async () => {
   })
   resizeObserver.observe(editorEl.value)
 })
+
+// the editor takes the background of the input it sits in, so it follows the theme tokens of the app
+function defineTransparentThemes(loadedMonaco: typeof Monaco) {
+  const colors = {
+    'editor.background': '#00000000',
+    'editorGutter.background': '#00000000',
+  }
+
+  loadedMonaco.editor.defineTheme('adminforth-light', { base: 'vs', inherit: true, rules: [], colors })
+  loadedMonaco.editor.defineTheme('adminforth-dark', { base: 'vs-dark', inherit: true, rules: [], colors })
+}
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()

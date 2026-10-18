@@ -137,37 +137,51 @@ export function getVisibleLabelIndexes(count: number, innerWidth: number) {
   return indexes
 }
 
+// date keys as the data service returns them: 2024-03 for a month bucket, 2024-03-04 for a day or week bucket,
+// or a full timestamp. A year bucket (2024) and every other value is shown as it is.
+const MONTH_KEY_RE = /^\d{4}-\d{2}$/
+const DAY_KEY_RE = /^\d{4}-\d{2}-\d{2}$/
+const TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T/
+
+// bucket keys are UTC dates, formatting them in the local time zone would move them a day back west of Greenwich
+function formatDateKey(value: string, dayOptions: Intl.DateTimeFormatOptions) {
+  if (MONTH_KEY_RE.test(value)) {
+    return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', timeZone: 'UTC' })
+      .format(new Date(`${value}-01T00:00:00Z`))
+  }
+
+  if (DAY_KEY_RE.test(value)) {
+    return new Intl.DateTimeFormat(undefined, { ...dayOptions, timeZone: 'UTC' })
+      .format(new Date(`${value}T00:00:00Z`))
+  }
+
+  const timestamp = TIMESTAMP_RE.test(value) ? Date.parse(value) : NaN
+
+  return Number.isFinite(timestamp)
+    ? new Intl.DateTimeFormat(undefined, dayOptions).format(new Date(timestamp))
+    : value
+}
+
 export function formatChartLabel(value: unknown) {
   if (typeof value !== 'string') {
     return String(value)
   }
 
-  const timestamp = Date.parse(value)
-
-  if (!Number.isFinite(timestamp)) {
-    return value
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-  }).format(new Date(timestamp))
+  return formatDateKey(value, { year: 'numeric', month: 'short', day: '2-digit' })
 }
 
 export function formatChartAxisLabel(value: unknown, maxLength = 12) {
-  const rawLabel = typeof value === 'string' ? value : String(value)
-  const timestamp = Date.parse(rawLabel)
-  const label = Number.isFinite(timestamp)
-    ? new Intl.DateTimeFormat(undefined, {
-        month: 'short',
-        day: 'numeric',
-      }).format(new Date(timestamp))
-    : rawLabel
+  const label = formatDateKey(String(value), { month: 'short', day: 'numeric' })
 
   if (label.length <= maxLength) {
     return label
   }
 
   return `${label.slice(0, Math.max(maxLength - 1, 1))}…`
+}
+
+// a field name as a column header: production_year → Production year
+export function formatFieldName(field: string) {
+  const words = field.replaceAll('_', ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
 }
