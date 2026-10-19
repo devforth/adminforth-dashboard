@@ -32,7 +32,7 @@
     "vue-tsc": "^3.3.2"
   },
   "peerDependencies": {
-    "adminforth": "^4.1.0"
+    "adminforth": "^4.7.3"
   },
   "release": {
     "plugins": [
