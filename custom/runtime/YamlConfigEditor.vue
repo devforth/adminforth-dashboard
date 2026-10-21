@@ -6,7 +6,6 @@
 </template>
 
 <script setup lang="ts">
-import 'monaco-editor/min/vs/editor/editor.main.css'
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type * as Monaco from 'monaco-editor'
@@ -54,9 +53,12 @@ watch(
 )
 
 onMounted(async () => {
+  // the stylesheet loads with monaco: imported statically it would ride along with the dashboard page,
+  // ~100 KB gzip with the inlined icon font, prefetched on every page although nobody edits the YAML
   const [loadedMonaco] = await Promise.all([
     import('monaco-editor'),
     import('monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution'),
+    import('monaco-editor/min/vs/editor/editor.main.css'),
   ])
 
   monaco = loadedMonaco
